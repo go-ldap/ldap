@@ -289,3 +289,18 @@ func (e *Error) String() string {
 func NewError( ResultCode uint8, Err os.Error ) (* Error) {
    return &Error{ ResultCode: ResultCode, Err: Err }
 }
+
+func getLDAPResultCode( p *ber.Packet ) ( code uint8, description string ) {
+   if len( p.Children ) >= 2 {
+      response := p.Children[ 1 ]
+      if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len( response.Children ) == 3 {
+         code = uint8(response.Children[ 0 ].Value.(uint64))
+         description = response.Children[ 2 ].Value.(string)
+         return
+      }
+   }
+
+   code = ErrorNetwork
+   description = "Invalid packet format"
+   return
+}
