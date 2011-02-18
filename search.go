@@ -114,6 +114,9 @@ func (l *Conn) SearchWithPaging( SearchRequest *SearchRequest, PagingSize uint32
    SearchResult := new( SearchResult )
    for {
       result, err := l.Search( SearchRequest )
+      if l.Debug {
+         fmt.Printf( "Looking for Paging Control...\n" )
+      }
       if err != nil {
          return SearchResult, err
       }
@@ -131,21 +134,33 @@ func (l *Conn) SearchWithPaging( SearchRequest *SearchRequest, PagingSize uint32
          SearchResult.Controls = append( SearchResult.Controls, control )
       }
 
+      if l.Debug {
+         fmt.Printf( "Looking for Paging Control...\n" )
+      }
       paging_result := FindControl( result.Controls, ControlTypePaging )
       if paging_result == nil {
          PagingControl = nil
+         if l.Debug {
+            fmt.Printf( "Could not find paging control.  Breaking...\n" )
+         }
          break
       }
 
       cookie := paging_result.(*ControlPaging).Cookie
       if len( cookie ) == 0 {
          PagingControl = nil
+         if l.Debug {
+            fmt.Printf( "Could not find cookie.  Breaking...\n" )
+         }
          break
       }
       PagingControl.SetCookie( cookie )
    }
 
    if PagingControl != nil {
+      if l.Debug {
+         fmt.Printf( "Abandoning Paging...\n" )
+      }
       PagingControl.PagingSize = 0
       l.Search( SearchRequest )
    }
@@ -193,7 +208,10 @@ func (l *Conn) Search( SearchRequest *SearchRequest ) (*SearchResult, *Error) {
    }
    defer l.finishMessage( messageID )
 
-   result := new( SearchResult )
+   result := &SearchResult{
+      Entries: make( []*Entry, 0 ),
+      Referrals: make( []string, 0 ),
+      Controls: make( []Control, 0 ) }
 
    foundSearchResultDone := false
    for !foundSearchResultDone {
@@ -202,7 +220,7 @@ func (l *Conn) Search( SearchRequest *SearchRequest ) (*SearchResult, *Error) {
       }
       packet = <-channel
       if l.Debug {
-         fmt.Printf( "%d: got response\n", messageID, packet )
+         fmt.Printf( "%d: got response %p\n", messageID, packet )
       }
       if packet == nil {
          return nil, NewError( ErrorNetwork, os.NewError( "Could not retrieve message" ) )
@@ -229,6 +247,10 @@ func (l *Conn) Search( SearchRequest *SearchRequest ) (*SearchResult, *Error) {
             }
             result.Entries = append( result.Entries, entry )
          case 5:
+            result_code, result_description := getLDAPResultCode( packet )
+            if result_code != 0 {
+               return result, NewError( result_code, os.NewError( result_description ) )
+            }
             if len( packet.Children ) == 3 {
                for _, child := range packet.Children[ 2 ].Children {
                   result.Controls = append( result.Controls, DecodeControl( child ) )
@@ -238,6 +260,9 @@ func (l *Conn) Search( SearchRequest *SearchRequest ) (*SearchResult, *Error) {
          case 19:
             result.Referrals = append( result.Referrals, packet.Children[ 1 ].Children[ 0 ].Value.(string) )
       }
+   }
+   if l.Debug {
+      fmt.Printf( "%d: returning\n", messageID )
    }
 
    return result, nil
