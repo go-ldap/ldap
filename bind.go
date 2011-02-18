@@ -35,7 +35,7 @@ func (l *Conn) Bind( username, password string ) *Error {
    defer l.finishMessage( messageID )
    packet = <-channel
 
-   if packet != nil {
+   if packet == nil {
       return NewError( ErrorNetwork, os.NewError( "Could not retrieve response" ) )
    }
 
@@ -44,6 +44,11 @@ func (l *Conn) Bind( username, password string ) *Error {
          return NewError( ErrorDebugging, err )
       }
       ber.PrintPacket( packet )
+   }
+
+   result_code, result_description := getLDAPResultCode( packet )
+   if result_code != 0 {
+      return NewError( result_code, os.NewError( result_description ) )
    }
 
    return nil
