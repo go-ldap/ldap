@@ -6,50 +6,50 @@
 package ldap
 
 import (
-   "github.com/mmitton/asn1-ber"
-   "os"
+	"errors"
+	"github.com/tmfkams/asn1-ber"
 )
 
-func (l *Conn) Bind( username, password string ) *Error {
-   messageID := l.nextMessageID()
+func (l *Conn) Bind(username, password string) *Error {
+	messageID := l.nextMessageID()
 
-   packet := ber.Encode( ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request" )
-   packet.AppendChild( ber.NewInteger( ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, messageID, "MessageID" ) )
-   bindRequest := ber.Encode( ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request" )
-   bindRequest.AppendChild( ber.NewInteger( ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, 3, "Version" ) )
-   bindRequest.AppendChild( ber.NewString( ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, username, "User Name" ) )
-   bindRequest.AppendChild( ber.NewString( ber.ClassContext, ber.TypePrimative, 0, password, "Password" ) )
-   packet.AppendChild( bindRequest )
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, messageID, "MessageID"))
+	bindRequest := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+	bindRequest.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, 3, "Version"))
+	bindRequest.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, username, "User Name"))
+	bindRequest.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, 0, password, "Password"))
+	packet.AppendChild(bindRequest)
 
-   if l.Debug {
-      ber.PrintPacket( packet )
-   }
+	if l.Debug {
+		ber.PrintPacket(packet)
+	}
 
-   channel, err := l.sendMessage( packet )
-   if err != nil {
-      return err
-   }
-   if channel == nil {
-      return NewError( ErrorNetwork, os.NewError( "Could not send message" ) )
-   }
-   defer l.finishMessage( messageID )
-   packet = <-channel
+	channel, err := l.sendMessage(packet)
+	if err != nil {
+		return err
+	}
+	if channel == nil {
+		return NewError(ErrorNetwork, errors.New("Could not send message"))
+	}
+	defer l.finishMessage(messageID)
+	packet = <-channel
 
-   if packet == nil {
-      return NewError( ErrorNetwork, os.NewError( "Could not retrieve response" ) )
-   }
+	if packet == nil {
+		return NewError(ErrorNetwork, errors.New("Could not retrieve response"))
+	}
 
-   if l.Debug {
-      if err := addLDAPDescriptions( packet ); err != nil {
-         return NewError( ErrorDebugging, err )
-      }
-      ber.PrintPacket( packet )
-   }
+	if l.Debug {
+		if err := addLDAPDescriptions(packet); err != nil {
+			return NewError(ErrorDebugging, err.Err)
+		}
+		ber.PrintPacket(packet)
+	}
 
-   result_code, result_description := getLDAPResultCode( packet )
-   if result_code != 0 {
-      return NewError( result_code, os.NewError( result_description ) )
-   }
+	result_code, result_description := getLDAPResultCode(packet)
+	if result_code != 0 {
+		return NewError(result_code, errors.New(result_description))
+	}
 
-   return nil
+	return nil
 }
