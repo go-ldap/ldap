@@ -25,8 +25,7 @@ TODO:
    Compare Requests / Responses
    Implement Tests / Benchmarks
 
-This feature is disabled at the moment, because in some cases the "Search Request Done" packet
-will be handled before the last "Search Request Entry". Looking for another solution:
+This feature is disabled at the moment, because in some cases the "Search Request Done" packet will be handled before the last "Search Request Entry":
    Mulitple internal goroutines to handle network traffic
       Makes library goroutine safe
       Can perform multiple search requests at the same time and return
