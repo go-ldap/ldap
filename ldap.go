@@ -290,9 +290,9 @@ func NewError(ResultCode uint8, Err error) *Error {
 	return &Error{ResultCode: ResultCode, Err: Err}
 }
 
-func getLDAPResultCode(p *ber.Packet) (code uint8, description string) {
-	if len(p.Children) >= 2 {
-		response := p.Children[1]
+func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
+	if len(packet.Children) >= 2 {
+		response := packet.Children[1]
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) == 3 {
 			code = uint8(response.Children[0].Value.(uint64))
 			description = response.Children[2].Value.(string)

@@ -90,13 +90,11 @@ func testMultiGoroutineSearch(t *testing.T, l *Conn, results chan *SearchResult,
 		attributes,
 		nil)
 	sr, err := l.Search(search_request)
-
 	if err != nil {
 		t.Errorf(err.String())
 		results <- nil
 		return
 	}
-
 	results <- sr
 }
 

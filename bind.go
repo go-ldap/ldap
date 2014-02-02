@@ -33,8 +33,8 @@ func (l *Conn) Bind(username, password string) *Error {
 		return NewError(ErrorNetwork, errors.New("Could not send message"))
 	}
 	defer l.finishMessage(messageID)
-	packet = <-channel
 
+	packet = <-channel
 	if packet == nil {
 		return NewError(ErrorNetwork, errors.New("Could not retrieve response"))
 	}
@@ -46,9 +46,9 @@ func (l *Conn) Bind(username, password string) *Error {
 		ber.PrintPacket(packet)
 	}
 
-	result_code, result_description := getLDAPResultCode(packet)
-	if result_code != 0 {
-		return NewError(result_code, errors.New(result_description))
+	resultCode, resultDescription := getLDAPResultCode(packet)
+	if resultCode != 0 {
+		return NewError(resultCode, errors.New(resultDescription))
 	}
 
 	return nil

@@ -138,11 +138,11 @@ func DecompileFilter(packet *ber.Packet) (ret string, err *Error) {
 
 func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, *Error) {
 	for pos < len(filter) && filter[pos] == '(' {
-		child, new_pos, err := compileFilter(filter, pos+1)
+		child, newPos, err := compileFilter(filter, pos+1)
 		if err != nil {
 			return pos, err
 		}
-		pos = new_pos
+		pos = newPos
 		parent.AppendChild(child)
 	}
 	if pos == len(filter) {
@@ -152,98 +152,99 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, *Error) 
 	return pos + 1, nil
 }
 
-func compileFilter(filter string, pos int) (p *ber.Packet, new_pos int, err *Error) {
+func compileFilter(filter string, pos int) (*ber.Packet, int, *Error) {
+	var packet *ber.Packet
+	var err *Error
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = NewError(ErrorFilterCompile, errors.New("Error compiling filter"))
 		}
 	}()
-	p = nil
-	new_pos = pos
-	err = nil
 
+	newPos := pos
 	switch filter[pos] {
 	case '(':
-		p, new_pos, err = compileFilter(filter, pos+1)
-		new_pos++
-		return
+		packet, newPos, err = compileFilter(filter, pos+1)
+		newPos++
+		return packet, newPos, err
 	case '&':
-		p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterAnd, nil, FilterMap[FilterAnd])
-		new_pos, err = compileFilterSet(filter, pos+1, p)
-		return
+		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterAnd, nil, FilterMap[FilterAnd])
+		newPos, err = compileFilterSet(filter, pos+1, packet)
+		return packet, newPos, err
 	case '|':
-		p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterOr, nil, FilterMap[FilterOr])
-		new_pos, err = compileFilterSet(filter, pos+1, p)
-		return
+		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterOr, nil, FilterMap[FilterOr])
+		newPos, err = compileFilterSet(filter, pos+1, packet)
+		return packet, newPos, err
 	case '!':
-		p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterNot, nil, FilterMap[FilterNot])
+		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterNot, nil, FilterMap[FilterNot])
 		var child *ber.Packet
-		child, new_pos, err = compileFilter(filter, pos+1)
-		p.AppendChild(child)
-		return
+		child, newPos, err = compileFilter(filter, pos+1)
+		packet.AppendChild(child)
+		return packet, newPos, err
 	default:
 		attribute := ""
 		condition := ""
-		for new_pos < len(filter) && filter[new_pos] != ')' {
+		for newPos < len(filter) && filter[newPos] != ')' {
 			switch {
-			case p != nil:
-				condition += fmt.Sprintf("%c", filter[new_pos])
-			case filter[new_pos] == '=':
-				p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
-			case filter[new_pos] == '>' && filter[new_pos+1] == '=':
-				p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
-				new_pos++
-			case filter[new_pos] == '<' && filter[new_pos+1] == '=':
-				p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
-				new_pos++
-			case filter[new_pos] == '~' && filter[new_pos+1] == '=':
-				p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
-				new_pos++
-			case p == nil:
-				attribute += fmt.Sprintf("%c", filter[new_pos])
+			case packet != nil:
+				condition += fmt.Sprintf("%c", filter[newPos])
+			case filter[newPos] == '=':
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
+			case filter[newPos] == '>' && filter[newPos+1] == '=':
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
+				newPos++
+			case filter[newPos] == '<' && filter[newPos+1] == '=':
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
+				newPos++
+			case filter[newPos] == '~' && filter[newPos+1] == '=':
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
+				newPos++
+			case packet == nil:
+				attribute += fmt.Sprintf("%c", filter[newPos])
 			}
-			new_pos++
+			newPos++
 		}
-		if new_pos == len(filter) {
+		if newPos == len(filter) {
 			err = NewError(ErrorFilterCompile, errors.New("Unexpected end of filter"))
-			return
+			return packet, newPos, err
 		}
-		if p == nil {
+		if packet == nil {
 			err = NewError(ErrorFilterCompile, errors.New("Error parsing filter"))
-			return
+			return packet, newPos, err
 		}
-		p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, attribute, "Attribute"))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, attribute, "Attribute"))
 		switch {
-		case p.Tag == FilterEqualityMatch && condition == "*":
-			p.Tag = FilterPresent
-			p.Description = FilterMap[uint64(p.Tag)]
-		case p.Tag == FilterEqualityMatch && condition[0] == '*' && condition[len(condition)-1] == '*':
+		case packet.Tag == FilterEqualityMatch && condition == "*":
+			packet.Tag = FilterPresent
+			packet.Description = FilterMap[uint64(packet.Tag)]
+		case packet.Tag == FilterEqualityMatch && condition[0] == '*' && condition[len(condition)-1] == '*':
 			// Any
-			p.Tag = FilterSubstrings
-			p.Description = FilterMap[uint64(p.Tag)]
+			packet.Tag = FilterSubstrings
+			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
 			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsAny, condition[1:len(condition)-1], "Any Substring"))
-			p.AppendChild(seq)
-		case p.Tag == FilterEqualityMatch && condition[0] == '*':
+			packet.AppendChild(seq)
+		case packet.Tag == FilterEqualityMatch && condition[0] == '*':
 			// Final
-			p.Tag = FilterSubstrings
-			p.Description = FilterMap[uint64(p.Tag)]
+			packet.Tag = FilterSubstrings
+			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
 			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsFinal, condition[1:], "Final Substring"))
-			p.AppendChild(seq)
-		case p.Tag == FilterEqualityMatch && condition[len(condition)-1] == '*':
+			packet.AppendChild(seq)
+		case packet.Tag == FilterEqualityMatch && condition[len(condition)-1] == '*':
 			// Initial
-			p.Tag = FilterSubstrings
-			p.Description = FilterMap[uint64(p.Tag)]
+			packet.Tag = FilterSubstrings
+			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
 			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsInitial, condition[:len(condition)-1], "Initial Substring"))
-			p.AppendChild(seq)
+			packet.AppendChild(seq)
 		default:
-			p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, condition, "Condition"))
+			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, condition, "Condition"))
 		}
-		new_pos++
-		return
+		newPos++
+		return packet, newPos, err
 	}
 	err = NewError(ErrorFilterCompile, errors.New("Reached end of filter without closing parens"))
-	return
+	return packet, newPos, err
 }

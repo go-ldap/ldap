@@ -34,14 +34,14 @@ func (c *ControlString) GetControlType() string {
 	return c.ControlType
 }
 
-func (c *ControlString) Encode() (p *ber.Packet) {
-	p = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
-	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, c.ControlType, "Control Type ("+ControlTypeMap[c.ControlType]+")"))
+func (c *ControlString) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, c.ControlType, "Control Type ("+ControlTypeMap[c.ControlType]+")"))
 	if c.Criticality {
-		p.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimative, ber.TagBoolean, c.Criticality, "Criticality"))
+		packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimative, ber.TagBoolean, c.Criticality, "Criticality"))
 	}
-	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, c.ControlValue, "Control Value"))
-	return
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, c.ControlValue, "Control Value"))
+	return packet
 }
 
 func (c *ControlString) String() string {
@@ -57,9 +57,9 @@ func (c *ControlPaging) GetControlType() string {
 	return ControlTypePaging
 }
 
-func (c *ControlPaging) Encode() (p *ber.Packet) {
-	p = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
-	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, ControlTypePaging, "Control Type ("+ControlTypeMap[ControlTypePaging]+")"))
+func (c *ControlPaging) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, ControlTypePaging, "Control Type ("+ControlTypeMap[ControlTypePaging]+")"))
 
 	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, nil, "Control Value (Paging)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Search Control Value")
@@ -70,8 +70,8 @@ func (c *ControlPaging) Encode() (p *ber.Packet) {
 	seq.AppendChild(cookie)
 	p2.AppendChild(seq)
 
-	p.AppendChild(p2)
-	return
+	packet.AppendChild(p2)
+	return packet
 }
 
 func (c *ControlPaging) String() string {
@@ -97,16 +97,16 @@ func FindControl(Controls []Control, ControlType string) Control {
 	return nil
 }
 
-func DecodeControl(p *ber.Packet) Control {
-	ControlType := p.Children[0].Value.(string)
+func DecodeControl(packet *ber.Packet) Control {
+	ControlType := packet.Children[0].Value.(string)
 	Criticality := false
 
-	p.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-	value := p.Children[1]
-	if len(p.Children) == 3 {
-		value = p.Children[2]
-		p.Children[1].Description = "Criticality"
-		Criticality = p.Children[1].Value.(bool)
+	packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
+	value := packet.Children[1]
+	if len(packet.Children) == 3 {
+		value = packet.Children[2]
+		packet.Children[1].Description = "Criticality"
+		Criticality = packet.Children[1].Value.(bool)
 	}
 
 	value.Description = "Control Value"
@@ -149,9 +149,9 @@ func NewControlPaging(PagingSize uint32) *ControlPaging {
 }
 
 func encodeControls(Controls []Control) *ber.Packet {
-	p := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "Controls")
+	packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "Controls")
 	for _, control := range Controls {
-		p.AppendChild(control.Encode())
+		packet.AppendChild(control.Encode())
 	}
-	return p
+	return packet
 }
