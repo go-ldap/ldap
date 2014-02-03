@@ -7,7 +7,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/tmfkams/ldap"
+	"github.com/marcsauter/ldap"
 	"log"
 )
 
