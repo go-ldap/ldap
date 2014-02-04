@@ -1,7 +1,3 @@
-// Copyright 2011 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 // File contains debugging functionality
 package ldap
 
@@ -10,16 +6,13 @@ import (
 	"log"
 )
 
-/*
-   debbuging type
-       - has a Printf method to write the debug output
-*/
+// debbuging type
+//     - has a Printf method to write the debug output
 type debugging bool
 
 // write debug output
 func (debug debugging) Printf(format string, args ...interface{}) {
 	if debug {
-		// TODO: DEBUG prefix
 		log.Printf(format, args...)
 	}
 }
