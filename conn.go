@@ -31,7 +31,7 @@ type messagePacket struct {
 // Conn represents an LDAP Connection
 type Conn struct {
 	conn          net.Conn
-	isSSL         bool
+	isTLS         bool
 	isClosing     bool
 	Debug         debugging
 	chanConfirm   chan bool
@@ -55,31 +55,15 @@ func Dial(network, addr string) (*Conn, *Error) {
 	return conn, nil
 }
 
-// DialSSL connects to the given address on the given network using net.Dial
-// and then sets up SSL connection and returns a new Conn for the connection.
-func DialSSL(network, addr string, config *tls.Config) (*Conn, *Error) {
+// DialTLS connects to the given address on the given network using tls.Dial
+// and then returns a new Conn for the connection.
+func DialTLS(network, addr string, config *tls.Config) (*Conn, *Error) {
 	c, err := tls.Dial(network, addr, config)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
 	conn := NewConn(c)
-	conn.isSSL = true
-	conn.start()
-	return conn, nil
-}
-
-// DialTLS connects to the given address on the given network using net.Dial
-// and then starts a TLS session and returns a new Conn for the connection.
-func DialTLS(network, addr string, config *tls.Config) (*Conn, *Error) {
-	c, err := net.Dial(network, addr)
-	if err != nil {
-		return nil, NewError(ErrorNetwork, err)
-	}
-	conn := NewConn(c)
-	if err := conn.startTLS(config); err != nil {
-		conn.Close()
-		return nil, NewError(ErrorNetwork, err.Err)
-	}
+	conn.isTLS = true
 	conn.start()
 	return conn, nil
 }
@@ -134,10 +118,10 @@ func (l *Conn) nextMessageID() uint64 {
 }
 
 // StartTLS sends the command to start a TLS session and then creates a new TLS Client
-func (l *Conn) startTLS(config *tls.Config) *Error {
+func (l *Conn) StartTLS(config *tls.Config) *Error {
 	messageID := l.nextMessageID()
 
-	if l.isSSL {
+	if l.isTLS {
 		return NewError(ErrorNetwork, errors.New("ldap: already encrypted"))
 	}
 
@@ -167,7 +151,7 @@ func (l *Conn) startTLS(config *tls.Config) *Error {
 
 	if packet.Children[1].Children[0].Value.(uint64) == 0 {
 		conn := tls.Client(l.conn, config)
-		l.isSSL = true
+		l.isTLS = true
 		l.conn = conn
 	}
 
