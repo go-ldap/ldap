@@ -1,9 +1,9 @@
-// File contains debugging functionality
 package ldap
 
 import (
-	"github.com/marcsauter/asn1-ber"
 	"log"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 // debbuging type

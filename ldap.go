@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package provides LDAP client functions.
 package ldap
 
 import (
 	"errors"
 	"fmt"
-	"github.com/marcsauter/asn1-ber"
 	"io/ioutil"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 // LDAP Application Codes

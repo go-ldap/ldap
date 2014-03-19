@@ -56,13 +56,15 @@
 //              dnAttributes    [4] BOOLEAN DEFAULT FALSE }
 //
 //
+
 package ldap
 
 import (
 	"errors"
 	"fmt"
-	"github.com/marcsauter/asn1-ber"
 	"strings"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 const (

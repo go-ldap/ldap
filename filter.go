@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// File contains a filter compiler/decompiler
 package ldap
 
 import (
 	"errors"
 	"fmt"
-	"github.com/marcsauter/asn1-ber"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 const (
@@ -245,6 +245,4 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, *Error) {
 		newPos++
 		return packet, newPos, err
 	}
-	err = NewError(ErrorFilterCompile, errors.New("Reached end of filter without closing parens"))
-	return packet, newPos, err
 }

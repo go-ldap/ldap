@@ -1,44 +1,45 @@
 package ldap
 
 import (
-	"github.com/marcsauter/asn1-ber"
 	"testing"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
-type compile_test struct {
-	filter_str  string
-	filter_type int
+type compileTest struct {
+	filterStr  string
+	filterType int
 }
 
-var test_filters = []compile_test{
-	compile_test{filter_str: "(&(sn=Miller)(givenName=Bob))", filter_type: FilterAnd},
-	compile_test{filter_str: "(|(sn=Miller)(givenName=Bob))", filter_type: FilterOr},
-	compile_test{filter_str: "(!(sn=Miller))", filter_type: FilterNot},
-	compile_test{filter_str: "(sn=Miller)", filter_type: FilterEqualityMatch},
-	compile_test{filter_str: "(sn=Mill*)", filter_type: FilterSubstrings},
-	compile_test{filter_str: "(sn=*Mill)", filter_type: FilterSubstrings},
-	compile_test{filter_str: "(sn=*Mill*)", filter_type: FilterSubstrings},
-	compile_test{filter_str: "(sn>=Miller)", filter_type: FilterGreaterOrEqual},
-	compile_test{filter_str: "(sn<=Miller)", filter_type: FilterLessOrEqual},
-	compile_test{filter_str: "(sn=*)", filter_type: FilterPresent},
-	compile_test{filter_str: "(sn~=Miller)", filter_type: FilterApproxMatch},
-	// compile_test{ filter_str: "()", filter_type: FilterExtensibleMatch },
+var testFilters = []compileTest{
+	compileTest{filterStr: "(&(sn=Miller)(givenName=Bob))", filterType: FilterAnd},
+	compileTest{filterStr: "(|(sn=Miller)(givenName=Bob))", filterType: FilterOr},
+	compileTest{filterStr: "(!(sn=Miller))", filterType: FilterNot},
+	compileTest{filterStr: "(sn=Miller)", filterType: FilterEqualityMatch},
+	compileTest{filterStr: "(sn=Mill*)", filterType: FilterSubstrings},
+	compileTest{filterStr: "(sn=*Mill)", filterType: FilterSubstrings},
+	compileTest{filterStr: "(sn=*Mill*)", filterType: FilterSubstrings},
+	compileTest{filterStr: "(sn>=Miller)", filterType: FilterGreaterOrEqual},
+	compileTest{filterStr: "(sn<=Miller)", filterType: FilterLessOrEqual},
+	compileTest{filterStr: "(sn=*)", filterType: FilterPresent},
+	compileTest{filterStr: "(sn~=Miller)", filterType: FilterApproxMatch},
+	// compileTest{ filterStr: "()", filterType: FilterExtensibleMatch },
 }
 
 func TestFilter(t *testing.T) {
 	// Test Compiler and Decompiler
-	for _, i := range test_filters {
-		filter, err := CompileFilter(i.filter_str)
+	for _, i := range testFilters {
+		filter, err := CompileFilter(i.filterStr)
 		if err != nil {
-			t.Errorf("Problem compiling %s - %s", err.String())
-		} else if filter.Tag != uint8(i.filter_type) {
-			t.Errorf("%q Expected %q got %q", i.filter_str, FilterMap[uint64(i.filter_type)], FilterMap[uint64(filter.Tag)])
+			t.Errorf("Problem compiling %s - %s", i.filterStr, err.String())
+		} else if filter.Tag != uint8(i.filterType) {
+			t.Errorf("%q Expected %q got %q", i.filterStr, FilterMap[uint64(i.filterType)], FilterMap[uint64(filter.Tag)])
 		} else {
 			o, err := DecompileFilter(filter)
 			if err != nil {
-				t.Errorf("Problem compiling %s - %s", i, err.String())
-			} else if i.filter_str != o {
-				t.Errorf("%q expected, got %q", i.filter_str, o)
+				t.Errorf("Problem compiling %s - %s", i.filterStr, err.String())
+			} else if i.filterStr != o {
+				t.Errorf("%q expected, got %q", i.filterStr, o)
 			}
 		}
 	}
@@ -46,11 +47,11 @@ func TestFilter(t *testing.T) {
 
 func BenchmarkFilterCompile(b *testing.B) {
 	b.StopTimer()
-	filters := make([]string, len(test_filters))
+	filters := make([]string, len(testFilters))
 
 	// Test Compiler and Decompiler
-	for idx, i := range test_filters {
-		filters[idx] = i.filter_str
+	for idx, i := range testFilters {
+		filters[idx] = i.filterStr
 	}
 
 	max_idx := len(filters)
@@ -62,11 +63,11 @@ func BenchmarkFilterCompile(b *testing.B) {
 
 func BenchmarkFilterDecompile(b *testing.B) {
 	b.StopTimer()
-	filters := make([]*ber.Packet, len(test_filters))
+	filters := make([]*ber.Packet, len(testFilters))
 
 	// Test Compiler and Decompiler
-	for idx, i := range test_filters {
-		filters[idx], _ = CompileFilter(i.filter_str)
+	for idx, i := range testFilters {
+		filters[idx], _ = CompileFilter(i.filterStr)
 	}
 
 	max_idx := len(filters)

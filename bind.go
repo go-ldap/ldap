@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// File contains Bind functionality
 package ldap
 
 import (
 	"errors"
-	"github.com/marcsauter/asn1-ber"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 func (l *Conn) Bind(username, password string) *Error {

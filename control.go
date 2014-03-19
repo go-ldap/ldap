@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package provides LDAP client functions.
 package ldap
 
 import (
 	"fmt"
-	"github.com/marcsauter/asn1-ber"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 const (
@@ -45,7 +45,7 @@ func (c *ControlString) Encode() *ber.Packet {
 }
 
 func (c *ControlString) String() string {
-	return fmt.Sprintf("Control Type: %s (%q)  Criticality: %s  Control Value: %s", ControlTypeMap[c.ControlType], c.ControlType, c.Criticality, c.ControlValue)
+	return fmt.Sprintf("Control Type: %s (%q)  Criticality: %t  Control Value: %s", ControlTypeMap[c.ControlType], c.ControlType, c.Criticality, c.ControlValue)
 }
 
 type ControlPaging struct {
@@ -76,7 +76,7 @@ func (c *ControlPaging) Encode() *ber.Packet {
 
 func (c *ControlPaging) String() string {
 	return fmt.Sprintf(
-		"Control Type: %s (%q)  Criticality: %s  PagingSize: %d  Cookie: %q",
+		"Control Type: %s (%q)  Criticality: %t  PagingSize: %d  Cookie: %q",
 		ControlTypeMap[ControlTypePaging],
 		ControlTypePaging,
 		false,

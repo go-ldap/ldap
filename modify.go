@@ -26,12 +26,14 @@
 //
 // AttributeValue ::= OCTET STRING
 //
+
 package ldap
 
 import (
 	"errors"
-	"github.com/marcsauter/asn1-ber"
 	"log"
+
+	"github.com/SpruceHealth/asn1-ber"
 )
 
 const (

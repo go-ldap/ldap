@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-var ldap_server string = "ldap.itd.umich.edu"
-var ldap_port uint16 = 389
-var base_dn string = "dc=umich,dc=edu"
+var ldapServer string = "ldap.itd.umich.edu"
+var ldapPort uint16 = 389
+var baseDN string = "dc=umich,dc=edu"
 var filter []string = []string{
 	"(cn=cis-fac)",
 	"(&(objectclass=rfc822mailgroup)(cn=*Computer*))",
@@ -18,7 +18,7 @@ var attributes []string = []string{
 
 func TestConnect(t *testing.T) {
 	fmt.Printf("TestConnect: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldap_server, ldap_port))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
 	if err != nil {
 		t.Errorf(err.String())
 		return
@@ -29,7 +29,7 @@ func TestConnect(t *testing.T) {
 
 func TestSearch(t *testing.T) {
 	fmt.Printf("TestSearch: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldap_server, ldap_port))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
 	if err != nil {
 		t.Errorf(err.String())
 		return
@@ -37,7 +37,7 @@ func TestSearch(t *testing.T) {
 	defer l.Close()
 
 	search_request := NewSearchRequest(
-		base_dn,
+		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[0],
 		attributes,
@@ -54,7 +54,7 @@ func TestSearch(t *testing.T) {
 
 func TestSearchWithPaging(t *testing.T) {
 	fmt.Printf("TestSearchWithPaging: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldap_server, ldap_port))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
 	if err != nil {
 		t.Errorf(err.String())
 		return
@@ -68,7 +68,7 @@ func TestSearchWithPaging(t *testing.T) {
 	}
 
 	search_request := NewSearchRequest(
-		base_dn,
+		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[1],
 		attributes,
@@ -84,7 +84,7 @@ func TestSearchWithPaging(t *testing.T) {
 
 func testMultiGoroutineSearch(t *testing.T, l *Conn, results chan *SearchResult, i int) {
 	search_request := NewSearchRequest(
-		base_dn,
+		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[i],
 		attributes,
@@ -100,7 +100,7 @@ func testMultiGoroutineSearch(t *testing.T, l *Conn, results chan *SearchResult,
 
 func TestMultiGoroutineSearch(t *testing.T) {
 	fmt.Printf("TestMultiGoroutineSearch: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldap_server, ldap_port))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
 	if err != nil {
 		t.Errorf(err.String())
 		return
