@@ -49,10 +49,10 @@ type PartialAttribute struct {
 
 func (p *PartialAttribute) encode() *ber.Packet {
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "PartialAttribute")
-	seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, p.attrType, "Type"))
+	seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, p.attrType, "Type"))
 	set := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "AttributeValue")
 	for _, value := range p.attrVals {
-		set.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, value, "Vals"))
+		set.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, value, "Vals"))
 	}
 	seq.AppendChild(set)
 	return seq
@@ -79,23 +79,23 @@ func (m *ModifyRequest) Replace(attrType string, attrVals []string) {
 
 func (m ModifyRequest) encode() *ber.Packet {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationModifyRequest, nil, "Modify Request")
-	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, m.dn, "DN"))
+	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, m.dn, "DN"))
 	changes := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Changes")
 	for _, attribute := range m.addAttributes {
 		change := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Change")
-		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagEnumerated, uint64(AddAttribute), "Operation"))
+		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, uint64(AddAttribute), "Operation"))
 		change.AppendChild(attribute.encode())
 		changes.AppendChild(change)
 	}
 	for _, attribute := range m.deleteAttributes {
 		change := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Change")
-		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagEnumerated, uint64(DeleteAttribute), "Operation"))
+		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, uint64(DeleteAttribute), "Operation"))
 		change.AppendChild(attribute.encode())
 		changes.AppendChild(change)
 	}
 	for _, attribute := range m.replaceAttributes {
 		change := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Change")
-		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagEnumerated, uint64(ReplaceAttribute), "Operation"))
+		change.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, uint64(ReplaceAttribute), "Operation"))
 		change.AppendChild(attribute.encode())
 		changes.AppendChild(change)
 	}
@@ -114,7 +114,7 @@ func NewModifyRequest(
 func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 	messageID := l.nextMessageID()
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, messageID, "MessageID"))
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, messageID, "MessageID"))
 	packet.AppendChild(modifyRequest.encode())
 
 	l.Debug.PrintPacket(packet)

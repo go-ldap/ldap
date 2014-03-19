@@ -213,7 +213,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error parsing filter"))
 			return packet, newPos, err
 		}
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, attribute, "Attribute"))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attribute, "Attribute"))
 		switch {
 		case packet.Tag == FilterEqualityMatch && condition == "*":
 			packet.Tag = FilterPresent
@@ -223,24 +223,24 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			packet.Tag = FilterSubstrings
 			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
-			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsAny, condition[1:len(condition)-1], "Any Substring"))
+			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsAny, condition[1:len(condition)-1], "Any Substring"))
 			packet.AppendChild(seq)
 		case packet.Tag == FilterEqualityMatch && condition[0] == '*':
 			// Final
 			packet.Tag = FilterSubstrings
 			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
-			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsFinal, condition[1:], "Final Substring"))
+			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsFinal, condition[1:], "Final Substring"))
 			packet.AppendChild(seq)
 		case packet.Tag == FilterEqualityMatch && condition[len(condition)-1] == '*':
 			// Initial
 			packet.Tag = FilterSubstrings
 			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
-			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimative, FilterSubstringsInitial, condition[:len(condition)-1], "Initial Substring"))
+			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsInitial, condition[:len(condition)-1], "Initial Substring"))
 			packet.AppendChild(seq)
 		default:
-			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, condition, "Condition"))
+			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, condition, "Condition"))
 		}
 		newPos++
 		return packet, newPos, err
