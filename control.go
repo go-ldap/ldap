@@ -84,13 +84,13 @@ func (c *ControlPaging) String() string {
 		c.Cookie)
 }
 
-func (c *ControlPaging) SetCookie(Cookie []byte) {
-	c.Cookie = Cookie
+func (c *ControlPaging) SetCookie(cookie []byte) {
+	c.Cookie = cookie
 }
 
-func FindControl(Controls []Control, ControlType string) Control {
-	for _, c := range Controls {
-		if c.GetControlType() == ControlType {
+func FindControl(controls []Control, controlType string) Control {
+	for _, c := range controls {
+		if c.GetControlType() == controlType {
 			return c
 		}
 	}
@@ -136,21 +136,21 @@ func DecodeControl(packet *ber.Packet) Control {
 	return c
 }
 
-func NewControlString(ControlType string, Criticality bool, ControlValue string) *ControlString {
+func NewControlString(controlType string, criticality bool, controlValue string) *ControlString {
 	return &ControlString{
-		ControlType:  ControlType,
-		Criticality:  Criticality,
-		ControlValue: ControlValue,
+		ControlType:  controlType,
+		Criticality:  criticality,
+		ControlValue: controlValue,
 	}
 }
 
-func NewControlPaging(PagingSize uint32) *ControlPaging {
-	return &ControlPaging{PagingSize: PagingSize}
+func NewControlPaging(pagingSize uint32) *ControlPaging {
+	return &ControlPaging{PagingSize: pagingSize}
 }
 
-func encodeControls(Controls []Control) *ber.Packet {
+func encodeControls(controls []Control) *ber.Packet {
 	packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "Controls")
-	for _, control := range Controls {
+	for _, control := range controls {
 		packet.AppendChild(control.Encode())
 	}
 	return packet

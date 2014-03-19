@@ -173,13 +173,13 @@ func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, error) {
 	return out, nil
 }
 
-func (l *Conn) finishMessage(MessageID uint64) {
+func (l *Conn) finishMessage(messageID uint64) {
 	if l.isClosing {
 		return
 	}
 	message := &messagePacket{
 		Op:        MessageFinish,
-		MessageID: MessageID,
+		MessageID: messageID,
 	}
 	l.sendProcessMessage(message)
 }

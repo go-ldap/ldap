@@ -98,17 +98,17 @@ type Entry struct {
 	Attributes []*EntryAttribute
 }
 
-func (e *Entry) GetAttributeValues(Attribute string) []string {
+func (e *Entry) GetAttributeValues(attribute string) []string {
 	for _, attr := range e.Attributes {
-		if attr.Name == Attribute {
+		if attr.Name == attribute {
 			return attr.Values
 		}
 	}
 	return []string{}
 }
 
-func (e *Entry) GetAttributeValue(Attribute string) string {
-	values := e.GetAttributeValues(Attribute)
+func (e *Entry) GetAttributeValue(attribute string) string {
+	values := e.GetAttributeValues(attribute)
 	if len(values) == 0 {
 		return ""
 	}
