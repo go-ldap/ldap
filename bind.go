@@ -30,13 +30,13 @@ func (l *Conn) Bind(username, password string) *Error {
 		return err
 	}
 	if channel == nil {
-		return NewError(ErrorNetwork, errors.New("Could not send message"))
+		return NewError(ErrorNetwork, errors.New("ldap: could not send message"))
 	}
 	defer l.finishMessage(messageID)
 
 	packet = <-channel
 	if packet == nil {
-		return NewError(ErrorNetwork, errors.New("Could not retrieve response"))
+		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve response"))
 	}
 
 	if l.Debug {

@@ -54,10 +54,10 @@ func BenchmarkFilterCompile(b *testing.B) {
 		filters[idx] = i.filterStr
 	}
 
-	max_idx := len(filters)
+	maxIdx := len(filters)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		CompileFilter(filters[i%max_idx])
+		CompileFilter(filters[i%maxIdx])
 	}
 }
 
@@ -70,9 +70,9 @@ func BenchmarkFilterDecompile(b *testing.B) {
 		filters[idx], _ = CompileFilter(i.filterStr)
 	}
 
-	max_idx := len(filters)
+	maxIdx := len(filters)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		DecompileFilter(filters[i%max_idx])
+		DecompileFilter(filters[i%maxIdx])
 	}
 }

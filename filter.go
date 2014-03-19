@@ -51,14 +51,14 @@ var FilterSubstringsMap = map[uint64]string{
 
 func CompileFilter(filter string) (*ber.Packet, *Error) {
 	if len(filter) == 0 || filter[0] != '(' {
-		return nil, NewError(ErrorFilterCompile, errors.New("Filter does not start with an '('"))
+		return nil, NewError(ErrorFilterCompile, errors.New("ldap: filter does not start with an '('"))
 	}
 	packet, pos, err := compileFilter(filter, 1)
 	if err != nil {
 		return nil, err
 	}
 	if pos != len(filter) {
-		return nil, NewError(ErrorFilterCompile, errors.New("Finished compiling filter with extra at end.\n"+fmt.Sprint(filter[pos:])))
+		return nil, NewError(ErrorFilterCompile, errors.New("ldap: finished compiling filter with extra at end.\n"+fmt.Sprint(filter[pos:])))
 	}
 	return packet, nil
 }
@@ -66,39 +66,39 @@ func CompileFilter(filter string) (*ber.Packet, *Error) {
 func DecompileFilter(packet *ber.Packet) (ret string, err *Error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = NewError(ErrorFilterDecompile, errors.New("Error decompiling filter"))
+			err = NewError(ErrorFilterDecompile, errors.New("ldap: error decompiling filter"))
 		}
 	}()
 	ret = "("
 	err = nil
-	child_str := ""
+	childStr := ""
 
 	switch packet.Tag {
 	case FilterAnd:
 		ret += "&"
 		for _, child := range packet.Children {
-			child_str, err = DecompileFilter(child)
+			childStr, err = DecompileFilter(child)
 			if err != nil {
 				return
 			}
-			ret += child_str
+			ret += childStr
 		}
 	case FilterOr:
 		ret += "|"
 		for _, child := range packet.Children {
-			child_str, err = DecompileFilter(child)
+			childStr, err = DecompileFilter(child)
 			if err != nil {
 				return
 			}
-			ret += child_str
+			ret += childStr
 		}
 	case FilterNot:
 		ret += "!"
-		child_str, err = DecompileFilter(packet.Children[0])
+		childStr, err = DecompileFilter(packet.Children[0])
 		if err != nil {
 			return
 		}
-		ret += child_str
+		ret += childStr
 
 	case FilterSubstrings:
 		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
@@ -146,7 +146,7 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, *Error) 
 		parent.AppendChild(child)
 	}
 	if pos == len(filter) {
-		return pos, NewError(ErrorFilterCompile, errors.New("Unexpected end of filter"))
+		return pos, NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
 	}
 
 	return pos + 1, nil
@@ -158,7 +158,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, *Error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = NewError(ErrorFilterCompile, errors.New("Error compiling filter"))
+			err = NewError(ErrorFilterCompile, errors.New("ldap: error compiling filter"))
 		}
 	}()
 
@@ -206,11 +206,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, *Error) {
 			newPos++
 		}
 		if newPos == len(filter) {
-			err = NewError(ErrorFilterCompile, errors.New("Unexpected end of filter"))
+			err = NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
 			return packet, newPos, err
 		}
 		if packet == nil {
-			err = NewError(ErrorFilterCompile, errors.New("Error parsing filter"))
+			err = NewError(ErrorFilterCompile, errors.New("ldap: error parsing filter"))
 			return packet, newPos, err
 		}
 		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, attribute, "Attribute"))

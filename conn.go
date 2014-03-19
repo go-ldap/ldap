@@ -28,7 +28,7 @@ type messagePacket struct {
 	Channel   chan *ber.Packet
 }
 
-// LDAP Connection
+// Conn represents an LDAP Connection
 type Conn struct {
 	conn          net.Conn
 	isSSL         bool
@@ -55,7 +55,7 @@ func Dial(network, addr string) (*Conn, *Error) {
 	return conn, nil
 }
 
-// Dial connects to the given address on the given network using net.Dial
+// DialSSL connects to the given address on the given network using net.Dial
 // and then sets up SSL connection and returns a new Conn for the connection.
 func DialSSL(network, addr string, config *tls.Config) (*Conn, *Error) {
 	c, err := tls.Dial(network, addr, config)
@@ -68,7 +68,7 @@ func DialSSL(network, addr string, config *tls.Config) (*Conn, *Error) {
 	return conn, nil
 }
 
-// Dial connects to the given address on the given network using net.Dial
+// DialTLS connects to the given address on the given network using net.Dial
 // and then starts a TLS session and returns a new Conn for the connection.
 func DialTLS(network, addr string, config *tls.Config) (*Conn, *Error) {
 	c, err := net.Dial(network, addr)
@@ -138,7 +138,7 @@ func (l *Conn) startTLS(config *tls.Config) *Error {
 	messageID := l.nextMessageID()
 
 	if l.isSSL {
-		return NewError(ErrorNetwork, errors.New("Already encrypted"))
+		return NewError(ErrorNetwork, errors.New("ldap: already encrypted"))
 	}
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
@@ -176,7 +176,7 @@ func (l *Conn) startTLS(config *tls.Config) *Error {
 
 func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, *Error) {
 	if l.isClosing {
-		return nil, NewError(ErrorNetwork, errors.New("Connection closed"))
+		return nil, NewError(ErrorNetwork, errors.New("ldap: connection closed"))
 	}
 	out := make(chan *ber.Packet)
 	message := &messagePacket{

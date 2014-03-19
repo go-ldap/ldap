@@ -115,10 +115,10 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
-			value_children := ber.DecodePacket(value.Data.Bytes())
+			valueChildren := ber.DecodePacket(value.Data.Bytes())
 			value.Data.Truncate(0)
 			value.Value = nil
-			value.AppendChild(value_children)
+			value.AppendChild(valueChildren)
 		}
 		value = value.Children[0]
 		value.Description = "Search Control Value"

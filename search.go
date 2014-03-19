@@ -231,7 +231,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 			return searchResult, err
 		}
 		if result == nil {
-			return searchResult, NewError(ErrorNetwork, errors.New("Packet not received"))
+			return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
 		}
 
 		for _, entry := range result.Entries {
@@ -292,7 +292,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
 		return nil, err
 	}
 	if channel == nil {
-		return nil, NewError(ErrorNetwork, errors.New("Could not send message"))
+		return nil, NewError(ErrorNetwork, errors.New("ldap: could not send message"))
 	}
 	defer l.finishMessage(messageID)
 
@@ -307,7 +307,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
 		packet = <-channel
 		l.Debug.Printf("%d: got response %p\n", messageID, packet)
 		if packet == nil {
-			return nil, NewError(ErrorNetwork, errors.New("Could not retrieve message"))
+			return nil, NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
 		}
 
 		if l.Debug {

@@ -124,7 +124,7 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
 		return err
 	}
 	if channel == nil {
-		return NewError(ErrorNetwork, errors.New("Could not send message"))
+		return NewError(ErrorNetwork, errors.New("ldap: could not send message"))
 	}
 	defer l.finishMessage(messageID)
 
@@ -132,7 +132,7 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
 	packet = <-channel
 	l.Debug.Printf("%d: got response %p\n", messageID, packet)
 	if packet == nil {
-		return NewError(ErrorNetwork, errors.New("Could not retrieve message"))
+		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
 	}
 
 	if l.Debug {

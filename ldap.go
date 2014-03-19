@@ -153,7 +153,7 @@ var LDAPResultCodeMap = map[uint8]string{
 func addLDAPDescriptions(packet *ber.Packet) (err *Error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = NewError(ErrorDebugging, errors.New("Cannot process packet to add descriptions"))
+			err = NewError(ErrorDebugging, errors.New("ldap: cannot process packet to add descriptions"))
 		}
 	}()
 	packet.Description = "LDAP Response"
@@ -229,11 +229,11 @@ func addControlDescriptions(packet *ber.Packet) {
 		case ControlTypePaging:
 			value.Description += " (Paging)"
 			if value.Value != nil {
-				value_children := ber.DecodePacket(value.Data.Bytes())
+				valueChildren := ber.DecodePacket(value.Data.Bytes())
 				value.Data.Truncate(0)
 				value.Value = nil
-				value_children.Children[1].Value = value_children.Children[1].Data.Bytes()
-				value.AppendChild(value_children)
+				valueChildren.Children[1].Value = valueChildren.Children[1].Data.Bytes()
+				value.AppendChild(valueChildren)
 			}
 			value.Children[0].Description = "Real Search Control Value"
 			value.Children[0].Children[0].Description = "Paging Size"
@@ -286,21 +286,17 @@ func (e *Error) String() string {
 	return fmt.Sprintf("LDAP Result Code %d %q: %s", e.ResultCode, LDAPResultCodeMap[e.ResultCode], e.Err.Error())
 }
 
-func NewError(ResultCode uint8, Err error) *Error {
-	return &Error{ResultCode: ResultCode, Err: Err}
+func NewError(resultCode uint8, err error) *Error {
+	return &Error{ResultCode: resultCode, Err: err}
 }
 
 func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
 	if len(packet.Children) >= 2 {
 		response := packet.Children[1]
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) == 3 {
-			code = uint8(response.Children[0].Value.(uint64))
-			description = response.Children[2].Value.(string)
-			return
+			return uint8(response.Children[0].Value.(uint64)), response.Children[2].Value.(string)
 		}
 	}
 
-	code = ErrorNetwork
-	description = "Invalid packet format"
-	return
+	return ErrorNetwork, "Invalid packet format"
 }

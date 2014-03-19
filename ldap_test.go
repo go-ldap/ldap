@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-var ldapServer string = "ldap.itd.umich.edu"
-var ldapPort uint16 = 389
-var baseDN string = "dc=umich,dc=edu"
-var filter []string = []string{
+var ldapServer = "ldap.itd.umich.edu"
+var ldapPort = uint16(389)
+var baseDN = "dc=umich,dc=edu"
+var filter = []string{
 	"(cn=cis-fac)",
 	"(&(objectclass=rfc822mailgroup)(cn=*Computer*))",
 	"(&(objectclass=rfc822mailgroup)(cn=*Mathematics*))"}
-var attributes []string = []string{
+var attributes = []string{
 	"cn",
 	"description"}
 
@@ -36,20 +36,20 @@ func TestSearch(t *testing.T) {
 	}
 	defer l.Close()
 
-	search_request := NewSearchRequest(
+	searchRequest := NewSearchRequest(
 		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[0],
 		attributes,
 		nil)
 
-	sr, err := l.Search(search_request)
+	sr, err := l.Search(searchRequest)
 	if err != nil {
 		t.Errorf(err.String())
 		return
 	}
 
-	fmt.Printf("TestSearch: %s -> num of entries = %d\n", search_request.Filter, len(sr.Entries))
+	fmt.Printf("TestSearch: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
 }
 
 func TestSearchWithPaging(t *testing.T) {
@@ -67,29 +67,29 @@ func TestSearchWithPaging(t *testing.T) {
 		return
 	}
 
-	search_request := NewSearchRequest(
+	searchRequest := NewSearchRequest(
 		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[1],
 		attributes,
 		nil)
-	sr, err := l.SearchWithPaging(search_request, 5)
+	sr, err := l.SearchWithPaging(searchRequest, 5)
 	if err != nil {
 		t.Errorf(err.String())
 		return
 	}
 
-	fmt.Printf("TestSearchWithPaging: %s -> num of entries = %d\n", search_request.Filter, len(sr.Entries))
+	fmt.Printf("TestSearchWithPaging: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
 }
 
 func testMultiGoroutineSearch(t *testing.T, l *Conn, results chan *SearchResult, i int) {
-	search_request := NewSearchRequest(
+	searchRequest := NewSearchRequest(
 		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
 		filter[i],
 		attributes,
 		nil)
-	sr, err := l.Search(search_request)
+	sr, err := l.Search(searchRequest)
 	if err != nil {
 		t.Errorf(err.String())
 		results <- nil
