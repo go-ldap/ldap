@@ -226,18 +226,11 @@ func (l *Conn) processMessages() {
 				l.chanResults[messagePacket.MessageID] = messagePacket.Channel
 				// go routine
 				buf := messagePacket.Packet.Bytes()
-				for len(buf) > 0 {
-					n, err := l.conn.Write(buf)
-					if err != nil {
-						l.Debug.Printf("Error Sending Message: %s", err.Error())
-						break
-					}
-					// nothing else to send
-					if n == len(buf) {
-						break
-					}
-					// the remaining buf content
-					buf = buf[n:]
+
+				_, err := l.conn.Write(buf)
+				if err != nil {
+					l.Debug.Printf("Error Sending Message: %s", err.Error())
+					break
 				}
 			case MessageResponse:
 				l.Debug.Printf("Receiving message %d", messagePacket.MessageID)
