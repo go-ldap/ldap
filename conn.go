@@ -45,7 +45,7 @@ type Conn struct {
 
 // Dial connects to the given address on the given network using net.Dial
 // and then returns a new Conn for the connection.
-func Dial(network, addr string) (*Conn, *Error) {
+func Dial(network, addr string) (*Conn, error) {
 	c, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
@@ -57,7 +57,7 @@ func Dial(network, addr string) (*Conn, *Error) {
 
 // DialTLS connects to the given address on the given network using tls.Dial
 // and then returns a new Conn for the connection.
-func DialTLS(network, addr string, config *tls.Config) (*Conn, *Error) {
+func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	c, err := tls.Dial(network, addr, config)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
@@ -118,7 +118,7 @@ func (l *Conn) nextMessageID() uint64 {
 }
 
 // StartTLS sends the command to start a TLS session and then creates a new TLS Client
-func (l *Conn) StartTLS(config *tls.Config) *Error {
+func (l *Conn) StartTLS(config *tls.Config) error {
 	messageID := l.nextMessageID()
 
 	if l.isTLS {
@@ -144,7 +144,7 @@ func (l *Conn) StartTLS(config *tls.Config) *Error {
 
 	if l.Debug {
 		if err := addLDAPDescriptions(packet); err != nil {
-			return NewError(ErrorDebugging, err.Err)
+			return err
 		}
 		ber.PrintPacket(packet)
 	}
@@ -158,7 +158,7 @@ func (l *Conn) StartTLS(config *tls.Config) *Error {
 	return nil
 }
 
-func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, *Error) {
+func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, error) {
 	if l.isClosing {
 		return nil, NewError(ErrorNetwork, errors.New("ldap: connection closed"))
 	}

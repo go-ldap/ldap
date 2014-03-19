@@ -49,7 +49,7 @@ var FilterSubstringsMap = map[uint64]string{
 	FilterSubstringsFinal:   "Substrings Final",
 }
 
-func CompileFilter(filter string) (*ber.Packet, *Error) {
+func CompileFilter(filter string) (*ber.Packet, error) {
 	if len(filter) == 0 || filter[0] != '(' {
 		return nil, NewError(ErrorFilterCompile, errors.New("ldap: filter does not start with an '('"))
 	}
@@ -63,7 +63,7 @@ func CompileFilter(filter string) (*ber.Packet, *Error) {
 	return packet, nil
 }
 
-func DecompileFilter(packet *ber.Packet) (ret string, err *Error) {
+func DecompileFilter(packet *ber.Packet) (ret string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = NewError(ErrorFilterDecompile, errors.New("ldap: error decompiling filter"))
@@ -136,7 +136,7 @@ func DecompileFilter(packet *ber.Packet) (ret string, err *Error) {
 	return
 }
 
-func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, *Error) {
+func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
 	for pos < len(filter) && filter[pos] == '(' {
 		child, newPos, err := compileFilter(filter, pos+1)
 		if err != nil {
@@ -152,9 +152,9 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, *Error) 
 	return pos + 1, nil
 }
 
-func compileFilter(filter string, pos int) (*ber.Packet, int, *Error) {
+func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	var packet *ber.Packet
-	var err *Error
+	var err error
 
 	defer func() {
 		if r := recover(); r != nil {

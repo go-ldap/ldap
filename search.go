@@ -172,7 +172,7 @@ type SearchRequest struct {
 	Controls     []Control
 }
 
-func (s *SearchRequest) encode() (*ber.Packet, *Error) {
+func (s *SearchRequest) encode() (*ber.Packet, error) {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchRequest, nil, "Search Request")
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimative, ber.TagOctetString, s.BaseDN, "Base DN"))
 	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagEnumerated, uint64(s.Scope), "Scope"))
@@ -216,7 +216,7 @@ func NewSearchRequest(
 	}
 }
 
-func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, *Error) {
+func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error) {
 	if searchRequest.Controls == nil {
 		searchRequest.Controls = make([]Control, 0)
 	}
@@ -270,7 +270,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 	return searchResult, nil
 }
 
-func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
+func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 	messageID := l.nextMessageID()
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, messageID, "MessageID"))
@@ -312,7 +312,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
 
 		if l.Debug {
 			if err := addLDAPDescriptions(packet); err != nil {
-				return nil, NewError(ErrorDebugging, err.Err)
+				return nil, err
 			}
 			ber.PrintPacket(packet)
 		}

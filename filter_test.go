@@ -31,13 +31,13 @@ func TestFilter(t *testing.T) {
 	for _, i := range testFilters {
 		filter, err := CompileFilter(i.filterStr)
 		if err != nil {
-			t.Errorf("Problem compiling %s - %s", i.filterStr, err.String())
+			t.Errorf("Problem compiling %s - %s", i.filterStr, err.Error())
 		} else if filter.Tag != uint8(i.filterType) {
 			t.Errorf("%q Expected %q got %q", i.filterStr, FilterMap[uint64(i.filterType)], FilterMap[uint64(filter.Tag)])
 		} else {
 			o, err := DecompileFilter(filter)
 			if err != nil {
-				t.Errorf("Problem compiling %s - %s", i.filterStr, err.String())
+				t.Errorf("Problem compiling %s - %s", i.filterStr, err.Error())
 			} else if i.filterStr != o {
 				t.Errorf("%q expected, got %q", i.filterStr, o)
 			}

@@ -111,7 +111,7 @@ func NewModifyRequest(
 	}
 }
 
-func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
+func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 	messageID := l.nextMessageID()
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimative, ber.TagInteger, messageID, "MessageID"))
@@ -137,7 +137,7 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
 
 	if l.Debug {
 		if err := addLDAPDescriptions(packet); err != nil {
-			return NewError(ErrorDebugging, err.Err)
+			return err
 		}
 		ber.PrintPacket(packet)
 	}

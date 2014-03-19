@@ -10,7 +10,7 @@ import (
 	"github.com/SpruceHealth/asn1-ber"
 )
 
-func (l *Conn) Bind(username, password string) *Error {
+func (l *Conn) Bind(username, password string) error {
 	messageID := l.nextMessageID()
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
@@ -41,7 +41,7 @@ func (l *Conn) Bind(username, password string) *Error {
 
 	if l.Debug {
 		if err := addLDAPDescriptions(packet); err != nil {
-			return NewError(ErrorDebugging, err.Err)
+			return err
 		}
 		ber.PrintPacket(packet)
 	}
