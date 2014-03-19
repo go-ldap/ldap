@@ -58,7 +58,7 @@ func CompileFilter(filter string) (*ber.Packet, *Error) {
 		return nil, err
 	}
 	if pos != len(filter) {
-		return nil, NewError(ErrorFilterCompile, errors.New("ldap: finished compiling filter with extra at end.\n"+fmt.Sprint(filter[pos:])))
+		return nil, NewError(ErrorFilterCompile, errors.New("ldap: finished compiling filter with extra at end: "+fmt.Sprint(filter[pos:])))
 	}
 	return packet, nil
 }

@@ -91,12 +91,12 @@ func (l *Conn) Close() {
 		l.isClosing = true
 		l.wgSender.Wait()
 
-		l.Debug.Printf("Sending quit message and waiting for confirmation\n")
+		l.Debug.Printf("Sending quit message and waiting for confirmation")
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
 		<-l.chanConfirm
 		close(l.chanMessage)
 
-		l.Debug.Printf("Closing network connection\n")
+		l.Debug.Printf("Closing network connection")
 		if err := l.conn.Close(); err != nil {
 			log.Print(err)
 		}
@@ -197,7 +197,7 @@ func (l *Conn) sendProcessMessage(message *messagePacket) bool {
 func (l *Conn) processMessages() {
 	defer func() {
 		for messageID, channel := range l.chanResults {
-			l.Debug.Printf("Closing channel for MessageID %d\n", messageID)
+			l.Debug.Printf("Closing channel for MessageID %d", messageID)
 			close(channel)
 			delete(l.chanResults, messageID)
 		}
@@ -213,23 +213,23 @@ func (l *Conn) processMessages() {
 			messageID++
 		case messagePacket, ok := <-l.chanMessage:
 			if !ok {
-				l.Debug.Printf("Shutting down - message channel is closed\n")
+				l.Debug.Printf("Shutting down - message channel is closed")
 				return
 			}
 			switch messagePacket.Op {
 			case MessageQuit:
-				l.Debug.Printf("Shutting down - quit message received\n")
+				l.Debug.Printf("Shutting down - quit message received")
 				return
 			case MessageRequest:
 				// Add to message list and write to network
-				l.Debug.Printf("Sending message %d\n", messagePacket.MessageID)
+				l.Debug.Printf("Sending message %d", messagePacket.MessageID)
 				l.chanResults[messagePacket.MessageID] = messagePacket.Channel
 				// go routine
 				buf := messagePacket.Packet.Bytes()
 				for len(buf) > 0 {
 					n, err := l.conn.Write(buf)
 					if err != nil {
-						l.Debug.Printf("Error Sending Message: %s\n", err.Error())
+						l.Debug.Printf("Error Sending Message: %s", err.Error())
 						break
 					}
 					// nothing else to send
@@ -240,16 +240,16 @@ func (l *Conn) processMessages() {
 					buf = buf[n:]
 				}
 			case MessageResponse:
-				l.Debug.Printf("Receiving message %d\n", messagePacket.MessageID)
+				l.Debug.Printf("Receiving message %d", messagePacket.MessageID)
 				if chanResult, ok := l.chanResults[messagePacket.MessageID]; ok {
 					chanResult <- messagePacket.Packet
 				} else {
-					log.Printf("Received unexpected message %d\n", messagePacket.MessageID)
+					log.Printf("Received unexpected message %d", messagePacket.MessageID)
 					ber.PrintPacket(messagePacket.Packet)
 				}
 			case MessageFinish:
 				// Remove from message list
-				l.Debug.Printf("Finished message %d\n", messagePacket.MessageID)
+				l.Debug.Printf("Finished message %d", messagePacket.MessageID)
 				close(l.chanResults[messagePacket.MessageID])
 				delete(l.chanResults, messagePacket.MessageID)
 			}
@@ -265,7 +265,7 @@ func (l *Conn) reader() {
 	for {
 		packet, err := ber.ReadPacket(l.conn)
 		if err != nil {
-			l.Debug.Printf("reader: %s\n", err.Error())
+			l.Debug.Printf("reader: %s", err.Error())
 			return
 		}
 		addLDAPDescriptions(packet)

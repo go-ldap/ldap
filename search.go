@@ -226,7 +226,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 	searchResult := new(SearchResult)
 	for {
 		result, err := l.Search(searchRequest)
-		l.Debug.Printf("Looking for Paging Control...\n")
+		l.Debug.Printf("Looking for Paging Control...")
 		if err != nil {
 			return searchResult, err
 		}
@@ -244,25 +244,25 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 			searchResult.Controls = append(searchResult.Controls, control)
 		}
 
-		l.Debug.Printf("Looking for Paging Control...\n")
+		l.Debug.Printf("Looking for Paging Control...")
 		pagingResult := FindControl(result.Controls, ControlTypePaging)
 		if pagingResult == nil {
 			pagingControl = nil
-			l.Debug.Printf("Could not find paging control.  Breaking...\n")
+			l.Debug.Printf("Could not find paging control.  Breaking...")
 			break
 		}
 
 		cookie := pagingResult.(*ControlPaging).Cookie
 		if len(cookie) == 0 {
 			pagingControl = nil
-			l.Debug.Printf("Could not find cookie.  Breaking...\n")
+			l.Debug.Printf("Could not find cookie.  Breaking...")
 			break
 		}
 		pagingControl.SetCookie(cookie)
 	}
 
 	if pagingControl != nil {
-		l.Debug.Printf("Abandoning Paging...\n")
+		l.Debug.Printf("Abandoning Paging...")
 		pagingControl.PagingSize = 0
 		l.Search(searchRequest)
 	}
@@ -303,9 +303,9 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
 
 	foundSearchResultDone := false
 	for !foundSearchResultDone {
-		l.Debug.Printf("%d: waiting for response\n", messageID)
+		l.Debug.Printf("%d: waiting for response", messageID)
 		packet = <-channel
-		l.Debug.Printf("%d: got response %p\n", messageID, packet)
+		l.Debug.Printf("%d: got response %p", messageID, packet)
 		if packet == nil {
 			return nil, NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
 		}
@@ -345,6 +345,6 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, *Error) {
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
 		}
 	}
-	l.Debug.Printf("%d: returning\n", messageID)
+	l.Debug.Printf("%d: returning", messageID)
 	return result, nil
 }

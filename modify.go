@@ -128,9 +128,9 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
 	}
 	defer l.finishMessage(messageID)
 
-	l.Debug.Printf("%d: waiting for response\n", messageID)
+	l.Debug.Printf("%d: waiting for response", messageID)
 	packet = <-channel
-	l.Debug.Printf("%d: got response %p\n", messageID, packet)
+	l.Debug.Printf("%d: got response %p", messageID, packet)
 	if packet == nil {
 		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
 	}
@@ -148,9 +148,9 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) *Error {
 			return NewError(resultCode, errors.New(resultDescription))
 		}
 	} else {
-		log.Printf("Unexpected Response: %d\n", packet.Children[1].Tag)
+		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
 	}
 
-	l.Debug.Printf("%d: returning\n", messageID)
+	l.Debug.Printf("%d: returning", messageID)
 	return nil
 }
