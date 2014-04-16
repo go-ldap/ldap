@@ -11,7 +11,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/SpruceHealth/asn1-ber"
+	"github.com/johnweldon/asn1-ber"
 )
 
 const (

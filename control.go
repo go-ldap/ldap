@@ -7,7 +7,7 @@ package ldap
 import (
 	"fmt"
 
-	"github.com/SpruceHealth/asn1-ber"
+	"github.com/johnweldon/asn1-ber"
 )
 
 const (
