@@ -12,31 +12,38 @@ import (
 )
 
 var (
-	LdapServer string   = "localhost"
-	LdapPort   uint16   = 389
-	BaseDN     string   = "dc=enterprise,dc=org"
-	Filter     string   = "(cn=kirkj)"
-	Attributes []string = []string{"mail"}
+	ldapServer string   = "adserver"
+	ldapPort   uint16   = 3268
+	baseDN     string   = "dc=*,dc=*"
+	filter     string   = "(&(objectClass=user)(sAMAccountName=*)(memberOf=CN=*,OU=*,DC=*,DC=*))"
+	Attributes []string = []string{"memberof"}
+	user       string   = "*"
+	passwd     string   = "*"
 )
 
 func main() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", LdapServer, LdapPort))
+	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 	}
 	defer l.Close()
 	// l.Debug = true
 
+	err = l.Bind(user, passwd)
+	if err != nil {
+		log.Printf("ERROR: Cannot bind: %s\n", err.Error())
+		return
+	}
 	search := ldap.NewSearchRequest(
-		BaseDN,
+		baseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		Filter,
+		filter,
 		Attributes,
 		nil)
 
 	sr, err := l.Search(search)
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 		return
 	}
 
