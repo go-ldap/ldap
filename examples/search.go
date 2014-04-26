@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	ldapServer string   = "adserver"
-	ldapPort   uint16   = 3268
+	ldapServer string   = "localhost"
+	ldapPort   uint16   = 389
 	baseDN     string   = "dc=*,dc=*"
-	filter     string   = "(&(objectClass=user)(sAMAccountName=*)(memberOf=CN=*,OU=*,DC=*,DC=*))"
-	Attributes []string = []string{"memberof"}
+	filter     string   = "&(objectClass=*)"
+	Attributes []string = []string{"dn", "cn"}
 	user       string   = "*"
 	passwd     string   = "*"
 )
