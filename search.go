@@ -107,10 +107,27 @@ func (e *Entry) GetAttributeValues(attribute string) []string {
 	return []string{}
 }
 
+func (e *Entry) GetRawAttributeValues(attribute string) [][]byte {
+	for _, attr := range e.Attributes {
+		if attr.Name == attribute {
+			return attr.ByteValues
+		}
+	}
+	return [][]byte{}
+}
+
 func (e *Entry) GetAttributeValue(attribute string) string {
 	values := e.GetAttributeValues(attribute)
 	if len(values) == 0 {
 		return ""
+	}
+	return values[0]
+}
+
+func (e *Entry) GetRawAttributeValue(attribute string) []byte {
+	values := e.GetRawAttributeValues(attribute)
+	if len(values) == 0 {
+		return []byte{}
 	}
 	return values[0]
 }
@@ -132,6 +149,7 @@ func (e *Entry) PrettyPrint(indent int) {
 type EntryAttribute struct {
 	Name   string
 	Values []string
+	ByteValues [][]byte
 }
 
 func (e *EntryAttribute) Print() {
@@ -326,6 +344,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				attr.Name = child.Children[0].Value.(string)
 				for _, value := range child.Children[1].Children {
 					attr.Values = append(attr.Values, value.Value.(string))
+					attr.ByteValues = append(attr.ByteValues, value.ByteValue)
 				}
 				entry.Attributes = append(entry.Attributes, attr)
 			}
