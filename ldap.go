@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/johnweldon/asn1-ber"
+	"gopkg.in/asn1-ber.v1"
 )
 
 // LDAP Application Codes

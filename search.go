@@ -64,7 +64,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/johnweldon/asn1-ber"
+	"gopkg.in/asn1-ber.v1"
 )
 
 const (
@@ -147,8 +147,8 @@ func (e *Entry) PrettyPrint(indent int) {
 }
 
 type EntryAttribute struct {
-	Name   string
-	Values []string
+	Name       string
+	Values     []string
 	ByteValues [][]byte
 }
 

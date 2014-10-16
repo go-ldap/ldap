@@ -1,7 +1,7 @@
 Basic LDAP v3 functionality for the GO programming language.
 
 Required Librarys: 
-   github.com/johnweldon/asn1-ber
+   gopkg.in/asn1-ber.v1
 
 Working:
    Connecting to LDAP server

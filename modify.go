@@ -33,7 +33,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/johnweldon/asn1-ber"
+	"gopkg.in/asn1-ber.v1"
 )
 
 const (
