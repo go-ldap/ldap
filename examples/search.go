@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/johnweldon/ldap"
+	"gopkg.in/johnweldon/ldap.v0"
 )
 
 var (
