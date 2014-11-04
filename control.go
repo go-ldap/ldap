@@ -11,11 +11,13 @@ import (
 )
 
 const (
-	ControlTypePaging = "1.2.840.113556.1.4.319"
+	ControlTypePaging               = "1.2.840.113556.1.4.319"
+	ControlTypeBeheraPasswordPolicy = "1.3.6.1.4.1.42.2.27.8.5.1"
 )
 
 var ControlTypeMap = map[string]string{
-	ControlTypePaging: "Paging",
+	ControlTypePaging:               "Paging",
+	ControlTypeBeheraPasswordPolicy: "Password Policy - Behera Draft",
 }
 
 type Control interface {
@@ -40,7 +42,7 @@ func (c *ControlString) Encode() *ber.Packet {
 	if c.Criticality {
 		packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality"))
 	}
-	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.ControlValue, "Control Value"))
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(c.ControlValue), "Control Value"))
 	return packet
 }
 
@@ -88,6 +90,36 @@ func (c *ControlPaging) SetCookie(cookie []byte) {
 	c.Cookie = cookie
 }
 
+type ControlBeheraPasswordPolicy struct {
+	Expire      int64
+	Grace       int64
+	Error       int8
+	ErrorString string
+}
+
+func (c *ControlBeheraPasswordPolicy) GetControlType() string {
+	return ControlTypeBeheraPasswordPolicy
+}
+
+func (c *ControlBeheraPasswordPolicy) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeBeheraPasswordPolicy, "Control Type ("+ControlTypeMap[ControlTypeBeheraPasswordPolicy]+")"))
+
+	return packet
+}
+
+func (c *ControlBeheraPasswordPolicy) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality: %t  Expire: %d  Grace: %d  Error: %d, ErrorString: %s",
+		ControlTypeMap[ControlTypeBeheraPasswordPolicy],
+		ControlTypeBeheraPasswordPolicy,
+		false,
+		c.Expire,
+		c.Grace,
+		c.Error,
+		c.ErrorString)
+}
+
 func FindControl(controls []Control, controlType string) Control {
 	for _, c := range controls {
 		if c.GetControlType() == controlType {
@@ -128,6 +160,39 @@ func DecodeControl(packet *ber.Packet) Control {
 		c.Cookie = value.Children[1].Data.Bytes()
 		value.Children[1].Value = c.Cookie
 		return c
+	case ControlTypeBeheraPasswordPolicy:
+		value.Description += " (Password Policy - Behera)"
+		c := NewControlBeheraPasswordPolicy()
+		if value.Value != nil {
+			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			value.Data.Truncate(0)
+			value.Value = nil
+			value.AppendChild(valueChildren)
+		}
+
+		sequence := value.Children[0]
+
+		for _, child := range sequence.Children {
+			if child.Tag == 0 {
+				//Warning
+				child := child.Children[0]
+				if child.Tag == 0 {
+					//timeBeforeExpiration
+					c.Expire = int64(ber.DecodeInteger(child.Data.Bytes()))
+					child.Value = c.Expire
+				} else if child.Tag == 1 {
+					//graceAuthNsRemaining
+					c.Grace = int64(ber.DecodeInteger(child.Data.Bytes()))
+					child.Value = c.Grace
+				}
+			} else if child.Tag == 1 {
+				// Error
+				c.Error = int8(ber.DecodeInteger(child.Data.Bytes()))
+				child.Value = c.Error
+				c.ErrorString = BeheraPasswordPolicyErrorMap[c.Error]
+			}
+		}
+		return c
 	}
 	c := new(ControlString)
 	c.ControlType = ControlType
@@ -146,6 +211,14 @@ func NewControlString(controlType string, criticality bool, controlValue string)
 
 func NewControlPaging(pagingSize uint32) *ControlPaging {
 	return &ControlPaging{PagingSize: pagingSize}
+}
+
+func NewControlBeheraPasswordPolicy() *ControlBeheraPasswordPolicy {
+	return &ControlBeheraPasswordPolicy{
+		Expire: -1,
+		Grace:  -1,
+		Error:  -1,
+	}
 }
 
 func encodeControls(controls []Control) *ber.Packet {
