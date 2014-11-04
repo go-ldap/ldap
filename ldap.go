@@ -101,10 +101,12 @@ const (
 	LDAPResultAffectsMultipleDSAs          = 71
 	LDAPResultOther                        = 80
 
-	ErrorNetwork         = 200
-	ErrorFilterCompile   = 201
-	ErrorFilterDecompile = 202
-	ErrorDebugging       = 203
+	ErrorNetwork            = 200
+	ErrorFilterCompile      = 201
+	ErrorFilterDecompile    = 202
+	ErrorDebugging          = 203
+	ErrorUnexpectedMessage  = 204
+	ErrorUnexpectedResponse = 205
 )
 
 var LDAPResultCodeMap = map[uint8]string{
@@ -347,7 +349,7 @@ func NewError(resultCode uint8, err error) error {
 func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
 	if len(packet.Children) >= 2 {
 		response := packet.Children[1]
-		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) == 3 {
+		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
 			return uint8(response.Children[0].Value.(uint64)), response.Children[2].Value.(string)
 		}
 	}
