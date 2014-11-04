@@ -149,6 +149,31 @@ var LDAPResultCodeMap = map[uint8]string{
 	LDAPResultOther:                        "Other",
 }
 
+// Ldap Behera Password Policy Draft 10 (https://tools.ietf.org/html/draft-behera-ldap-password-policy-10)
+const (
+	BeheraPasswordExpired             = 0
+	BeheraAccountLocked               = 1
+	BeheraChangeAfterReset            = 2
+	BeheraPasswordModNotAllowed       = 3
+	BeheraMustSupplyOldPassword       = 4
+	BeheraInsufficientPasswordQuality = 5
+	BeheraPasswordTooShort            = 6
+	BeheraPasswordTooYoung            = 7
+	BeheraPasswordInHistory           = 8
+)
+
+var BeheraPasswordPolicyErrorMap = map[int8]string{
+	BeheraPasswordExpired:             "Password expired",
+	BeheraAccountLocked:               "Account locked",
+	BeheraChangeAfterReset:            "Password must be changed",
+	BeheraPasswordModNotAllowed:       "Policy prevents password modification",
+	BeheraMustSupplyOldPassword:       "Policy requires old password in order to change password",
+	BeheraInsufficientPasswordQuality: "Password fails quality checks",
+	BeheraPasswordTooShort:            "Password is too short for policy",
+	BeheraPasswordTooYoung:            "Password has been changed too recently",
+	BeheraPasswordInHistory:           "New password is in list of old passwords",
+}
+
 // Adds descriptions to an LDAP Response packet for debugging
 func addLDAPDescriptions(packet *ber.Packet) (err error) {
 	defer func() {
@@ -238,6 +263,35 @@ func addControlDescriptions(packet *ber.Packet) {
 			value.Children[0].Description = "Real Search Control Value"
 			value.Children[0].Children[0].Description = "Paging Size"
 			value.Children[0].Children[1].Description = "Cookie"
+
+		case ControlTypeBeheraPasswordPolicy:
+			value.Description += " (Password Policy - Behera Draft)"
+			if value.Value != nil {
+				valueChildren := ber.DecodePacket(value.Data.Bytes())
+				value.Data.Truncate(0)
+				value.Value = nil
+				value.AppendChild(valueChildren)
+			}
+			sequence := value.Children[0]
+			for _, child := range sequence.Children {
+				if child.Tag == 0 {
+					//Warning
+					child := child.Children[0]
+					if child.Tag == 0 {
+						//timeBeforeExpiration
+						value.Description += " (TimeBeforeExpiration)"
+						child.Value = int64(ber.DecodeInteger(child.Data.Bytes()))
+					} else if child.Tag == 1 {
+						//graceAuthNsRemaining
+						value.Description += " (GraceAuthNsRemaining)"
+						child.Value = int64(ber.DecodeInteger(child.Data.Bytes()))
+					}
+				} else if child.Tag == 1 {
+					// Error
+					child.Description = "Error"
+					child.Value = int8(ber.DecodeInteger(child.Data.Bytes()))
+				}
+			}
 		}
 	}
 }
