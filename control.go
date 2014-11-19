@@ -6,13 +6,16 @@ package ldap
 
 import (
 	"fmt"
+	"strconv"
 
 	"gopkg.in/asn1-ber.v1"
 )
 
 const (
-	ControlTypePaging               = "1.2.840.113556.1.4.319"
-	ControlTypeBeheraPasswordPolicy = "1.3.6.1.4.1.42.2.27.8.5.1"
+	ControlTypePaging                 = "1.2.840.113556.1.4.319"
+	ControlTypeBeheraPasswordPolicy   = "1.3.6.1.4.1.42.2.27.8.5.1"
+	ControlTypeVChuPasswordMustChange = "2.16.840.1.113730.3.4.4"
+	ControlTypeVChuPasswordWarning    = "2.16.840.1.113730.3.4.5"
 )
 
 var ControlTypeMap = map[string]string{
@@ -120,6 +123,48 @@ func (c *ControlBeheraPasswordPolicy) String() string {
 		c.ErrorString)
 }
 
+type ControlVChuPasswordMustChange struct {
+	MustChange bool
+}
+
+func (c *ControlVChuPasswordMustChange) GetControlType() string {
+	return ControlTypeVChuPasswordMustChange
+}
+
+func (c *ControlVChuPasswordMustChange) Encode() *ber.Packet {
+	return nil
+}
+
+func (c *ControlVChuPasswordMustChange) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality: %t  MustChange: %b",
+		ControlTypeMap[ControlTypeVChuPasswordMustChange],
+		ControlTypeVChuPasswordMustChange,
+		false,
+		c.MustChange)
+}
+
+type ControlVChuPasswordWarning struct {
+	Expire int64
+}
+
+func (c *ControlVChuPasswordWarning) GetControlType() string {
+	return ControlTypeVChuPasswordWarning
+}
+
+func (c *ControlVChuPasswordWarning) Encode() *ber.Packet {
+	return nil
+}
+
+func (c *ControlVChuPasswordWarning) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality: %t  Expire: %b",
+		ControlTypeMap[ControlTypeVChuPasswordWarning],
+		ControlTypeVChuPasswordWarning,
+		false,
+		c.Expire)
+}
+
 func FindControl(controls []Control, controlType string) Control {
 	for _, c := range controls {
 		if c.GetControlType() == controlType {
@@ -192,6 +237,21 @@ func DecodeControl(packet *ber.Packet) Control {
 				c.ErrorString = BeheraPasswordPolicyErrorMap[c.Error]
 			}
 		}
+		return c
+	case ControlTypeVChuPasswordMustChange:
+		c := &ControlVChuPasswordMustChange{MustChange: true}
+		return c
+	case ControlTypeVChuPasswordWarning:
+		c := &ControlVChuPasswordWarning{Expire: -1}
+		expireStr := ber.DecodeString(value.Data.Bytes())
+
+		expire, err := strconv.ParseInt(expireStr, 10, 64)
+		if err != nil {
+			return nil
+		}
+		c.Expire = expire
+		value.Value = c.Expire
+
 		return c
 	}
 	c := new(ControlString)
