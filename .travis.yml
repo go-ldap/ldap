@@ -4,6 +4,7 @@ go:
     - 1.3
     - tip
 install:
+    - go get gopkg.in/asn1-ber.v1
     - go list -f '{{range .Imports}}{{.}} {{end}}' ./... | xargs go get -v
     - go list -f '{{range .TestImports}}{{.}} {{end}}' ./... | xargs go get -v
     - go get code.google.com/p/tools/cmd/cover || go get golang.org/x/tools/cmd/cover
