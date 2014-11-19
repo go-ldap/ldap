@@ -318,7 +318,7 @@ func addRequestDescriptions(packet *ber.Packet) {
 }
 
 func addDefaultLDAPResponseDescriptions(packet *ber.Packet) {
-	resultCode := packet.Children[1].Children[0].Value.(uint64)
+	resultCode := packet.Children[1].Children[0].Value.(int64)
 	packet.Children[1].Children[0].Description = "Result Code (" + LDAPResultCodeMap[uint8(resultCode)] + ")"
 	packet.Children[1].Children[1].Description = "Matched DN"
 	packet.Children[1].Children[2].Description = "Error Message"
@@ -360,7 +360,7 @@ func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
 	if len(packet.Children) >= 2 {
 		response := packet.Children[1]
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-			return uint8(response.Children[0].Value.(uint64)), response.Children[2].Value.(string)
+			return uint8(response.Children[0].Value.(int64)), response.Children[2].Value.(string)
 		}
 	}
 

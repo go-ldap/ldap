@@ -201,7 +201,7 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Description = "Search Control Value"
 		value.Children[0].Description = "Paging Size"
 		value.Children[1].Description = "Cookie"
-		c.PagingSize = uint32(value.Children[0].Value.(uint64))
+		c.PagingSize = uint32(value.Children[0].Value.(int64))
 		c.Cookie = value.Children[1].Data.Bytes()
 		value.Children[1].Value = c.Cookie
 		return c

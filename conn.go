@@ -23,7 +23,7 @@ const (
 
 type messagePacket struct {
 	Op        int
-	MessageID uint64
+	MessageID int64
 	Packet    *ber.Packet
 	Channel   chan *ber.Packet
 }
@@ -35,9 +35,9 @@ type Conn struct {
 	isClosing     bool
 	Debug         debugging
 	chanConfirm   chan bool
-	chanResults   map[uint64]chan *ber.Packet
+	chanResults   map[int64]chan *ber.Packet
 	chanMessage   chan *messagePacket
-	chanMessageID chan uint64
+	chanMessageID chan int64
 	wgSender      sync.WaitGroup
 	wgClose       sync.WaitGroup
 	once          sync.Once
@@ -73,9 +73,9 @@ func NewConn(conn net.Conn) *Conn {
 	return &Conn{
 		conn:          conn,
 		chanConfirm:   make(chan bool),
-		chanMessageID: make(chan uint64),
+		chanMessageID: make(chan int64),
 		chanMessage:   make(chan *messagePacket, 10),
-		chanResults:   map[uint64]chan *ber.Packet{},
+		chanResults:   map[int64]chan *ber.Packet{},
 	}
 }
 
@@ -108,7 +108,7 @@ func (l *Conn) Close() {
 }
 
 // Returns the next available messageID
-func (l *Conn) nextMessageID() uint64 {
+func (l *Conn) nextMessageID() int64 {
 	if l.chanMessageID != nil {
 		if messageID, ok := <-l.chanMessageID; ok {
 			return messageID
@@ -149,7 +149,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 		ber.PrintPacket(packet)
 	}
 
-	if packet.Children[1].Children[0].Value.(uint64) == 0 {
+	if packet.Children[1].Children[0].Value.(int64) == 0 {
 		conn := tls.Client(l.conn, config)
 		l.isTLS = true
 		l.conn = conn
@@ -165,7 +165,7 @@ func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, error) {
 	out := make(chan *ber.Packet)
 	message := &messagePacket{
 		Op:        MessageRequest,
-		MessageID: packet.Children[0].Value.(uint64),
+		MessageID: packet.Children[0].Value.(int64),
 		Packet:    packet,
 		Channel:   out,
 	}
@@ -173,7 +173,7 @@ func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, error) {
 	return out, nil
 }
 
-func (l *Conn) finishMessage(messageID uint64) {
+func (l *Conn) finishMessage(messageID int64) {
 	if l.isClosing {
 		return
 	}
@@ -206,7 +206,7 @@ func (l *Conn) processMessages() {
 		close(l.chanConfirm)
 	}()
 
-	var messageID uint64 = 1
+	var messageID int64 = 1
 	for {
 		select {
 		case l.chanMessageID <- messageID:
@@ -264,7 +264,7 @@ func (l *Conn) reader() {
 		addLDAPDescriptions(packet)
 		message := &messagePacket{
 			Op:        MessageResponse,
-			MessageID: packet.Children[0].Value.(uint64),
+			MessageID: packet.Children[0].Value.(int64),
 			Packet:    packet,
 		}
 		if !l.sendProcessMessage(message) {
