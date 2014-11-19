@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -186,7 +187,7 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 	packet.Description = "LDAP Response"
 	packet.Children[0].Description = "Message ID"
 
-	application := packet.Children[1].Tag
+	application := uint8(packet.Children[1].Tag)
 	packet.Children[1].Description = ApplicationMap[application]
 
 	switch application {
@@ -279,19 +280,28 @@ func addControlDescriptions(packet *ber.Packet) {
 				if child.Tag == 0 {
 					//Warning
 					child := child.Children[0]
-					if child.Tag == 0 {
-						//timeBeforeExpiration
-						value.Description += " (TimeBeforeExpiration)"
-						child.Value = int64(ber.DecodeInteger(child.Data.Bytes()))
-					} else if child.Tag == 1 {
-						//graceAuthNsRemaining
-						value.Description += " (GraceAuthNsRemaining)"
-						child.Value = int64(ber.DecodeInteger(child.Data.Bytes()))
+					packet := ber.DecodePacket(child.Data.Bytes())
+					val, ok := packet.Value.(int64)
+					if ok {
+						if child.Tag == 0 {
+							//timeBeforeExpiration
+							value.Description += " (TimeBeforeExpiration)"
+							child.Value = val
+						} else if child.Tag == 1 {
+							//graceAuthNsRemaining
+							value.Description += " (GraceAuthNsRemaining)"
+							child.Value = val
+						}
 					}
 				} else if child.Tag == 1 {
 					// Error
+					packet := ber.DecodePacket(child.Data.Bytes())
+					val, ok := packet.Value.(int8)
+					if !ok {
+						val = -1
+					}
 					child.Description = "Error"
-					child.Value = int8(ber.DecodeInteger(child.Data.Bytes()))
+					child.Value = val
 				}
 			}
 		}
@@ -301,7 +311,7 @@ func addControlDescriptions(packet *ber.Packet) {
 func addRequestDescriptions(packet *ber.Packet) {
 	packet.Description = "LDAP Request"
 	packet.Children[0].Description = "Message ID"
-	packet.Children[1].Description = ApplicationMap[packet.Children[1].Tag]
+	packet.Children[1].Description = ApplicationMap[uint8(packet.Children[1].Tag)]
 	if len(packet.Children) == 3 {
 		addControlDescriptions(packet.Children[2])
 	}
@@ -325,7 +335,7 @@ func DebugBinaryFile(fileName string) error {
 	if err != nil {
 		return NewError(ErrorDebugging, err)
 	}
-	ber.PrintBytes(file, "")
+	ber.PrintBytes(os.Stdout, file, "")
 	packet := ber.DecodePacket(file)
 	addLDAPDescriptions(packet)
 	ber.PrintPacket(packet)

@@ -221,18 +221,28 @@ func DecodeControl(packet *ber.Packet) Control {
 			if child.Tag == 0 {
 				//Warning
 				child := child.Children[0]
-				if child.Tag == 0 {
-					//timeBeforeExpiration
-					c.Expire = int64(ber.DecodeInteger(child.Data.Bytes()))
-					child.Value = c.Expire
-				} else if child.Tag == 1 {
-					//graceAuthNsRemaining
-					c.Grace = int64(ber.DecodeInteger(child.Data.Bytes()))
-					child.Value = c.Grace
+				packet := ber.DecodePacket(child.Data.Bytes())
+				val, ok := packet.Value.(int64)
+				if ok {
+					if child.Tag == 0 {
+						//timeBeforeExpiration
+						c.Expire = val
+						child.Value = c.Expire
+					} else if child.Tag == 1 {
+						//graceAuthNsRemaining
+						c.Grace = val
+						child.Value = c.Grace
+					}
 				}
 			} else if child.Tag == 1 {
 				// Error
-				c.Error = int8(ber.DecodeInteger(child.Data.Bytes()))
+				packet := ber.DecodePacket(child.Data.Bytes())
+				val, ok := packet.Value.(int8)
+				if !ok {
+					// what to do?
+					val = -1
+				}
+				c.Error = val
 				child.Value = c.Error
 				c.ErrorString = BeheraPasswordPolicyErrorMap[c.Error]
 			}
