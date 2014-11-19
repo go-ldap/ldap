@@ -22,7 +22,7 @@ var (
 func main() {
 	l, err := ldap.DialTLS("tcp", fmt.Sprintf("%s:%d", LdapServer, LdapPort), nil)
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 	}
 	defer l.Close()
 	// l.Debug = true
@@ -36,7 +36,7 @@ func main() {
 
 	sr, err := l.Search(search)
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 		return
 	}
 

@@ -21,7 +21,7 @@ var (
 	Filter     string = "(cn=kirkj)"
 )
 
-func search(l *ldap.Conn, filter string, attributes []string) (*ldap.Entry, *ldap.Error) {
+func search(l *ldap.Conn, filter string, attributes []string) (*ldap.Entry, error) {
 	search := ldap.NewSearchRequest(
 		BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
@@ -31,7 +31,7 @@ func search(l *ldap.Conn, filter string, attributes []string) (*ldap.Entry, *lda
 
 	sr, err := l.Search(search)
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 		return nil, err
 	}
 
@@ -45,7 +45,7 @@ func search(l *ldap.Conn, filter string, attributes []string) (*ldap.Entry, *lda
 func main() {
 	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", LdapServer, LdapPort))
 	if err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 	}
 	defer l.Close()
 	// l.Debug = true
@@ -64,7 +64,7 @@ func main() {
 	modify.Add("description", []string{"Captain of the USS Enterprise"})
 	modify.Replace("mail", []string{"captain@enterprise.org"})
 	if err := l.Modify(modify); err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 	}
 
 	entry, err = search(l, Filter, []string{})
@@ -78,7 +78,7 @@ func main() {
 	modify.Delete("description", []string{})
 	modify.Replace("mail", []string{"james.kirk@enterprise.org"})
 	if err := l.Modify(modify); err != nil {
-		log.Fatalf("ERROR: %s\n", err.String())
+		log.Fatalf("ERROR: %s\n", err.Error())
 	}
 
 	entry, err = search(l, Filter, []string{})
