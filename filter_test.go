@@ -36,7 +36,7 @@ func TestFilter(t *testing.T) {
 		filter, err := CompileFilter(i.filterStr)
 		if err != nil {
 			t.Errorf("Problem compiling %s - %s", i.filterStr, err.Error())
-		} else if filter.Tag != uint8(i.filterType) {
+		} else if filter.Tag != ber.Tag(i.filterType) {
 			t.Errorf("%q Expected %q got %q", i.filterStr, FilterMap[uint64(i.filterType)], FilterMap[uint64(filter.Tag)])
 		} else {
 			o, err := DecompileFilter(filter)
