@@ -126,7 +126,7 @@ func DecompileFilter(packet *ber.Packet) (ret string, err error) {
 		ret += "<="
 		ret += ber.DecodeString(packet.Children[1].Data.Bytes())
 	case FilterPresent:
-		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
+		ret += ber.DecodeString(packet.Data.Bytes())
 		ret += "=*"
 	case FilterApproxMatch:
 		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
@@ -215,13 +215,12 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error parsing filter"))
 			return packet, newPos, err
 		}
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attribute, "Attribute"))
 
 		switch {
 		case packet.Tag == FilterEqualityMatch && condition == "*":
-			packet.Tag = FilterPresent
-			packet.Description = FilterMap[uint64(packet.Tag)]
+			packet = ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterPresent, attribute, FilterMap[FilterPresent])
 		case packet.Tag == FilterEqualityMatch && strings.Contains(condition, "*"):
+			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attribute, "Attribute"))
 			packet.Tag = FilterSubstrings
 			packet.Description = FilterMap[uint64(packet.Tag)]
 			seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
@@ -243,6 +242,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			}
 			packet.AppendChild(seq)
 		default:
+			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attribute, "Attribute"))
 			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, condition, "Condition"))
 		}
 
