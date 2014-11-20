@@ -10,6 +10,7 @@ var ldapPort = uint16(389)
 var baseDN = "dc=umich,dc=edu"
 var filter = []string{
 	"(cn=cis-fac)",
+	"(&(owner=*)(cn=cis-fac))",
 	"(&(objectclass=rfc822mailgroup)(cn=*Computer*))",
 	"(&(objectclass=rfc822mailgroup)(cn=*Mathematics*))"}
 var attributes = []string{
@@ -70,7 +71,7 @@ func TestSearchWithPaging(t *testing.T) {
 	searchRequest := NewSearchRequest(
 		baseDN,
 		ScopeWholeSubtree, DerefAlways, 0, 0, false,
-		filter[1],
+		filter[2],
 		attributes,
 		nil)
 	sr, err := l.SearchWithPaging(searchRequest, 5)
