@@ -32,10 +32,17 @@
  - Compare Requests / Responses
  - Implement Tests / Benchmarks
 
-## This feature is disabled at the moment, because in some cases the "Search Request Done" packet will be handled before the last "Search Request Entry":
+---
+This feature is disabled at the moment, because in some cases the "Search Request Done" packet will be handled before the last "Search Request Entry":
 
  - Mulitple internal goroutines to handle network traffic
         Makes library goroutine safe
         Can perform multiple search requests at the same time and return
         the results to the proper goroutine. All requests are blocking requests,
         so the goroutine does not need special handling
+
+---
+
+The Go gopher was designed by Renee French. (http://reneefrench.blogspot.com/)
+The design is licensed under the Creative Commons 3.0 Attributions license.
+Read this article for more details: http://blog.golang.org/gopher
