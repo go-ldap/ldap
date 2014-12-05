@@ -215,3 +215,12 @@ func TestMultiGoroutineSearch(t *testing.T) {
 	testMultiGoroutineSearch(t, true, true)
 	testMultiGoroutineSearch(t, false, true)
 }
+
+func TestEscapeFilter(t *testing.T) {
+	if got, want := EscapeFilter("a\x00b(c)d*e\\f"), `a\00b\28c\29d\2ae\5cf`; got != want {
+		t.Errorf("Got %s, expected %s", want, got)
+	}
+	if got, want := EscapeFilter("Lučić"), `Lu\c4\8di\c4\87`; got != want {
+		t.Errorf("Got %s, expected %s", want, got)
+	}
+}
