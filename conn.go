@@ -185,7 +185,6 @@ func (l *Conn) sendMessage(packet *ber.Packet) (chan *ber.Packet, error) {
 
 func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) (chan *ber.Packet, error) {
 	if l.isClosing {
-		l.messageMutex.Unlock()
 		return nil, NewError(ErrorNetwork, errors.New("ldap: connection closed"))
 	}
 	l.messageMutex.Lock()
@@ -196,6 +195,7 @@ func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) 
 	}
 	if flags&startTLS != 0 {
 		if l.outstandingRequests != 0 {
+			l.messageMutex.Unlock()
 			return nil, NewError(ErrorNetwork, errors.New("ldap: cannot StartTLS with outstanding requests"))
 		} else {
 			l.isStartingTLS = true
