@@ -321,7 +321,10 @@ func (l *Conn) reader() {
 		}
 		packet, err := ber.ReadPacket(l.conn)
 		if err != nil {
-			l.Debug.Printf("reader error: %s", err.Error())
+			// A read error is expected here if we are closing the connection...
+			if !l.isClosing {
+				l.Debug.Printf("reader error: %s", err.Error())
+			}
 			return
 		}
 		addLDAPDescriptions(packet)
