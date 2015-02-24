@@ -111,7 +111,6 @@ func (l *Conn) Close() {
 			log.Print(err)
 		}
 
-		l.conn = nil
 		l.wgClose.Done()
 	})
 	l.wgClose.Wait()
