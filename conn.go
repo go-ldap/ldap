@@ -246,6 +246,9 @@ func (l *Conn) sendProcessMessage(message *messagePacket) bool {
 
 func (l *Conn) processMessages() {
 	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("ldap: recovered panic in processMessages: %v", err)
+		}
 		for messageID, channel := range l.chanResults {
 			l.Debug.Printf("Closing channel for MessageID %d", messageID)
 			close(channel)
@@ -303,6 +306,9 @@ func (l *Conn) processMessages() {
 func (l *Conn) reader() {
 	cleanstop := false
 	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("ldap: recovered panic in reader: %v", err)
+		}
 		if !cleanstop {
 			l.Close()
 		}
