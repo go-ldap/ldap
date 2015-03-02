@@ -58,6 +58,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -143,6 +144,7 @@ func init() {
 }
 
 func CompileFilter(filter string) (*ber.Packet, error) {
+	filter = strings.TrimSpace(filter)
 	if len(filter) == 0 {
 		return nil, errors.New("ldap: Filter of zero length")
 	}
