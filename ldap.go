@@ -367,8 +367,6 @@ func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
 	return ErrorNetwork, "Invalid packet format"
 }
 
-var hex = "0123456789abcdef"
-
 func mustEscape(c byte) bool {
 	return c > 0x7f || c == '(' || c == ')' || c == '\\' || c == '*' || c == 0
 }
@@ -391,8 +389,8 @@ func EscapeFilter(filter string) string {
 		c := filter[i]
 		if mustEscape(c) {
 			buf[j+0] = '\\'
-			buf[j+1] = hex[c>>4]
-			buf[j+2] = hex[c&0xf]
+			buf[j+1] = fmt.Sprintf("%x", c>>4)[0]
+			buf[j+2] = fmt.Sprintf("%x", c&0xf)[0]
 			j += 3
 		} else {
 			buf[j] = c
