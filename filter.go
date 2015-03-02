@@ -126,7 +126,6 @@ var opRegex *regexp.Regexp
 var endRegex *regexp.Regexp
 var itemRegex *regexp.Regexp
 var unescapedWildCardRegex *regexp.Regexp
-var wildCardSearchRegex *regexp.Regexp
 var unescapeFilterRegex *regexp.Regexp
 var escapeFilterRegex *regexp.Regexp
 
@@ -138,7 +137,6 @@ func init() {
 	itemRegex = regexp.MustCompile(
 		`^\(\s*([-;.:\d\w]*[-;\d\w])\s*([:~<>]?=)((?:\\.|[^\\()]+)*)\)\s*`)
 	unescapedWildCardRegex = regexp.MustCompile(`^(\\.|[^\\*]+)*\*`)
-	wildCardSearchRegex = regexp.MustCompile(`^((\\.|[^\\*]+)*)\*`)
 	unescapeFilterRegex = regexp.MustCompile(`\\([\da-fA-F]{2}|[()\\*])`)
 	escapeFilterRegex = regexp.MustCompile(`([\\\(\)\*\0-\37\177-\377])`)
 }
@@ -272,56 +270,32 @@ SubstringFilter ::= SEQUENCE {
 */
 
 func encodeSubStringMatch(attr, value string) (*ber.Packet, error) {
-	p := ber.Encode(ber.ClassContext, ber.TypeConstructed,
-		FilterSubstrings, nil, FilterMap[FilterSubstrings])
-	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attr, "type"))
-	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "substrings")
+	// 	p := ber.Encode(ber.ClassContext, ber.TypeConstructed,
+	// 		FilterSubstrings, nil, FilterMap[FilterSubstrings])
+	// 	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attr, "type"))
+	// 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "substrings")
+	var p *ber.Packet
+	p = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
+	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attr, "Attribute"))
+	p.Tag = FilterSubstrings
+	p.Description = FilterMap[uint64(p.Tag)]
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
 
-	pos := 0
-
-	for {
-		matches := wildCardSearchRegex.FindStringSubmatch(value[pos:])
-		if FilterDebug {
-			fmt.Println(matches)
+	parts := strings.Split(value, "*")
+	for i, part := range parts {
+		if part == "" {
+			continue
 		}
-
-		// not match found return error
-
-		if matches == nil && pos == 0 {
-			if FilterDebug {
-				fmt.Println("Did not match filter")
-			}
-			return nil, errors.New("ldap: Did not match filter.")
+		var tag ber.Tag
+		switch i {
+		case 0:
+			tag = FilterSubstringsInitial
+		case len(parts) - 1:
+			tag = FilterSubstringsFinal
+		default:
+			tag = FilterSubstringsAny
 		}
-		// attr=*XXX
-		if len(matches) == 0 {
-			break
-		}
-		// initial
-		if pos == 0 && len(matches[1]) > 0 {
-			if FilterDebug {
-				fmt.Println("initial : " + matches[1])
-			}
-			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsInitial, UnescapeFilterValue(matches[1]), "initial"))
-		}
-		// past initial but not end
-		if pos > 0 && len(matches) > 1 && len(matches[1]) > 0 {
-			if FilterDebug {
-				fmt.Println("any : " + matches[1])
-			}
-			seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsAny, UnescapeFilterValue(matches[1]), "any"))
-		}
-
-		pos += len(matches[0])
-		if pos == len(value) {
-			break
-		}
-	}
-	if len(value[pos:]) > 0 {
-		if FilterDebug {
-			fmt.Println("final : " + value[pos:])
-		}
-		seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, FilterSubstringsFinal, UnescapeFilterValue(value[pos:]), "final"))
+		seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, tag, part, FilterSubstringsMap[uint64(tag)]))
 	}
 	p.AppendChild(seq)
 	if FilterDebug {
