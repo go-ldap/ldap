@@ -353,50 +353,51 @@ func encodeExtensibleMatch(attr, value string) (*ber.Packet, error) {
 func DecompileFilter(packet *ber.Packet) (ret string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.New("ldap: Error decompiling filter")
+			err = NewError(ErrorFilterDecompile, errors.New("ldap: error decompiling filter"))
 		}
 	}()
 	ret = "("
 	err = nil
-	child_str := ""
+	childStr := ""
 
 	switch packet.Tag {
 	case FilterAnd:
 		ret += "&"
 		for _, child := range packet.Children {
-			child_str, err = DecompileFilter(child)
+			childStr, err = DecompileFilter(child)
 			if err != nil {
 				return
 			}
-			ret += child_str
+			ret += childStr
 		}
 	case FilterOr:
 		ret += "|"
 		for _, child := range packet.Children {
-			child_str, err = DecompileFilter(child)
+			childStr, err = DecompileFilter(child)
 			if err != nil {
 				return
 			}
-			ret += child_str
+			ret += childStr
 		}
 	case FilterNot:
 		ret += "!"
-		child_str, err = DecompileFilter(packet.Children[0])
+		childStr, err = DecompileFilter(packet.Children[0])
 		if err != nil {
 			return
 		}
-		ret += child_str
+		ret += childStr
 
 	case FilterSubstrings:
 		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
 		ret += "="
-		switch packet.Children[1].Children[0].Tag {
-		case FilterSubstringsInitial:
-			ret += ber.DecodeString(packet.Children[1].Children[0].Data.Bytes()) + "*"
-		case FilterSubstringsAny:
-			ret += "*" + ber.DecodeString(packet.Children[1].Children[0].Data.Bytes()) + "*"
-		case FilterSubstringsFinal:
-			ret += "*" + ber.DecodeString(packet.Children[1].Children[0].Data.Bytes())
+		for i, child := range packet.Children[1].Children {
+			if i == 0 && child.Tag != FilterSubstringsInitial {
+				ret += "*"
+			}
+			ret += ber.DecodeString(child.Data.Bytes())
+			if child.Tag != FilterSubstringsFinal {
+				ret += "*"
+			}
 		}
 	case FilterEqualityMatch:
 		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
@@ -417,14 +418,11 @@ func DecompileFilter(packet *ber.Packet) (ret string, err error) {
 		ret += ber.DecodeString(packet.Children[0].Data.Bytes())
 		ret += "~="
 		ret += ber.DecodeString(packet.Children[1].Data.Bytes())
-	case FilterExtensibleMatch:
-		// TODO
 	}
 
 	ret += ")"
 	return
 }
-
 func UnescapeFilterValue(filter string) string {
 	// regex wil only match \[)*\] or \xx x=a-fA-F
 	repl := unescapeFilterRegex.ReplaceAllFunc(
