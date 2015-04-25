@@ -60,8 +60,8 @@ func Dial(network, addr string) (*Conn, error) {
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
-	conn := NewConn(c)
-	conn.start()
+	conn := NewConn(c, false)
+	conn.Start()
 	return conn, nil
 }
 
@@ -72,24 +72,24 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
-	conn := NewConn(c)
-	conn.isTLS = true
-	conn.start()
+	conn := NewConn(c, true)
+	conn.Start()
 	return conn, nil
 }
 
 // NewConn returns a new Conn using conn for network I/O.
-func NewConn(conn net.Conn) *Conn {
+func NewConn(conn net.Conn, isTLS bool) *Conn {
 	return &Conn{
 		conn:          conn,
 		chanConfirm:   make(chan bool),
 		chanMessageID: make(chan int64),
 		chanMessage:   make(chan *messagePacket, 10),
 		chanResults:   map[int64]chan *ber.Packet{},
+		isTLS:         isTLS,
 	}
 }
 
-func (l *Conn) start() {
+func (l *Conn) Start() {
 	go l.reader()
 	go l.processMessages()
 	l.wgClose.Add(1)
