@@ -7,13 +7,13 @@ package ldap
 import (
 	"crypto/tls"
 	"errors"
+	"flag"
 	"fmt"
+	"gopkg.in/asn1-ber.v1"
 	"log"
 	"net"
 	"sync"
 	"time"
-	"gopkg.in/asn1-ber.v1"
-	"flag"
 )
 
 const (
@@ -56,9 +56,15 @@ type Conn struct {
 
 var ldapTimeout time.Duration
 
-func init(){
-	flag.DurationVar(&ldapTimeout, "ldapConnectionTimeout", 60 * time.Second, "Default connection timeout for ldap")
+func init() {
+	var timeoutVar string
+	flag.StringVar(&timeoutVar, "ldapConnectionTimeout", "60s", "Default connection timeout for ldap")
 	flag.Parse()
+	timeout, err := time.ParseDuration(timeoutVar)
+	if err != nil {
+		ldapTimeout = 60 * time.Second
+	}
+	ldapTimeout = timeout
 }
 
 // Dial connects to the given address on the given network using net.Dial
@@ -77,13 +83,13 @@ func Dial(network, addr string) (*Conn, error) {
 // and then returns a new Conn for the connection.
 func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	dc, err := net.DialTimeout(network, addr, ldapTimeout)
-	if err != nil{
-		return nil, err
+	if err != nil {
+		return nil, NewError(ErrorNetwork, err)
 	}
 	c := tls.Client(dc, config)
 	err = c.Handshake()
-	if err != nil{
-		return nil, err
+	if err != nil {
+		return nil, NewError(ErrorNetwork, err)
 	}
 	conn := NewConn(c, true)
 	conn.Start()
