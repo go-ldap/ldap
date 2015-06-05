@@ -7,12 +7,13 @@ package ldap
 import (
 	"crypto/tls"
 	"errors"
+	"flag"
 	"fmt"
+	"gopkg.in/asn1-ber.v1"
 	"log"
 	"net"
 	"sync"
-
-	"gopkg.in/asn1-ber.v1"
+	"time"
 )
 
 const (
@@ -53,10 +54,23 @@ type Conn struct {
 	messageMutex        sync.Mutex
 }
 
+var ldapTimeout time.Duration
+
+func init() {
+	var timeoutVar string
+	flag.StringVar(&timeoutVar, "ldapConnectionTimeout", "60s", "Default connection timeout for ldap")
+	flag.Parse()
+	timeout, err := time.ParseDuration(timeoutVar)
+	if err != nil {
+		ldapTimeout = 60 * time.Second
+	}
+	ldapTimeout = timeout
+}
+
 // Dial connects to the given address on the given network using net.Dial
 // and then returns a new Conn for the connection.
 func Dial(network, addr string) (*Conn, error) {
-	c, err := net.Dial(network, addr)
+	c, err := net.DialTimeout(network, addr, ldapTimeout)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
@@ -68,7 +82,12 @@ func Dial(network, addr string) (*Conn, error) {
 // DialTLS connects to the given address on the given network using tls.Dial
 // and then returns a new Conn for the connection.
 func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
-	c, err := tls.Dial(network, addr, config)
+	dc, err := net.DialTimeout(network, addr, ldapTimeout)
+	if err != nil {
+		return nil, NewError(ErrorNetwork, err)
+	}
+	c := tls.Client(dc, config)
+	err = c.Handshake()
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
