@@ -63,8 +63,10 @@ func init() {
 	timeout, err := time.ParseDuration(timeoutVar)
 	if err != nil {
 		ldapTimeout = 60 * time.Second
+		return
 	}
 	ldapTimeout = timeout
+	return
 }
 
 // Dial connects to the given address on the given network using net.Dial
