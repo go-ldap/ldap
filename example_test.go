@@ -1,11 +1,11 @@
-package ldap
+package ldap_test
 
 import (
 	"crypto/tls"
 	"fmt"
 	"log"
 
-	"gopkg.in/ldap.v1"
+	"github.com/go-ldap/ldap"
 )
 
 // ExampleConn_Bind demonstrats how to bind a connection to an ldap user
