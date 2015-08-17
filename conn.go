@@ -186,6 +186,10 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 
 		l.isTLS = true
 		l.conn = conn
+	} else {
+		return NewError(
+			uint8(packet.Children[1].Children[0].Value.(int64)),
+			fmt.Errorf("ldap: cannot StartTLS (%s)", packet.Children[1].Children[2].Value.(string)))
 	}
 	go l.reader()
 
