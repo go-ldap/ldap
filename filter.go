@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -189,25 +190,52 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	default:
 		attribute := ""
 		condition := ""
-		for newPos < len(filter) && filter[newPos] != ')' {
+		xfilter   := filter
+		xckl      := 0
+		xsize     := 0
+//		fmt.Printf("X1: %v / %v / %d /bytes x: %d /bytes f: %d/rune: %d\n", xfilter, filter, newPos, len(xfilter), len(filter), utf8.RuneCountInString(xfilter))
+		for {
+			xckl += xsize
+			if xckl>newPos-xsize {
+				break
+			}
+			_, xsize = utf8.DecodeRuneInString(xfilter)
+			xfilter  = xfilter[xsize:len(xfilter)]
+		}
+//		fmt.Printf("X2: %v / %v / %d /bytes x: %d /bytes f: %d/rune: %d\n", xfilter, filter, newPos, len(xfilter), len(filter), utf8.RuneCountInString(xfilter))
+		xsymbol, _     := utf8.DecodeRuneInString("")
+		xstop, _       := utf8.DecodeRuneInString(")")
+		xpar, _        := utf8.DecodeRuneInString("=")
+		xpar_more, _   := utf8.DecodeRuneInString(">")
+		xpar_less, _   := utf8.DecodeRuneInString("<")
+		xpar_tld, _    := utf8.DecodeRuneInString("~")
+		xsymbol, xsize  = utf8.DecodeRuneInString(xfilter)
+		xfilter         = xfilter[xsize:len(xfilter)]
+		xsymbol2, _    := utf8.DecodeRuneInString(xfilter)
+		for len(xfilter)>0 && xsymbol != xstop {
+//			fmt.Printf("X3: %c,%c\n", xsymbol, xsymbol2)
 			switch {
 			case packet != nil:
-				condition += fmt.Sprintf("%c", filter[newPos])
-			case filter[newPos] == '=':
+				condition += fmt.Sprintf("%c", xsymbol)
+//				fmt.Printf("X4:%c -> %s\n", xsymbol, condition)
+			case xsymbol == xpar:
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
-			case filter[newPos] == '>' && filter[newPos+1] == '=':
+			case xsymbol == xpar_more	&& xsymbol2 == xpar:
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
 				newPos++
-			case filter[newPos] == '<' && filter[newPos+1] == '=':
+			case xsymbol == xpar_less	&& xsymbol2 == xpar:
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
 				newPos++
-			case filter[newPos] == '~' && filter[newPos+1] == '=':
+			case xsymbol == xpar_tld	&& xsymbol2 == xpar:
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
 				newPos++
 			case packet == nil:
-				attribute += fmt.Sprintf("%c", filter[newPos])
+				attribute += fmt.Sprintf("%c", xsymbol)
 			}
-			newPos++
+			xsymbol, xsize = utf8.DecodeRuneInString(xfilter)
+			xfilter        = xfilter[xsize:len(xfilter)]
+			xsymbol2, _    = utf8.DecodeRuneInString(xfilter)
+			newPos        += xsize
 		}
 		if newPos == len(filter) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
