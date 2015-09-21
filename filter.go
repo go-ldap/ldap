@@ -167,6 +167,12 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		}
 	}()
 
+	xstop     , _ := utf8.DecodeRuneInString(")")
+	xpar      , _ := utf8.DecodeRuneInString("=")
+	xpar_more , _ := utf8.DecodeRuneInString(">")
+	xpar_less , _ := utf8.DecodeRuneInString("<")
+	xpar_tld  , _ := utf8.DecodeRuneInString("~")
+
 	newPos := pos
 	switch filter[pos] {
 	case '(':
@@ -190,12 +196,13 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	default:
 		attribute := ""
 		condition := ""
+
 		xfilter   := filter
 		xckl      := 0
 		xsize     := 0
 //		fmt.Printf("X1: %v / %v / %d /bytes x: %d /bytes f: %d/rune: %d\n", xfilter, filter, newPos, len(xfilter), len(filter), utf8.RuneCountInString(xfilter))
 		for {
-			xckl += xsize
+			xckl    += xsize
 			if xckl>newPos-xsize {
 				break
 			}
@@ -203,15 +210,9 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			xfilter  = xfilter[xsize:len(xfilter)]
 		}
 //		fmt.Printf("X2: %v / %v / %d /bytes x: %d /bytes f: %d/rune: %d\n", xfilter, filter, newPos, len(xfilter), len(filter), utf8.RuneCountInString(xfilter))
-		xsymbol, _     := utf8.DecodeRuneInString("")
-		xstop, _       := utf8.DecodeRuneInString(")")
-		xpar, _        := utf8.DecodeRuneInString("=")
-		xpar_more, _   := utf8.DecodeRuneInString(">")
-		xpar_less, _   := utf8.DecodeRuneInString("<")
-		xpar_tld, _    := utf8.DecodeRuneInString("~")
-		xsymbol, xsize  = utf8.DecodeRuneInString(xfilter)
-		xfilter         = xfilter[xsize:len(xfilter)]
-		xsymbol2, _    := utf8.DecodeRuneInString(xfilter)
+		xsymbol  , xsize := utf8.DecodeRuneInString(xfilter)
+		xfilter           = xfilter[xsize:len(xfilter)]
+		xsymbol2 , _     := utf8.DecodeRuneInString(xfilter)
 		for len(xfilter)>0 && xsymbol != xstop {
 //			fmt.Printf("X3: %c,%c\n", xsymbol, xsymbol2)
 			switch {
@@ -232,11 +233,14 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			case packet == nil:
 				attribute += fmt.Sprintf("%c", xsymbol)
 			}
-			xsymbol, xsize = utf8.DecodeRuneInString(xfilter)
-			xfilter        = xfilter[xsize:len(xfilter)]
-			xsymbol2, _    = utf8.DecodeRuneInString(xfilter)
-			newPos        += xsize
+			xsymbol  , xsize = utf8.DecodeRuneInString(xfilter)
+			xfilter          = xfilter[xsize:len(xfilter)]
+			xsymbol2 , _     = utf8.DecodeRuneInString(xfilter)
+			newPos          += xsize
 		}
+
+
+
 		if newPos == len(filter) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
 			return packet, newPos, err
