@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -157,57 +158,107 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
 }
 
 func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
-	var packet *ber.Packet
-	var err error
+	var (
+		packet *ber.Packet
+		err    error
+	)
 
 	defer func() {
 		if r := recover(); r != nil {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error compiling filter"))
 		}
 	}()
-
 	newPos := pos
-	switch filter[pos] {
+
+	currentRune, currentWidth := utf8.DecodeRuneInString(filter[newPos:])
+
+	switch currentRune {
+	case utf8.RuneError:
+<<<<<<< HEAD
+<<<<<<< HEAD
+		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+=======
+		return nil, 0, errors.New("ldap: error reading rune")
+>>>>>>> de069a8... Add rune tests, simplify rune loop
+=======
+		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+>>>>>>> a3d524a... Add tests for unclosed filter, make error type consistent
 	case '(':
-		packet, newPos, err = compileFilter(filter, pos+1)
+		packet, newPos, err = compileFilter(filter, pos+currentWidth)
 		newPos++
 		return packet, newPos, err
 	case '&':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterAnd, nil, FilterMap[FilterAnd])
-		newPos, err = compileFilterSet(filter, pos+1, packet)
+		newPos, err = compileFilterSet(filter, pos+currentWidth, packet)
 		return packet, newPos, err
 	case '|':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterOr, nil, FilterMap[FilterOr])
-		newPos, err = compileFilterSet(filter, pos+1, packet)
+		newPos, err = compileFilterSet(filter, pos+currentWidth, packet)
 		return packet, newPos, err
 	case '!':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterNot, nil, FilterMap[FilterNot])
 		var child *ber.Packet
-		child, newPos, err = compileFilter(filter, pos+1)
+		child, newPos, err = compileFilter(filter, pos+currentWidth)
 		packet.AppendChild(child)
 		return packet, newPos, err
 	default:
 		attribute := ""
 		condition := ""
-		for newPos < len(filter) && filter[newPos] != ')' {
+<<<<<<< HEAD
+<<<<<<< HEAD
+		for newPos < len(filter) {
+			currentRune, currentWidth = utf8.DecodeRuneInString(filter[newPos:])
+			if currentRune == ')' {
+=======
+		xfilter   := filter
+		for {
+			xckl += xsize
+			if xckl>newPos-xsize {
+>>>>>>> 19b410f... UTF8-Patch V3 2015.09.23.09.20.00
+				break
+			}
+			if currentRune == utf8.RuneError {
+				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+			}
+
+			nextRune, nextWidth := utf8.DecodeRuneInString(filter[newPos+currentWidth:])
+=======
+		for newPos < len(filter) {
+			currentRune, currentWidth = utf8.DecodeRuneInString(filter[newPos:])
+			if currentRune == ')' {
+				break
+			}
+			if currentRune == utf8.RuneError {
+				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+			}
+
+			nextRune, nextWidth := utf8.DecodeRuneInString(filter[newPos+currentWidth:])
+<<<<<<< HEAD
+			if nextRune == utf8.RuneError {
+				return nil, 0, errors.New("ldap: error reading rune")
+			}
+>>>>>>> de069a8... Add rune tests, simplify rune loop
+=======
+>>>>>>> a3d524a... Add tests for unclosed filter, make error type consistent
+
 			switch {
 			case packet != nil:
-				condition += fmt.Sprintf("%c", filter[newPos])
-			case filter[newPos] == '=':
+				condition += fmt.Sprintf("%c", currentRune)
+			case currentRune == '=':
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
-			case filter[newPos] == '>' && filter[newPos+1] == '=':
+			case currentRune == '>' && nextRune == '=':
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
-				newPos++
-			case filter[newPos] == '<' && filter[newPos+1] == '=':
+				newPos += nextWidth // we're skipping the next character as well
+			case currentRune == '<' && nextRune == '=':
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
-				newPos++
-			case filter[newPos] == '~' && filter[newPos+1] == '=':
+				newPos += nextWidth // we're skipping the next character as well
+			case currentRune == '~' && nextRune == '=':
 				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
-				newPos++
+				newPos += nextWidth // we're skipping the next character as well
 			case packet == nil:
-				attribute += fmt.Sprintf("%c", filter[newPos])
+				attribute += fmt.Sprintf("%c", currentRune)
 			}
-			newPos++
+			newPos += currentWidth
 		}
 		if newPos == len(filter) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
@@ -255,7 +306,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 						err = NewError(ErrorFilterCompile, errors.New("ldap: missing characters for escape in filter"))
 						return packet, newPos, err
 					}
-					if escByte, decodeErr := hexpac.DecodeString(condition[i+1:i+3]); decodeErr != nil {
+					if escByte, decodeErr := hexpac.DecodeString(condition[i+1 : i+3]); decodeErr != nil {
 						err = NewError(ErrorFilterCompile, errors.New("ldap: invalid characters for escape in filter"))
 						return packet, newPos, err
 					} else {
@@ -271,7 +322,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, buffer.String(), "Condition"))
 		}
 
-		newPos++
+		newPos += currentWidth
 		return packet, newPos, err
 	}
 }
