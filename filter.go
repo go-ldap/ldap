@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -50,6 +51,13 @@ var FilterSubstringsMap = map[uint64]string{
 	FilterSubstringsInitial: "Substrings Initial",
 	FilterSubstringsAny:     "Substrings Any",
 	FilterSubstringsFinal:   "Substrings Final",
+}
+
+func getTwoRune(filter string) (rune, rune, string, int) {
+	sym1, sz := utf8.DecodeRuneInString(filter)
+	filter    = filter[sz:len(filter)]
+	sym2, _  := utf8.DecodeRuneInString(filter)
+	return sym1, sym2, filter, sz
 }
 
 func CompileFilter(filter string) (*ber.Packet, error) {
@@ -157,15 +165,18 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
 }
 
 func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
-	var packet *ber.Packet
-	var err error
+	var (
+		packet	*ber.Packet
+		err	error
+		xckl	int
+		xsize	int
+	)
 
 	defer func() {
 		if r := recover(); r != nil {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error compiling filter"))
 		}
 	}()
-
 	newPos := pos
 	switch filter[pos] {
 	case '(':
@@ -189,25 +200,38 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	default:
 		attribute := ""
 		condition := ""
-		for newPos < len(filter) && filter[newPos] != ')' {
-			switch {
-			case packet != nil:
-				condition += fmt.Sprintf("%c", filter[newPos])
-			case filter[newPos] == '=':
-				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
-			case filter[newPos] == '>' && filter[newPos+1] == '=':
-				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
-				newPos++
-			case filter[newPos] == '<' && filter[newPos+1] == '=':
-				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
-				newPos++
-			case filter[newPos] == '~' && filter[newPos+1] == '=':
-				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
-				newPos++
-			case packet == nil:
-				attribute += fmt.Sprintf("%c", filter[newPos])
+		xfilter   := filter
+		for {
+			xckl += xsize
+			if xckl>newPos-xsize {
+				break
 			}
-			newPos++
+			_,_,xfilter,xsize = getTwoRune(xfilter)
+		}
+		xsymbol,xsymbol2,xfilter,xsize := getTwoRune(xfilter)
+		for len(xfilter)>0 && xsymbol != rune(')') {
+			switch {
+			case xsymbol == rune('='):
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
+			case xsymbol == rune('>') && xsymbol2 == rune('='):
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterGreaterOrEqual, nil, FilterMap[FilterGreaterOrEqual])
+				newPos += xsize
+				xsymbol,xsymbol2,xfilter,xsize = getTwoRune(xfilter)
+			case xsymbol == rune('<') && xsymbol2 == rune('='):
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterLessOrEqual, nil, FilterMap[FilterLessOrEqual])
+				newPos += xsize
+				xsymbol,xsymbol2,xfilter,xsize = getTwoRune(xfilter)
+			case xsymbol == rune('~') && xsymbol2 == rune('='):
+				packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterApproxMatch, nil, FilterMap[FilterLessOrEqual])
+				newPos += xsize
+				xsymbol,xsymbol2,xfilter,xsize = getTwoRune(xfilter)
+			case packet != nil:
+				condition += fmt.Sprintf("%c", xsymbol)
+			case packet == nil:
+				attribute += fmt.Sprintf("%c", xsymbol)
+			}
+			xsymbol,xsymbol2,xfilter,xsize = getTwoRune(xfilter)
+			newPos += xsize
 		}
 		if newPos == len(filter) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
