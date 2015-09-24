@@ -1,8 +1,9 @@
-[![GoDoc](https://godoc.org/gopkg.in/ldap.v1?status.svg)](https://godoc.org/gopkg.in/ldap.v1) [![Build Status](https://travis-ci.org/go-ldap/ldap.svg)](https://travis-ci.org/go-ldap/ldap)
+[![GoDoc](https://godoc.org/gopkg.in/ldap.v1?status.svg)](https://godoc.org/gopkg.in/ldap.v1)
+[![Build Status](https://travis-ci.org/go-ldap/ldap.svg)](https://travis-ci.org/go-ldap/ldap)
 
 # Basic LDAP v3 functionality for the GO programming language.
 
-## Required Librarys: 
+## Required Libraries:
 
  - gopkg.in/asn1-ber.v1
 
@@ -14,6 +15,8 @@
  - Compiling string filters to LDAP filters
  - Paging Search Results
  - Modify Requests / Responses
+ - Add Requests / Responses
+ - Delete Requests / Responses
 
 ## Examples:
 
@@ -26,11 +29,11 @@
 
 ## TODO:
 
- - Add Requests / Responses
- - Delete Requests / Responses
- - Modify DN Requests / Responses
- - Compare Requests / Responses
- - Implement Tests / Benchmarks
+ [x] Add Requests / Responses
+ [x] Delete Requests / Responses
+ [x] Modify DN Requests / Responses
+ [ ] Compare Requests / Responses
+ [ ] Implement Tests / Benchmarks
 
 ---
 This feature is disabled at the moment, because in some cases the "Search Request Done" packet will be handled before the last "Search Request Entry":
