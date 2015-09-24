@@ -7,11 +7,11 @@
 
 For the latest version use:
 
-  go get gopkg.in/ldap.v2
+    go get gopkg.in/ldap.v2
 
 Import the latest version with:
 
-  import gopkg.in/ldap.v2
+    import "gopkg.in/ldap.v2"
 
 
 ## Required Libraries:
@@ -28,6 +28,7 @@ Import the latest version with:
  - Modify Requests / Responses
  - Add Requests / Responses
  - Delete Requests / Responses
+ - Better Unicode support
 
 ## Examples:
 
