@@ -29,16 +29,16 @@
 
 ## TODO:
 
- [x] Add Requests / Responses
- [x] Delete Requests / Responses
- [x] Modify DN Requests / Responses
- [ ] Compare Requests / Responses
- [ ] Implement Tests / Benchmarks
+ - [x] Add Requests / Responses
+ - [x] Delete Requests / Responses
+ - [x] Modify DN Requests / Responses
+ - [ ] Compare Requests / Responses
+ - [ ] Implement Tests / Benchmarks
 
 ---
 This feature is disabled at the moment, because in some cases the "Search Request Done" packet will be handled before the last "Search Request Entry":
 
- - Mulitple internal goroutines to handle network traffic
+ - Multiple internal goroutines to handle network traffic
         Makes library goroutine safe
         Can perform multiple search requests at the same time and return
         the results to the proper goroutine. All requests are blocking requests,
