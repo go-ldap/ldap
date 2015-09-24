@@ -3,6 +3,17 @@
 
 # Basic LDAP v3 functionality for the GO programming language.
 
+## Install
+
+For the latest version use:
+
+  go get gopkg.in/ldap.v2
+
+Import the latest version with:
+
+  import gopkg.in/ldap.v2
+
+
 ## Required Libraries:
 
  - gopkg.in/asn1-ber.v1
