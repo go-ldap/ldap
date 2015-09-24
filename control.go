@@ -168,7 +168,7 @@ func (c *ControlVChuPasswordWarning) String() string {
 }
 
 type ControlManageDsaIT struct {
-	Criticality  bool
+	Criticality bool
 }
 
 func (c *ControlManageDsaIT) GetControlType() string {
