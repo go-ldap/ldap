@@ -245,5 +245,5 @@ func TestCompare(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("TestCompare: -> num of entries = %d\n", sr)
+	fmt.Printf("TestCompare: -> %v\n", sr)
 }
