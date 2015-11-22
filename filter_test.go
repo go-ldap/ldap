@@ -62,6 +62,18 @@ var testFilters = []compileTest{
 		expectedFilter: "(sn=Mi*l*r)",
 		expectedType:   ldap.FilterSubstrings,
 	},
+	// substring filters escape properly
+	compileTest{
+		filterStr:      `(sn=Mi*함*r)`,
+		expectedFilter: `(sn=Mi*\c3\ad\c2\95\c2\a8*r)`,
+		expectedType:   ldap.FilterSubstrings,
+	},
+	// already escaped substring filters don't get double-escaped
+	compileTest{
+		filterStr:      `(sn=Mi*\c3\ad\c2\95\c2\a8*r)`,
+		expectedFilter: `(sn=Mi*\c3\ad\c2\95\c2\a8*r)`,
+		expectedType:   ldap.FilterSubstrings,
+	},
 	compileTest{
 		filterStr:      "(sn=Mi*le*)",
 		expectedFilter: "(sn=Mi*le*)",
@@ -124,6 +136,48 @@ var testFilters = []compileTest{
 		expectedFilter: `(&(objectclass=inetorgperson)(cn=\c3\a4\c2\b8\c2\ad\c3\a6\c2\96\c2\87))`,
 		expectedType:   0,
 	},
+	// attr extension
+	compileTest{
+		filterStr:      `(memberOf:=foo)`,
+		expectedFilter: `(memberOf:=foo)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	// attr+named matching rule extension
+	compileTest{
+		filterStr:      `(memberOf:test:=foo)`,
+		expectedFilter: `(memberOf:test:=foo)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	// attr+oid matching rule extension
+	compileTest{
+		filterStr:      `(cn:1.2.3.4.5:=Fred Flintstone)`,
+		expectedFilter: `(cn:1.2.3.4.5:=Fred Flintstone)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	// attr+dn+oid matching rule extension
+	compileTest{
+		filterStr:      `(sn:dn:2.4.6.8.10:=Barney Rubble)`,
+		expectedFilter: `(sn:dn:2.4.6.8.10:=Barney Rubble)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	// attr+dn extension
+	compileTest{
+		filterStr:      `(o:dn:=Ace Industry)`,
+		expectedFilter: `(o:dn:=Ace Industry)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	// dn extension
+	compileTest{
+		filterStr:      `(:dn:2.4.6.8.10:=Dino)`,
+		expectedFilter: `(:dn:2.4.6.8.10:=Dino)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	compileTest{
+		filterStr:      `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
+		expectedFilter: `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+
 	// compileTest{ filterStr: "()", filterType: FilterExtensibleMatch },
 }
 
