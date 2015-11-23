@@ -425,9 +425,15 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport
 func escapedStringToEncodedBytes(escapedString string) (string, error) {
 	var buffer bytes.Buffer
-	for i := 0; i < len(escapedString); i++ {
+	i := 0
+	for i < len(escapedString) {
+		currentRune, currentWidth := utf8.DecodeRuneInString(escapedString[i:])
+		if currentRune == utf8.RuneError {
+			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", i))
+		}
+
 		// Check for escaped hex characters and convert them to their literal value for transport.
-		if escapedString[i] == '\\' {
+		if currentRune == '\\' {
 			// http://tools.ietf.org/search/rfc4515
 			// \ (%x5C) is not a valid character unless it is followed by two HEX characters due to not
 			// being a member of UTF1SUBSET.
@@ -441,9 +447,10 @@ func escapedStringToEncodedBytes(escapedString string) (string, error) {
 				i += 2 // +1 from end of loop, so 3 total for \xx.
 			}
 		} else {
-			buffer.WriteString(string(escapedString[i]))
+			buffer.WriteRune(currentRune)
 		}
-	}
 
+		i += currentWidth
+	}
 	return buffer.String(), nil
 }
