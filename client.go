@@ -7,6 +7,7 @@ type Client interface {
 	Start()
 	StartTLS(config *tls.Config) error
 	Close()
+	Alive() bool
 
 	Bind(username, password string) error
 	SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResult, error)
