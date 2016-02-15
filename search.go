@@ -268,6 +268,17 @@ func NewSearchRequest(
 	}
 }
 
+// SearchAllowingPaging accepts a search request and if the request contains a paging control, a paged
+// search is done. If no paging control is present, a normal search is executed
+func (l *Conn) SearchAllowingPaging(searchRequest *SearchRequest) (*SearchResult, error) {
+	pagingControl := FindControl(searchRequest.Controls, ControlTypePaging)
+	if pagingControl != nil {
+		return l.searchWithPaging(searchRequest)
+	} else {
+		return l.Search(searchRequest)
+	}
+}
+
 func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error) {
 	if searchRequest.Controls == nil {
 		searchRequest.Controls = make([]Control, 0)
@@ -275,6 +286,11 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 
 	pagingControl := NewControlPaging(pagingSize)
 	searchRequest.Controls = append(searchRequest.Controls, pagingControl)
+	return l.searchWithPaging(searchRequest)
+}
+
+func (l *Conn) searchWithPaging(searchRequest *SearchRequest) (*SearchResult, error) {
+	pagingControl := FindControl(searchRequest.Controls, ControlTypePaging).(*ControlPaging)
 	searchResult := new(SearchResult)
 	for {
 		result, err := l.Search(searchRequest)
