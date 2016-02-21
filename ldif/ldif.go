@@ -23,7 +23,7 @@ import (
 
 // One Entry in the LDIF, currently only the Entry is present
 type Entry struct {
-	Entry  *ldap.Entry // an Entry, for changerequests, only the DN field is present
+	Entry  *ldap.Entry
 	Add    *ldap.AddRequest
 	Del    *ldap.DelRequest
 	Modify *ldap.ModifyRequest
@@ -35,6 +35,7 @@ type LDIF struct {
 	Entries    []*Entry
 	Version    int
 	changeType string
+	FoldWidth  int
 }
 
 type LDIFParseError struct {
