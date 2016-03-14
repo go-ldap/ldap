@@ -41,8 +41,6 @@ func (m ModifyDNRequest) encode() *ber.Packet {
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, m.NewRDN, "New RDN"))
 	request.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, m.DeleteOldRDN, "Delete old RDN"))
 	if m.NewSuperior != "" {
-		// FIXME: do we need ber.TagEOC here or the context number? (in this case both are 0) ... and this
-		// moves the DN to the new base on OpenLDAP ;-)
 		request.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, m.NewSuperior, "New Superior"))
 	}
 	return request

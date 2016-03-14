@@ -29,6 +29,7 @@ Import the latest version with:
  - Add Requests / Responses
  - Delete Requests / Responses
  - Better Unicode support
+ - Modify DN Requests / Responses
 
 ## Examples:
 
@@ -43,7 +44,7 @@ Import the latest version with:
 
  - [x] Add Requests / Responses
  - [x] Delete Requests / Responses
- - [x] Modify DN Requests / Responses
+ - [ ] Modify DN Requests / Responses
  - [ ] Compare Requests / Responses
  - [ ] Implement Tests / Benchmarks
 
