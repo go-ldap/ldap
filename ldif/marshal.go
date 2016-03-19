@@ -15,7 +15,7 @@ func Marshal(l *LDIF) (data string, err error) {
 	data = "version: 1\n"
 	hasEntry := false
 	hasChange := false
-	fw: = foldWidth
+	fw := foldWidth
 	if l.FoldWidth != 0 {
 		fw = l.FoldWidth
 	}
@@ -27,94 +27,87 @@ func Marshal(l *LDIF) (data string, err error) {
 			if hasEntry {
 				return "", ErrMixed
 			}
-			return "", errors.New("changetype 'add' not supported")
-			/*
-				data += foldLine("dn: " + e.Add.DN, fw) + "\n"
-				data += "changetype: add\n"
-				for _, add := range e.Add.Attributes {
-					if len(add.AttrVals) == 0 {
-						return "", errors.New("changetype 'add' requires non empty value list")
-					}
-					for _, v := range add.AttrVals {
-						ev, t := encodeValue(v)
-						col := ": "
-						if t {
-							col = ":: "
-						}
-						data += foldLine(add.AttrType+col+ev, fw) + "\n"
-					}
-					data += "-\n"
+			data += foldLine("dn: "+e.Add.DN, fw) + "\n"
+			data += "changetype: add\n"
+			for _, add := range e.Add.Attributes {
+				if len(add.AttrVals) == 0 {
+					return "", errors.New("changetype 'add' requires non empty value list")
 				}
-			*/
+				for _, v := range add.AttrVals {
+					ev, t := encodeValue(v)
+					col := ": "
+					if t {
+						col = ":: "
+					}
+					data += foldLine(add.AttrType+col+ev, fw) + "\n"
+				}
+				data += "-\n"
+			}
+
 		case e.Del != nil:
 			hasChange = true
 			if hasEntry {
 				return "", ErrMixed
 			}
-			return "", errors.New("changetype 'delete' not supported")
-			/*
-				data += foldLine("dn: " + e.Del.DN, fw) + "\n"
-				data += "changetype: delete\n-\n"
-			*/
+			data += foldLine("dn: "+e.Del.DN, fw) + "\n"
+			data += "changetype: delete\n-\n"
 		case e.Modify != nil:
 			hasChange = true
 			if hasEntry {
 				return "", ErrMixed
 			}
-			return "", errors.New("changetype 'modify' not supported")
-			/*
-				data += foldLine("dn: " + e.Modify.DN, fw) + "\n"
-				data += "changetype: modify\n"
-				for _, mod := range e.Modify.AddAttributes {
-					if len(mod.AttrVals) == 0 {
-						return "", errors.New("changetype 'modify', op 'add' requires non empty value list")
-					}
+			data += foldLine("dn: "+e.Modify.DN, fw) + "\n"
+			data += "changetype: modify\n"
+			for _, mod := range e.Modify.AddAttributes {
+				if len(mod.AttrVals) == 0 {
+					return "", errors.New("changetype 'modify', op 'add' requires non empty value list")
+				}
 
-					data += "add: " + mod.AttrType + "\n"
-					for _, v := range mod.AttrVals {
-						ev, t := encodeValue(v)
-						col := ": "
-						if t {
-							col = ":: "
-						}
-						data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+				data += "add: " + mod.AttrType + "\n"
+				for _, v := range mod.AttrVals {
+					ev, t := encodeValue(v)
+					col := ": "
+					if t {
+						col = ":: "
 					}
-					data += "-\n"
+					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
 				}
-				for _, mod := range e.Modify.DeleteAttributes {
-					data += "delete: " + mod.AttrType + "\n"
-					for _, v := range mod.AttrVals {
-						ev, t := encodeValue(v)
-						col := ": "
-						if t {
-							col = ":: "
-						}
-						data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+				data += "-\n"
+			}
+			for _, mod := range e.Modify.DeleteAttributes {
+				data += "delete: " + mod.AttrType + "\n"
+				for _, v := range mod.AttrVals {
+					ev, t := encodeValue(v)
+					col := ": "
+					if t {
+						col = ":: "
 					}
-					data += "-\n"
+					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
 				}
-				for _, mod := range e.Modify.ReplaceAttributes {
-					if len(mod.AttrVals) == 0 {
-						return "", errors.New("changetype 'modify', op 'replace' requires non empty value list")
-					}
-					data += "replace: " + mod.AttrType + "\n"
-					for _, v := range mod.AttrVals {
-						ev, t := encodeValue(v)
-						col := ": "
-						if t {
-							col = ":: "
-						}
-						data += foldLine(mod.AttrType+col+ev, fw) + "\n"
-					}
-					data += "-\n"
+				data += "-\n"
+			}
+			for _, mod := range e.Modify.ReplaceAttributes {
+				if len(mod.AttrVals) == 0 {
+					return "", errors.New("changetype 'modify', op 'replace' requires non empty value list")
 				}
-			*/
+				data += "replace: " + mod.AttrType + "\n"
+				for _, v := range mod.AttrVals {
+					ev, t := encodeValue(v)
+					col := ": "
+					if t {
+						col = ":: "
+					}
+					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+				}
+				data += "-\n"
+			}
+
 		default:
 			hasEntry = true
 			if hasChange {
 				return "", ErrMixed
 			}
-			data += foldLine("dn: " + e.Entry.DN, fw) + "\n"
+			data += foldLine("dn: "+e.Entry.DN, fw) + "\n"
 			for _, av := range e.Entry.Attributes {
 				for _, v := range av.Values {
 					ev, t := encodeValue(v)
