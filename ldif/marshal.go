@@ -2,9 +2,9 @@ package ldif
 
 import (
 	"encoding/base64"
-	"gopkg.in/ldap.v2"
 	"errors"
 	"fmt"
+	"gopkg.in/ldap.v2"
 )
 
 var foldWidth int = 76
@@ -46,7 +46,6 @@ func Marshal(l *LDIF) (data string, err error) {
 					}
 					data += foldLine(add.AttrType+col+ev, fw) + "\n"
 				}
-				data += "-\n"
 			}
 
 		case e.Del != nil:
@@ -55,7 +54,7 @@ func Marshal(l *LDIF) (data string, err error) {
 				return "", ErrMixed
 			}
 			data += foldLine("dn: "+e.Del.DN, fw) + "\n"
-			data += "changetype: delete\n-\n"
+			data += "changetype: delete\n"
 
 		case e.Modify != nil:
 			hasChange = true
@@ -124,9 +123,8 @@ func Marshal(l *LDIF) (data string, err error) {
 					data += foldLine(av.Name+col+ev, fw) + "\n"
 				}
 			}
-			data += "\n"
 		}
-		// data += "\n"
+		data += "\n"
 	}
 	return data, nil
 }
@@ -167,7 +165,7 @@ func foldLine(line string, fw int) (folded string) {
 	return
 }
 
-// Returns an LDIF struct with all entries, suitable to feed to Marshal(), 
+// Returns an LDIF struct with all entries, suitable to feed to Marshal(),
 // e.g.:
 //
 //   res, err := conn.Search(&ldap.SearchRequest{BaseDN: b, Filter: f})

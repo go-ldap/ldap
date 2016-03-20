@@ -112,7 +112,7 @@ description:: VGhlIFBlw7ZwbGUgw5ZyZ2FuaXphdGlvbg==
 				Values: []string{"people"},
 			},
 			{
-				Name: "description",
+				Name:   "description",
 				Values: []string{"The Peöple Örganization"},
 			},
 		},
@@ -123,6 +123,88 @@ description:: VGhlIFBlw7ZwbGUgw5ZyZ2FuaXphdGlvbg==
 	}
 	if res != entryLDIF {
 		t.Errorf("unexpected result: >>%s<<\n", res)
+	}
+}
+
+func TestMarshalMod(t *testing.T) {
+	modLDIF := `dn: uid=someone,ou=people,dc=example,dc=org
+changetype: modify
+add: givenName
+givenName: Some
+-
+delete: mail
+-
+delete: telephoneNumber
+telephoneNumber: 123 456 789 - 0
+-
+replace: sn
+sn: One
+-
+
+`
+	mod := ldap.NewModifyRequest("uid=someone,ou=people,dc=example,dc=org")
+	mod.Replace("sn", []string{"One"})
+	mod.Add("givenName", []string{"Some"})
+	mod.Delete("mail", []string{})
+	mod.Delete("telephoneNumber", []string{"123 456 789 - 0"})
+	l, err := ldif.ChangesAsLDIF(mod)
+	if err != nil {
+		t.Errorf("Failed to return changes as LDIF: %s", err)
+	}
+	res, err := ldif.Marshal(l)
+	if err != nil {
+		t.Errorf("Failed to marshal entry: %s", err)
+	}
+	if res != modLDIF {
+		t.Errorf("unexpected result: >>%s<<", res)
+	}
+}
+
+func TestMarshalAdd(t *testing.T) {
+	addLDIF := `dn: uid=someone,ou=people,dc=example,dc=org
+changetype: add
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: someone
+cn: Someone
+mail: someone@example.org
+
+`
+	add := ldap.NewAddRequest("uid=someone,ou=people,dc=example,dc=org")
+	for _, a := range entries[1].Attributes {
+		add.Attribute(a.Name, a.Values)
+	}
+	l, err := ldif.ChangesAsLDIF(add)
+	if err != nil {
+		t.Errorf("Failed to return changes as LDIF: %s", err)
+	}
+	res, err := ldif.Marshal(l)
+	if err != nil {
+		t.Errorf("Failed to marshal entry: %s", err)
+	}
+	if res != addLDIF {
+		t.Errorf("unexpected result: >>%s<<", res)
+	}
+}
+
+func TestMarshalDel(t *testing.T) {
+	delLDIF := `dn: uid=someone,ou=people,dc=example,dc=org
+changetype: delete
+
+`
+	del := ldap.NewDelRequest("uid=someone,ou=people,dc=example,dc=org", nil)
+	l, err := ldif.ChangesAsLDIF(del)
+	if err != nil {
+		t.Errorf("Failed to return changes as LDIF: %s", err)
+	}
+	res, err := ldif.Marshal(l)
+	if err != nil {
+		t.Errorf("Failed to marshal entry: %s", err)
+	}
+	if res != delLDIF {
+		t.Errorf("unexpected result: >>%s<<", res)
 	}
 }
 
