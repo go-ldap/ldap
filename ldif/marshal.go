@@ -2,7 +2,9 @@ package ldif
 
 import (
 	"encoding/base64"
+	"gopkg.in/ldap.v2"
 	"errors"
+	"fmt"
 )
 
 var foldWidth int = 76
@@ -13,12 +15,14 @@ var ErrMixed = errors.New("cannot mix change records and content records")
 // is 76 characters. This can be changed by setting FoldWidth on the LDIF struct.
 // For a FoldWidth < 0, no folding will be done, with 0, the default is used.
 func Marshal(l *LDIF) (data string, err error) {
-	data = "version: 1\n"
+	if l.Version > 0 {
+		data = "version: 1\n"
+	}
 	hasEntry := false
 	hasChange := false
-	fw := foldWidth
-	if l.FoldWidth != 0 {
-		fw = l.FoldWidth
+	fw := l.FoldWidth
+	if fw == 0 {
+		fw = foldWidth
 	}
 
 	for _, e := range l.Entries {
@@ -122,7 +126,7 @@ func Marshal(l *LDIF) (data string, err error) {
 			}
 			data += "\n"
 		}
-		data += "\n"
+		// data += "\n"
 	}
 	return data, nil
 }
@@ -161,6 +165,47 @@ func foldLine(line string, fw int) (folded string) {
 		folded += " " + line
 	}
 	return
+}
+
+// Returns an LDIF struct with all entries, suitable to feed to Marshal(), 
+// e.g.:
+//
+//   res, err := conn.Search(&ldap.SearchRequest{BaseDN: b, Filter: f})
+//   if err == nil {
+//       resLDIF, err := ldif.Marshal(ldif.EntriesAsLDIF(res.Entries...))
+//       if err == nil {
+//          log.Printf("Result from search:\n\n%s\n", resLDIF)
+//       }
+//   }
+func EntriesAsLDIF(entries ...*ldap.Entry) *LDIF {
+	l := &LDIF{}
+	for _, e := range entries {
+		l.Entries = append(l.Entries, &Entry{Entry: e})
+	}
+	return l
+}
+
+// Returns an LDIF struct with all changes (e.g. *ldap.AddRequest,
+// *ldap.DelRequest, ...) suitable to feed to Marshal()
+func ChangesAsLDIF(changes ...interface{}) (*LDIF, error) {
+	l := &LDIF{}
+	for _, c := range changes {
+		var e *Entry
+		switch c.(type) {
+		case *ldap.AddRequest:
+			e = &Entry{Add: c.(*ldap.AddRequest)}
+		case *ldap.DelRequest:
+			e = &Entry{Del: c.(*ldap.DelRequest)}
+		case *ldap.ModifyRequest:
+			e = &Entry{Modify: c.(*ldap.ModifyRequest)}
+		// case *ldap.ModifyDNRequest:
+		// 	e = &Entry{ModDN: c.(*ldap.ModifyDNRequest)}
+		default:
+			return nil, fmt.Errorf("unsupported type %T", c)
+		}
+		l.Entries = append(l.Entries, e)
+	}
+	return l, nil
 }
 
 // vim: ts=4 sw=4 noexpandtab nolist
