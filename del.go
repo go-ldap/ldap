@@ -52,10 +52,14 @@ func (l *Conn) Del(delRequest *DelRequest) error {
 	defer l.finishMessage(messageID)
 
 	l.Debug.Printf("%d: waiting for response", messageID)
-	packet = <-channel
+	packetResponse, ok := <-channel
+	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", messageID, packet)
-	if packet == nil {
-		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return NewError(ErrorNetwork, errors.New("ldap: channel closed"))
 	}
 
 	if l.Debug {
