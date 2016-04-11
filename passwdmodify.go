@@ -99,13 +99,13 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	l.Debug.Printf("%d: waiting for response", messageID)
 	packetResponse, ok := <-channel
+	if !ok {
+		return nil, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
+	}
 	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", messageID, packet)
 	if err != nil {
 		return nil, err
-	}
-	if !ok {
-		return nil, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
 	}
 
 	if packet == nil {

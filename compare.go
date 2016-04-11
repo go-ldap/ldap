@@ -59,13 +59,13 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 
 	l.Debug.Printf("%d: waiting for response", messageID)
 	packetResponse, ok := <-channel
+	if !ok {
+		return false, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
+	}
 	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", messageID, packet)
 	if err != nil {
 		return false, err
-	}
-	if !ok {
-		return false, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
 	}
 
 	if l.Debug {

@@ -61,13 +61,13 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 	defer l.finishMessage(messageID)
 
 	packetResponse, ok := <-channel
+	if !ok {
+		return nil, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
+	}
 	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", messageID, packet)
 	if err != nil {
 		return nil, err
-	}
-	if !ok {
-		return nil, NewError(ErrorNetwork, errors.New("ldap: channel closed"))
 	}
 
 	if l.Debug {
@@ -120,12 +120,13 @@ func (l *Conn) Bind(username, password string) error {
 	defer l.finishMessage(messageID)
 
 	packetResponse, ok := <-channel
-	packet, err = packetResponse.ReadPacket()
-	if err != nil {
-		return err
-	}
 	if !ok {
 		return NewError(ErrorNetwork, errors.New("ldap: channel closed"))
+	}
+	packet, err = packetResponse.ReadPacket()
+	l.Debug.Printf("%d: got response %p", messageID, packet)
+	if err != nil {
+		return err
 	}
 
 	if l.Debug {
