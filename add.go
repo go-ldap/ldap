@@ -37,10 +37,10 @@ type AddRequest struct {
 	attributes []Attribute
 }
 
-func (a AddRequest) GetDNFromAddRequest() string {
+func (a AddRequest) GetDN() string {
 	return a.dn
 }
-func (a AddRequest) GetAttributeFromAddRequest() []Attribute {
+func (a AddRequest) GetAttributes() []Attribute {
 	return a.attributes
 }
 
