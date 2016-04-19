@@ -44,6 +44,10 @@ func (a AddRequest) GetAttributes() []Attribute {
 	return a.attributes
 }
 
+func (a *AddRequest) SetDN(dn string) {
+	a.dn = dn
+}
+
 func (a AddRequest) encode() *ber.Packet {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationAddRequest, nil, "Add Request")
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, a.dn, "DN"))
