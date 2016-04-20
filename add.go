@@ -33,26 +33,16 @@ func (a *Attribute) encode() *ber.Packet {
 }
 
 type AddRequest struct {
-	dn         string
-	attributes []Attribute
+	DN         string
+	Attributes []Attribute
 }
 
-func (a AddRequest) GetDN() string {
-	return a.dn
-}
-func (a AddRequest) GetAttributes() []Attribute {
-	return a.attributes
-}
-
-func (a *AddRequest) SetDN(dn string) {
-	a.dn = dn
-}
 
 func (a AddRequest) encode() *ber.Packet {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationAddRequest, nil, "Add Request")
-	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, a.dn, "DN"))
+	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, a.DN, "DN"))
 	attributes := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Attributes")
-	for _, attribute := range a.attributes {
+	for _, attribute := range a.Attributes {
 		attributes.AppendChild(attribute.encode())
 	}
 	request.AppendChild(attributes)
@@ -60,12 +50,12 @@ func (a AddRequest) encode() *ber.Packet {
 }
 
 func (a *AddRequest) Attribute(attrType string, attrVals []string) {
-	a.attributes = append(a.attributes, Attribute{attrType: attrType, attrVals: attrVals})
+	a.Attributes = append(a.Attributes, Attribute{attrType: attrType, attrVals: attrVals})
 }
 
 func NewAddRequest(dn string) *AddRequest {
 	return &AddRequest{
-		dn: dn,
+		DN: dn,
 	}
 
 }
