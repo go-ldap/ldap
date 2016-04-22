@@ -17,15 +17,17 @@ import (
 )
 
 type Attribute struct {
-	attrType string
-	attrVals []string
+	AttrType string
+	AttrVals []string
 }
+
+
 
 func (a *Attribute) encode() *ber.Packet {
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Attribute")
-	seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, a.attrType, "Type"))
+	seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, a.AttrType, "Type"))
 	set := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "AttributeValue")
-	for _, value := range a.attrVals {
+	for _, value := range a.AttrVals {
 		set.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, value, "Vals"))
 	}
 	seq.AppendChild(set)
@@ -50,7 +52,7 @@ func (a AddRequest) encode() *ber.Packet {
 }
 
 func (a *AddRequest) Attribute(attrType string, attrVals []string) {
-	a.Attributes = append(a.Attributes, Attribute{attrType: attrType, attrVals: attrVals})
+	a.Attributes = append(a.Attributes, Attribute{AttrType: attrType, AttrVals: attrVals})
 }
 
 func NewAddRequest(dn string) *AddRequest {
