@@ -17,12 +17,14 @@ const (
 	ControlTypeVChuPasswordMustChange = "2.16.840.1.113730.3.4.4"
 	ControlTypeVChuPasswordWarning    = "2.16.840.1.113730.3.4.5"
 	ControlTypeManageDsaIT            = "2.16.840.1.113730.3.4.2"
+	ControlTypeProxiedAuthorization   = "2.16.840.1.113730.3.4.18"
 )
 
 var ControlTypeMap = map[string]string{
 	ControlTypePaging:               "Paging",
 	ControlTypeBeheraPasswordPolicy: "Password Policy - Behera Draft",
 	ControlTypeManageDsaIT:          "Manage DSA IT",
+	ControlTypeProxiedAuthorization: "Proxied Authorization",
 }
 
 type Control interface {
@@ -195,6 +197,38 @@ func (c *ControlManageDsaIT) String() string {
 
 func NewControlManageDsaIT(Criticality bool) *ControlManageDsaIT {
 	return &ControlManageDsaIT{Criticality: Criticality}
+}
+
+type ControlProxiedAuthorization struct {
+	Criticality bool
+	AuthzId     string
+}
+
+func (c *ControlProxiedAuthorization) GetControlType() string {
+	return ControlTypeProxiedAuthorization
+}
+
+func (c *ControlProxiedAuthorization) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeProxiedAuthorization, "Control Type ("+ControlTypeMap[ControlTypeProxiedAuthorization]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality"))
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.AuthzId, "AuthzId"))
+	return packet
+}
+
+func (c *ControlProxiedAuthorization) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality: %t",
+		ControlTypeMap[ControlTypeProxiedAuthorization],
+		ControlTypeProxiedAuthorization,
+		c.Criticality)
+}
+
+func NewControlProxiedAuthoization(authzId string) *ControlProxiedAuthorization {
+	return &ControlProxiedAuthorization{
+		Criticality: true,
+		AuthzId:     authzId,
+	}
 }
 
 func FindControl(controls []Control, controlType string) Control {
