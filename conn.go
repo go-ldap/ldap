@@ -54,6 +54,7 @@ type Conn struct {
 	conn                net.Conn
 	isTLS               bool
 	isClosing           bool
+	closeErr            error
 	isStartingTLS       bool
 	Debug               debugging
 	chanConfirm         chan bool
@@ -298,6 +299,11 @@ func (l *Conn) processMessages() {
 			log.Printf("ldap: recovered panic in processMessages: %v", err)
 		}
 		for messageID, channel := range l.chanResults {
+			// If we are closing due to an error, inform anyone who
+			// is waiting about the error.
+			if l.isClosing && l.closeErr != nil {
+				channel <- &PacketResponse{Error: l.closeErr}
+			}
 			l.Debug.Printf("Closing channel for MessageID %d", messageID)
 			close(channel)
 			delete(l.chanResults, messageID)
@@ -324,14 +330,19 @@ func (l *Conn) processMessages() {
 			case MessageRequest:
 				// Add to message list and write to network
 				l.Debug.Printf("Sending message %d", message.MessageID)
-				l.chanResults[message.MessageID] = message.Channel
 
 				buf := message.Packet.Bytes()
 				_, err := l.conn.Write(buf)
 				if err != nil {
 					l.Debug.Printf("Error Sending Message: %s", err.Error())
+					message.Channel <- &PacketResponse{Error: fmt.Errorf("unable to send request: %s", err)}
+					close(message.Channel)
 					break
 				}
+
+				// Only add to chanResults if we were able to
+				// successfully write the message.
+				l.chanResults[message.MessageID] = message.Channel
 
 				// Add timeout if defined
 				if l.requestTimeout > 0 {
@@ -397,6 +408,7 @@ func (l *Conn) reader() {
 		if err != nil {
 			// A read error is expected here if we are closing the connection...
 			if !l.isClosing {
+				l.closeErr = fmt.Errorf("unable to read LDAP response packet: %s", err)
 				l.Debug.Printf("reader error: %s", err.Error())
 			}
 			return
