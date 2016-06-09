@@ -24,8 +24,18 @@ type ModifyDNRequest struct {
 	NewSuperior  string
 }
 
-// set "newSup" to empty string for just renaming, to move w/o renaming the "rdn" must be the first
-// RDN of the given DN
+// NewModifyDNRequest creates a new request which can be passed to ModifyDN().
+//
+// To move an object in the tree, set the "newSup" to the new parent entry DN. Use an
+// empty string for just changing the object's RDN.
+//
+// For moving the object without renaming the "rdn" must be the first
+// RDN of the given DN.
+//
+// A call like
+//   mdnReq := NewModifyDNRequest("uid=someone,dc=example,dc=org", "uid=newname", true, "")
+// will setup the request to just rename uid=someone,dc=example,dc=org to
+// uid=newname,dc=example,dc=org.
 func NewModifyDNRequest(dn string, rdn string, delOld bool, newSup string) *ModifyDNRequest {
 	return &ModifyDNRequest{
 		DN:           dn,
@@ -66,7 +76,11 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 	defer l.finishMessage(messageID)
 
 	l.Debug.Printf("%d: waiting for response", messageID)
-	packet = <-channel
+	packetResponse, ok := <-channel
+	if !ok {
+		return NewError(ErrorNetwork, errors.New("ldap: channel closed"))
+	}
+	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", messageID, packet)
 	if packet == nil {
 		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
@@ -91,5 +105,3 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 	l.Debug.Printf("%d: returning", messageID)
 	return nil
 }
-
-// vim: ts=4 sw=4 noexpandtab nolist
