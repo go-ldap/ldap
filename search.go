@@ -342,6 +342,10 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 }
 
 func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
+	return l.doSearch(searchRequest, nil)
+}
+
+func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResult) bool) (*SearchResult, error) {
 	messageID := l.nextMessageID()
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, messageID, "MessageID"))
@@ -391,7 +395,6 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 			ber.PrintPacket(packet)
 		}
-
 		switch packet.Children[1].Tag {
 		case 4:
 			entry := new(Entry)
@@ -406,6 +409,13 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				entry.Attributes = append(entry.Attributes, attr)
 			}
 			result.Entries = append(result.Entries, entry)
+			// used by persistent search control -> entry change notification control:
+			if len(packet.Children) == 3 {
+				for _, child := range packet.Children[2].Children {
+					result.Controls = append(result.Controls, DecodeControl(child))
+				}
+			}
+
 		case 5:
 			resultCode, resultDescription := getLDAPResultCode(packet)
 			if resultCode != 0 {
@@ -419,6 +429,14 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			foundSearchResultDone = true
 		case 19:
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+		}
+		if callBack != nil {
+			callBack(result)
+			result = &SearchResult{
+				Entries:   make([]*Entry, 0),
+				Referrals: make([]string, 0),
+				Controls:  make([]Control, 0),
+			}
 		}
 	}
 	l.Debug.Printf("%d: returning", messageID)
@@ -437,90 +455,14 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 // include an EntryChangeNotification control which incudes the change type and when the change type is "moddn"
 // also the previous DN.
 func (l *Conn) PersistentSearch(searchRequest *SearchRequest, changeTypes []string, changesOnly bool, returnECs bool, callBack func(*SearchResult) bool) error {
-
 	searchRequest.Controls = append(searchRequest.Controls, NewPersistentSearchControl(changeTypes, changesOnly, returnECs))
+	_, err := l.doSearch(searchRequest, callBack)
+	return err
+}
 
-	messageID := l.nextMessageID()
-	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, messageID, "MessageID"))
-	// encode search request
-	encodedSearchRequest, err := searchRequest.encode()
-	if err != nil {
-		return err
-	}
-	packet.AppendChild(encodedSearchRequest)
-	// encode search controls
-	if searchRequest.Controls != nil {
-		packet.AppendChild(encodeControls(searchRequest.Controls))
-	}
-
-	l.Debug.PrintPacket(packet)
-
-	channel, err := l.sendMessage(packet)
-	if err != nil {
-		return err
-	}
-	if channel == nil {
-		return NewError(ErrorNetwork, errors.New("ldap: could not send message"))
-	}
-	defer l.finishMessage(messageID)
-
-	for {
-		l.Debug.Printf("%d: waiting for response", messageID)
-		packetResponse, ok := <-channel
-		if !ok {
-			return NewError(ErrorNetwork, errors.New("ldap: channel closed"))
-		}
-		packet, err = packetResponse.ReadPacket()
-		l.Debug.Printf("%d: got response %p", messageID, packet)
-		if err != nil {
-			return err
-		}
-
-		if l.Debug {
-			if err := addLDAPDescriptions(packet); err != nil {
-				return err
-			}
-			ber.PrintPacket(packet)
-		}
-
-		result := &SearchResult{
-			Entries:   make([]*Entry, 0),
-			Referrals: make([]string, 0),
-			Controls:  make([]Control, 0),
-		}
-		switch packet.Children[1].Tag {
-		case 4:
-			entry := new(Entry)
-			entry.DN = packet.Children[1].Children[0].Value.(string)
-			for _, child := range packet.Children[1].Children[1].Children {
-				attr := new(EntryAttribute)
-				attr.Name = child.Children[0].Value.(string)
-				for _, value := range child.Children[1].Children {
-					attr.Values = append(attr.Values, value.Value.(string))
-					attr.ByteValues = append(attr.ByteValues, value.ByteValue)
-				}
-				entry.Attributes = append(entry.Attributes, attr)
-			}
-			result.Entries = append(result.Entries, entry)
-			if len(packet.Children) == 3 {
-				for _, child := range packet.Children[2].Children {
-					result.Controls = append(result.Controls, DecodeControl(child))
-				}
-			}
-
-		case 5:
-			return NewError(LDAPResultProtocolError, errors.New("Server MUST NOT return SearchResultDone in persistent search"))
-		case 19:
-			// FIXME - do we have this?
-			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
-		default:
-			return NewError(LDAPResultProtocolError, errors.New(fmt.Sprintf("Child TAG=%d\n", packet.Children[1].Tag)))
-		}
-		if len(result.Entries) != 0 || len(result.Controls) != 0 || len(result.Referrals) != 0 {
-			callBack(result)
-		}
-	}
-	l.Debug.Printf("%d: returning", messageID)
-	return nil
+// SearchWithFunc behaves like Search(), but instead of returning all results every incoming Entry is passed
+// as SearchResult to the given callBack()
+func (l *Conn) SearchWithFunc(searchRequest *SearchRequest, callBack func(*SearchResult) bool) error {
+	_, err := l.doSearch(searchRequest, callBack)
+	return err
 }
