@@ -140,6 +140,20 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 	}
 }
 
+func (l *Conn) Alive() bool {
+	_, err := l.Search(NewSearchRequest(
+		"",
+		ScopeBaseObject,
+		NeverDerefAliases,
+		1, // max 1 result
+		int(DefaultTimeout.Seconds()), // FIXME?
+		false,
+		"(objectClass=*)",
+		[]string{"dn"},
+		[]Control{}))
+	return err == nil
+}
+
 func (l *Conn) Start() {
 	go l.reader()
 	go l.processMessages()
