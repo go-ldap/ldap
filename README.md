@@ -13,39 +13,27 @@ Import the latest version with:
 
     import "gopkg.in/ldap.v2"
 
-
 ## Required Libraries:
 
  - gopkg.in/asn1-ber.v1
 
-## Working:
+## Features:
 
- - Connecting to LDAP server
+ - Connecting to LDAP server (non-TLS, TLS, STARTTLS)
  - Binding to LDAP server
  - Searching for entries
- - Compiling string filters to LDAP filters
+ - Filter Compile / Decompile
  - Paging Search Results
  - Modify Requests / Responses
  - Add Requests / Responses
  - Delete Requests / Responses
- - Better Unicode support
 
 ## Examples:
 
  - search
  - modify
 
-## Tests Implemented:
 
- - Filter Compile / Decompile
-
-## TODO:
-
- - [x] Add Requests / Responses
- - [x] Delete Requests / Responses
- - [x] Modify DN Requests / Responses
- - [ ] Compare Requests / Responses
- - [ ] Implement Tests / Benchmarks
 
 
 
