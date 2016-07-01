@@ -33,9 +33,19 @@ Import the latest version with:
  - search
  - modify
 
+## Contributing:
 
+Bug reports and pull requests are welcome!
 
+Before submitting a pull request, please make sure tests and verification scripts pass:
+```
+make all
+```
 
+To set up a pre-push hook to run the tests and verify scripts before pushing:
+```
+ln -s ../../.githooks/pre-push .git/hooks/pre-push
+```
 
 ---
 The Go gopher was designed by Renee French. (http://reneefrench.blogspot.com/)
