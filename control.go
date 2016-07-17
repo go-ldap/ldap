@@ -22,6 +22,8 @@ const (
 	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
 	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
+	// ControlTypeProxiedAuthorization - https://tools.ietf.org/html/rfc4370
+	ControlTypeProxiedAuthorization = "2.16.840.1.113730.3.4.18"
 )
 
 // ControlTypeMap maps controls to text descriptions
@@ -29,6 +31,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypePaging:               "Paging",
 	ControlTypeBeheraPasswordPolicy: "Password Policy - Behera Draft",
 	ControlTypeManageDsaIT:          "Manage DSA IT",
+	ControlTypeProxiedAuthorization: "Proxied Authorization",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -240,6 +243,44 @@ func (c *ControlManageDsaIT) String() string {
 // NewControlManageDsaIT returns a ControlManageDsaIT control
 func NewControlManageDsaIT(Criticality bool) *ControlManageDsaIT {
 	return &ControlManageDsaIT{Criticality: Criticality}
+}
+
+// ControlProxiedAuthorization implements the control described in
+// https://tools.ietf.org/html/rfc4370
+type ControlProxiedAuthorization struct {
+	Criticality bool
+	AuthzID     string
+}
+
+// GetControlType returns the OID
+func (c *ControlProxiedAuthorization) GetControlType() string {
+	return ControlTypeProxiedAuthorization
+}
+
+// Encode returns the ber packet representation
+func (c *ControlProxiedAuthorization) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeProxiedAuthorization, "Control Type ("+ControlTypeMap[ControlTypeProxiedAuthorization]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality"))
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.AuthzID, "AuthzID"))
+	return packet
+}
+
+// String returns a human-readable description
+func (c *ControlProxiedAuthorization) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality: %t",
+		ControlTypeMap[ControlTypeProxiedAuthorization],
+		ControlTypeProxiedAuthorization,
+		c.Criticality)
+}
+
+// NewControlProxiedAuthoization returns a ProxiedAuthoization control
+func NewControlProxiedAuthoization(authzID string) *ControlProxiedAuthorization {
+	return &ControlProxiedAuthorization{
+		Criticality: true,
+		AuthzID:     authzID,
+	}
 }
 
 // FindControl returns the first control of the given type in the list, or nil
