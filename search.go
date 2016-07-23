@@ -420,7 +420,7 @@ func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResul
 			ber.PrintPacket(packet)
 		}
 		switch packet.Children[1].Tag {
-		case 4:
+		case ApplicationSearchResultEntry:
 			entry := new(Entry)
 			entry.DN = packet.Children[1].Children[0].Value.(string)
 			for _, child := range packet.Children[1].Children[1].Children {
@@ -440,7 +440,7 @@ func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResul
 				}
 			}
 
-		case 5:
+		case ApplicationSearchResultDone:
 			resultCode, resultDescription := getLDAPResultCode(packet)
 			if resultCode != 0 {
 				return result, NewError(resultCode, errors.New(resultDescription))
@@ -451,7 +451,7 @@ func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResul
 				}
 			}
 			foundSearchResultDone = true
-		case 19:
+		case ApplicationSearchResultReference:
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
 		}
 		if callBack != nil {
@@ -467,17 +467,21 @@ func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResul
 	return result, nil
 }
 
-// PersistentSearch accepts a search request options for the PersistentSearch Control and a callback function
-// which will be called on any result that resturns from the server. Except for errors, the PersistentSearch()
+// PersistentSearch accepts a search request options for the PersistentSearch
+// Control and a callback function which will be called on every result that
+// resturns from the server. Except for errors, the PersistentSearch()
 // will never return.
 //
-// Possible values for the changeTypes are: "add", "delete", "modify", "moddn". "any" is a shortcut to include
-// all of the possible change types, this is also the default if you pass an empty list.
+// Possible values for the changeTypes are: "add", "delete", "modify",
+// "moddn". "any" is a shortcut to include all of the possible change types,
+// this is also the default if you pass an empty list.
 //
-// With a true changesOnly, you will only get changes which match your search criteria when they change and not
-// the full result in the beginning. When returnECs is true, the result passed to the callBack() function will
-// include an EntryChangeNotification control which incudes the change type and when the change type is "moddn"
-// also the previous DN.
+// With a true changesOnly, you will only get changes which match your search
+// criteria when they change and not the full result in the beginning.
+//
+// When returnECs is true, the result passed to the callBack() function will
+// include an EntryChangeNotification control which incudes the change type
+// and when the change type includes "moddn" also the previous DN.
 func (l *Conn) PersistentSearch(searchRequest *SearchRequest, changeTypes []string, changesOnly bool, returnECs bool, callBack func(*SearchResult) bool) error {
 	searchRequest.Controls = append(searchRequest.Controls, NewPersistentSearchControl(changeTypes, changesOnly, returnECs))
 	_, err := l.doSearch(searchRequest, callBack)
