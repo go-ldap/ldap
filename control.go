@@ -23,6 +23,10 @@ const (
 	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
 	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
+	// ControlTypePersistentSearch - https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
+	ControlTypePersistentSearch = "2.16.840.1.113730.3.4.3"
+	// ControlTypeEntryChangeNotification - https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
+	ControlTypeEntryChangeNotification = "2.16.840.1.113730.3.4.7"
 )
 
 // ControlTypeMap maps controls to text descriptions
@@ -245,14 +249,14 @@ func NewControlManageDsaIT(Criticality bool) *ControlManageDsaIT {
 	return &ControlManageDsaIT{Criticality: Criticality}
 }
 
-var pSearchTypes map[string]int = map[string]int{
+var pSearchTypes = map[string]int{
 	"add":    1,
 	"delete": 2,
 	"modify": 4,
 	"moddn":  8,
 	"any":    15,
 }
-var pSearchTypesRev map[int]string = map[int]string{
+var pSearchTypesRev = map[int]string{
 	1: "add",
 	2: "delete",
 	4: "modify",
@@ -260,7 +264,7 @@ var pSearchTypesRev map[int]string = map[int]string{
 }
 
 // ControlPersistentSearch implements the persistent search control from
-// https://www.ietf.org/proceedings/50/I-D/ldapext-psearch-03.txt
+// https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
 type ControlPersistentSearch struct {
 	ChangeTypes int
 	ChangesOnly bool
@@ -268,7 +272,7 @@ type ControlPersistentSearch struct {
 }
 
 // NewPersistentSearchControl returns a new control, changeTypes are one
-// of "add", "delete", "modify", "moddn" or "any" (which means all of 
+// of "add", "delete", "modify", "moddn" or "any" (which means all of
 // the former mentioned. An empty changeType is set to "any".
 func NewPersistentSearchControl(changeTypes []string, changesOnly bool, returnECs bool) *ControlPersistentSearch {
 	if len(changeTypes) == 0 {
@@ -276,7 +280,7 @@ func NewPersistentSearchControl(changeTypes []string, changesOnly bool, returnEC
 	}
 	var types int
 	for _, val := range changeTypes {
-		if v := PSearchTypes[val]; v != 0 {
+		if v := pSearchTypes[val]; v != 0 {
 			types |= v
 		}
 	}
@@ -311,7 +315,7 @@ func (c *ControlPersistentSearch) Encode() *ber.Packet {
 // String returns a human-readable description
 func (c *ControlPersistentSearch) String() string {
 	var t []string
-	for i, v := range PSearchTypesRev {
+	for i, v := range pSearchTypesRev {
 		if c.ChangeTypes&i != 0 {
 			t = append(t, v)
 		}
@@ -473,7 +477,7 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Children[2].Description = "ReturnECs"
 		t := int(value.Children[0].Value.(int64))
 		var ts []string
-		for i, v := range PSearchTypesRev {
+		for i, v := range pSearchTypesRev {
 			if t&i != 0 {
 				ts = append(ts, v)
 			}
