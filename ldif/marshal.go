@@ -7,12 +7,15 @@ import (
 	"gopkg.in/ldap.v2"
 )
 
-var foldWidth int = 76
+var foldWidth = 76
 
+// ErrMixed is the error, that we cannot mix change records and content
+// records in one LDIF
 var ErrMixed = errors.New("cannot mix change records and content records")
 
-// Returns an LDIF string from the given LDIF struct. The default line lenght
-// is 76 characters. This can be changed by setting FoldWidth on the LDIF struct.
+// Marshal returns an LDIF string from the given LDIF struct. The default
+// line lenght is 76 characters. This can be changed by setting FoldWidth
+// on the LDIF struct.
 // For a FoldWidth < 0, no folding will be done, with 0, the default is used.
 func Marshal(l *LDIF) (data string, err error) {
 	if l.Version > 0 {
@@ -35,16 +38,16 @@ func Marshal(l *LDIF) (data string, err error) {
 			data += foldLine("dn: "+e.Add.DN, fw) + "\n"
 			data += "changetype: add\n"
 			for _, add := range e.Add.Attributes {
-				if len(add.AttrVals) == 0 {
+				if len(add.Vals) == 0 {
 					return "", errors.New("changetype 'add' requires non empty value list")
 				}
-				for _, v := range add.AttrVals {
+				for _, v := range add.Vals {
 					ev, t := encodeValue(v)
 					col := ": "
 					if t {
 						col = ":: "
 					}
-					data += foldLine(add.AttrType+col+ev, fw) + "\n"
+					data += foldLine(add.Type+col+ev, fw) + "\n"
 				}
 			}
 
@@ -64,45 +67,45 @@ func Marshal(l *LDIF) (data string, err error) {
 			data += foldLine("dn: "+e.Modify.DN, fw) + "\n"
 			data += "changetype: modify\n"
 			for _, mod := range e.Modify.AddAttributes {
-				if len(mod.AttrVals) == 0 {
+				if len(mod.Vals) == 0 {
 					return "", errors.New("changetype 'modify', op 'add' requires non empty value list")
 				}
 
-				data += "add: " + mod.AttrType + "\n"
-				for _, v := range mod.AttrVals {
+				data += "add: " + mod.Type + "\n"
+				for _, v := range mod.Vals {
 					ev, t := encodeValue(v)
 					col := ": "
 					if t {
 						col = ":: "
 					}
-					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+					data += foldLine(mod.Type+col+ev, fw) + "\n"
 				}
 				data += "-\n"
 			}
 			for _, mod := range e.Modify.DeleteAttributes {
-				data += "delete: " + mod.AttrType + "\n"
-				for _, v := range mod.AttrVals {
+				data += "delete: " + mod.Type + "\n"
+				for _, v := range mod.Vals {
 					ev, t := encodeValue(v)
 					col := ": "
 					if t {
 						col = ":: "
 					}
-					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+					data += foldLine(mod.Type+col+ev, fw) + "\n"
 				}
 				data += "-\n"
 			}
 			for _, mod := range e.Modify.ReplaceAttributes {
-				if len(mod.AttrVals) == 0 {
+				if len(mod.Vals) == 0 {
 					return "", errors.New("changetype 'modify', op 'replace' requires non empty value list")
 				}
-				data += "replace: " + mod.AttrType + "\n"
-				for _, v := range mod.AttrVals {
+				data += "replace: " + mod.Type + "\n"
+				for _, v := range mod.Vals {
 					ev, t := encodeValue(v)
 					col := ": "
 					if t {
 						col = ":: "
 					}
-					data += foldLine(mod.AttrType+col+ev, fw) + "\n"
+					data += foldLine(mod.Type+col+ev, fw) + "\n"
 				}
 				data += "-\n"
 			}
@@ -165,8 +168,8 @@ func foldLine(line string, fw int) (folded string) {
 	return
 }
 
-// Returns an LDIF struct with all entries, suitable to feed to Marshal(),
-// e.g.:
+// EntriesAsLDIF returns an LDIF struct with all entries, suitable to feed
+// to Marshal(), e.g.:
 //
 //   res, err := conn.Search(&ldap.SearchRequest{BaseDN: b, Filter: f})
 //   if err == nil {
@@ -183,8 +186,8 @@ func EntriesAsLDIF(entries ...*ldap.Entry) *LDIF {
 	return l
 }
 
-// Returns an LDIF struct with all changes (e.g. *ldap.AddRequest,
-// *ldap.DelRequest, ...) suitable to feed to Marshal()
+// ChangesAsLDIF returns an LDIF struct with all changes (e.g.
+// *ldap.AddRequest, *ldap.DelRequest, ...) suitable to feed to Marshal()
 func ChangesAsLDIF(changes ...interface{}) (*LDIF, error) {
 	l := &LDIF{}
 	for _, c := range changes {
@@ -205,5 +208,3 @@ func ChangesAsLDIF(changes ...interface{}) (*LDIF, error) {
 	}
 	return l, nil
 }
-
-// vim: ts=4 sw=4 noexpandtab nolist

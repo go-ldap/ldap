@@ -112,7 +112,7 @@ sn:: XXX-U29tZSBPbmU=
 func TestLDIFBase64Broken(t *testing.T) {
 	_, err := parseString(ldifBase64Broken)
 	if err == nil {
-		t.Errorf("Did not failed to parse broken base64", err)
+		t.Errorf("Did not failed to parse broken base64")
 	}
 }
 
