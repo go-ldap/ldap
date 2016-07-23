@@ -1,4 +1,4 @@
-// File contains ModifyDN functionality
+// Package ldap - moddn.go contains ModifyDN functionality
 //
 // https://tools.ietf.org/html/rfc4511
 // ModifyDNRequest ::= [APPLICATION 12] SEQUENCE {
@@ -17,6 +17,7 @@ import (
 	"gopkg.in/asn1-ber.v1"
 )
 
+// ModifyDNRequest holds the request to modify a DN
 type ModifyDNRequest struct {
 	DN           string
 	NewRDN       string
@@ -56,34 +57,30 @@ func (m ModifyDNRequest) encode() *ber.Packet {
 	return request
 }
 
-// Rename the given DN and optionally move to another base (when the "newSup" argument
+// ModifyDN renames the given DN and optionally move to another base (when the "newSup" argument
 // to NewModifyDNRequest() is not "").
 func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
-	messageID := l.nextMessageID()
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, messageID, "MessageID"))
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID, "MessageID"))
 	packet.AppendChild(m.encode())
 
 	l.Debug.PrintPacket(packet)
 
-	channel, err := l.sendMessage(packet)
+	msgCtx, err := l.sendMessage(packet)
 	if err != nil {
 		return err
 	}
-	if channel == nil {
-		return NewError(ErrorNetwork, errors.New("ldap: could not send message"))
-	}
-	defer l.finishMessage(messageID)
+	defer l.finishMessage(msgCtx)
 
-	l.Debug.Printf("%d: waiting for response", messageID)
-	packetResponse, ok := <-channel
+	l.Debug.Printf("%d: waiting for response", msgCtx.id)
+	packetResponse, ok := <-msgCtx.responses
 	if !ok {
 		return NewError(ErrorNetwork, errors.New("ldap: channel closed"))
 	}
 	packet, err = packetResponse.ReadPacket()
-	l.Debug.Printf("%d: got response %p", messageID, packet)
-	if packet == nil {
-		return NewError(ErrorNetwork, errors.New("ldap: could not retrieve message"))
+	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+	if err != nil {
+		return err
 	}
 
 	if l.Debug {
@@ -102,6 +99,6 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
 	}
 
-	l.Debug.Printf("%d: returning", messageID)
+	l.Debug.Printf("%d: returning", msgCtx.id)
 	return nil
 }
