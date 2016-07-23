@@ -13,15 +13,19 @@ import (
 )
 
 const (
-	ControlTypePaging                  = "1.2.840.113556.1.4.319"
-	ControlTypeBeheraPasswordPolicy    = "1.3.6.1.4.1.42.2.27.8.5.1"
-	ControlTypeVChuPasswordMustChange  = "2.16.840.1.113730.3.4.4"
-	ControlTypeVChuPasswordWarning     = "2.16.840.1.113730.3.4.5"
-	ControlTypeManageDsaIT             = "2.16.840.1.113730.3.4.2"
-	ControlTypePersistentSearch        = "2.16.840.1.113730.3.4.3"
-	ControlTypeEntryChangeNotification = "2.16.840.1.113730.3.4.7"
+	// ControlTypePaging - https://www.ietf.org/rfc/rfc2696.txt
+	ControlTypePaging = "1.2.840.113556.1.4.319"
+	// ControlTypeBeheraPasswordPolicy - https://tools.ietf.org/html/draft-behera-ldap-password-policy-10
+	ControlTypeBeheraPasswordPolicy = "1.3.6.1.4.1.42.2.27.8.5.1"
+	// ControlTypeVChuPasswordMustChange - https://tools.ietf.org/html/draft-vchu-ldap-pwd-policy-00
+	ControlTypeVChuPasswordMustChange = "2.16.840.1.113730.3.4.4"
+	// ControlTypeVChuPasswordWarning - https://tools.ietf.org/html/draft-vchu-ldap-pwd-policy-00
+	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
+	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
+	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
 )
 
+// ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
 	ControlTypePaging:                  "Paging",
 	ControlTypeBeheraPasswordPolicy:    "Password Policy - Behera Draft",
@@ -30,22 +34,29 @@ var ControlTypeMap = map[string]string{
 	ControlTypeEntryChangeNotification: "Entry Change Notification",
 }
 
+// Control defines an interface controls provide to encode and describe themselves
 type Control interface {
+	// GetControlType returns the OID
 	GetControlType() string
+	// Encode returns the ber packet representation
 	Encode() *ber.Packet
+	// String returns a human-readable description
 	String() string
 }
 
+// ControlString implements the Control interface for simple controls
 type ControlString struct {
 	ControlType  string
 	Criticality  bool
 	ControlValue string
 }
 
+// GetControlType returns the OID
 func (c *ControlString) GetControlType() string {
 	return c.ControlType
 }
 
+// Encode returns the ber packet representation
 func (c *ControlString) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.ControlType, "Control Type ("+ControlTypeMap[c.ControlType]+")"))
@@ -56,19 +67,25 @@ func (c *ControlString) Encode() *ber.Packet {
 	return packet
 }
 
+// String returns a human-readable description
 func (c *ControlString) String() string {
 	return fmt.Sprintf("Control Type: %s (%q)  Criticality: %t  Control Value: %s", ControlTypeMap[c.ControlType], c.ControlType, c.Criticality, c.ControlValue)
 }
 
+// ControlPaging implements the paging control described in https://www.ietf.org/rfc/rfc2696.txt
 type ControlPaging struct {
+	// PagingSize indicates the page size
 	PagingSize uint32
-	Cookie     []byte
+	// Cookie is an opaque value returned by the server to track a paging cursor
+	Cookie []byte
 }
 
+// GetControlType returns the OID
 func (c *ControlPaging) GetControlType() string {
 	return ControlTypePaging
 }
 
+// Encode returns the ber packet representation
 func (c *ControlPaging) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypePaging, "Control Type ("+ControlTypeMap[ControlTypePaging]+")"))
@@ -86,6 +103,7 @@ func (c *ControlPaging) Encode() *ber.Packet {
 	return packet
 }
 
+// String returns a human-readable description
 func (c *ControlPaging) String() string {
 	return fmt.Sprintf(
 		"Control Type: %s (%q)  Criticality: %t  PagingSize: %d  Cookie: %q",
@@ -96,21 +114,29 @@ func (c *ControlPaging) String() string {
 		c.Cookie)
 }
 
+// SetCookie stores the given cookie in the paging control
 func (c *ControlPaging) SetCookie(cookie []byte) {
 	c.Cookie = cookie
 }
 
+// ControlBeheraPasswordPolicy implements the control described in https://tools.ietf.org/html/draft-behera-ldap-password-policy-10
 type ControlBeheraPasswordPolicy struct {
-	Expire      int64
-	Grace       int64
-	Error       int8
+	// Expire contains the number of seconds before a password will expire
+	Expire int64
+	// Grace indicates the remaining number of times a user will be allowed to authenticate with an expired password
+	Grace int64
+	// Error indicates the error code
+	Error int8
+	// ErrorString is a human readable error
 	ErrorString string
 }
 
+// GetControlType returns the OID
 func (c *ControlBeheraPasswordPolicy) GetControlType() string {
 	return ControlTypeBeheraPasswordPolicy
 }
 
+// Encode returns the ber packet representation
 func (c *ControlBeheraPasswordPolicy) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeBeheraPasswordPolicy, "Control Type ("+ControlTypeMap[ControlTypeBeheraPasswordPolicy]+")"))
@@ -118,6 +144,7 @@ func (c *ControlBeheraPasswordPolicy) Encode() *ber.Packet {
 	return packet
 }
 
+// String returns a human-readable description
 func (c *ControlBeheraPasswordPolicy) String() string {
 	return fmt.Sprintf(
 		"Control Type: %s (%q)  Criticality: %t  Expire: %d  Grace: %d  Error: %d, ErrorString: %s",
@@ -130,39 +157,49 @@ func (c *ControlBeheraPasswordPolicy) String() string {
 		c.ErrorString)
 }
 
+// ControlVChuPasswordMustChange implements the control described in https://tools.ietf.org/html/draft-vchu-ldap-pwd-policy-00
 type ControlVChuPasswordMustChange struct {
+	// MustChange indicates if the password is required to be changed
 	MustChange bool
 }
 
+// GetControlType returns the OID
 func (c *ControlVChuPasswordMustChange) GetControlType() string {
 	return ControlTypeVChuPasswordMustChange
 }
 
+// Encode returns the ber packet representation
 func (c *ControlVChuPasswordMustChange) Encode() *ber.Packet {
 	return nil
 }
 
+// String returns a human-readable description
 func (c *ControlVChuPasswordMustChange) String() string {
 	return fmt.Sprintf(
-		"Control Type: %s (%q)  Criticality: %t  MustChange: %b",
+		"Control Type: %s (%q)  Criticality: %t  MustChange: %v",
 		ControlTypeMap[ControlTypeVChuPasswordMustChange],
 		ControlTypeVChuPasswordMustChange,
 		false,
 		c.MustChange)
 }
 
+// ControlVChuPasswordWarning implements the control described in https://tools.ietf.org/html/draft-vchu-ldap-pwd-policy-00
 type ControlVChuPasswordWarning struct {
+	// Expire indicates the time in seconds until the password expires
 	Expire int64
 }
 
+// GetControlType returns the OID
 func (c *ControlVChuPasswordWarning) GetControlType() string {
 	return ControlTypeVChuPasswordWarning
 }
 
+// Encode returns the ber packet representation
 func (c *ControlVChuPasswordWarning) Encode() *ber.Packet {
 	return nil
 }
 
+// String returns a human-readable description
 func (c *ControlVChuPasswordWarning) String() string {
 	return fmt.Sprintf(
 		"Control Type: %s (%q)  Criticality: %t  Expire: %b",
@@ -172,14 +209,18 @@ func (c *ControlVChuPasswordWarning) String() string {
 		c.Expire)
 }
 
+// ControlManageDsaIT implements the control described in https://tools.ietf.org/html/rfc3296
 type ControlManageDsaIT struct {
+	// Criticality indicates if this control is required
 	Criticality bool
 }
 
+// GetControlType returns the OID
 func (c *ControlManageDsaIT) GetControlType() string {
 	return ControlTypeManageDsaIT
 }
 
+// Encode returns the ber packet representation
 func (c *ControlManageDsaIT) Encode() *ber.Packet {
 	//FIXME
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
@@ -190,6 +231,7 @@ func (c *ControlManageDsaIT) Encode() *ber.Packet {
 	return packet
 }
 
+// String returns a human-readable description
 func (c *ControlManageDsaIT) String() string {
 	return fmt.Sprintf(
 		"Control Type: %s (%q)  Criticality: %t",
@@ -198,30 +240,36 @@ func (c *ControlManageDsaIT) String() string {
 		c.Criticality)
 }
 
+// NewControlManageDsaIT returns a ControlManageDsaIT control
 func NewControlManageDsaIT(Criticality bool) *ControlManageDsaIT {
 	return &ControlManageDsaIT{Criticality: Criticality}
 }
 
-var PSearchTypes map[string]int = map[string]int{
+var pSearchTypes map[string]int = map[string]int{
 	"add":    1,
 	"delete": 2,
 	"modify": 4,
 	"moddn":  8,
 	"any":    15,
 }
-var PSearchTypesRev map[int]string = map[int]string{
+var pSearchTypesRev map[int]string = map[int]string{
 	1: "add",
 	2: "delete",
 	4: "modify",
 	8: "moddn",
 }
 
+// ControlPersistentSearch implements the persistent search control from
+// https://www.ietf.org/proceedings/50/I-D/ldapext-psearch-03.txt
 type ControlPersistentSearch struct {
 	ChangeTypes int
 	ChangesOnly bool
 	ReturnECs   bool
 }
 
+// NewPersistentSearchControl returns a new control, changeTypes are one
+// of "add", "delete", "modify", "moddn" or "any" (which means all of 
+// the former mentioned. An empty changeType is set to "any".
 func NewPersistentSearchControl(changeTypes []string, changesOnly bool, returnECs bool) *ControlPersistentSearch {
 	if len(changeTypes) == 0 {
 		changeTypes = []string{"add", "delete", "modify", "moddn"}
@@ -239,10 +287,12 @@ func NewPersistentSearchControl(changeTypes []string, changesOnly bool, returnEC
 	}
 }
 
+// GetControlType returns the OID
 func (c *ControlPersistentSearch) GetControlType() string {
 	return ControlTypePersistentSearch
 }
 
+// Encode encodes the control
 func (c *ControlPersistentSearch) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypePersistentSearch, "Control Type ("+ControlTypeMap[ControlTypePersistentSearch]+")"))
@@ -258,6 +308,7 @@ func (c *ControlPersistentSearch) Encode() *ber.Packet {
 	return packet
 }
 
+// String returns a human-readable description
 func (c *ControlPersistentSearch) String() string {
 	var t []string
 	for i, v := range PSearchTypesRev {
@@ -268,20 +319,25 @@ func (c *ControlPersistentSearch) String() string {
 	return fmt.Sprintf("Control Type: PersistentSearch,  Change Types: [%s], Changes Only: %t, Return ECs: %t", strings.Join(t, ", "), c.ChangesOnly, c.ReturnECs)
 }
 
+// ControlEntryChangeNotification implements the entry change notification in
+// the persistent search
 type ControlEntryChangeNotification struct {
 	ChangeType   int
 	PreviousDN   string
 	ChangeNumber int64
 }
 
+// GetControlType returns the OID
 func (c *ControlEntryChangeNotification) GetControlType() string {
 	return ControlTypeEntryChangeNotification
 }
 
+// String returns a human-readable description
 func (c *ControlEntryChangeNotification) String() string {
 	return fmt.Sprintf("Control Type: Entry Change Notification, Change Type: %d, Previous DN: %s, Change Number: %d", c.ChangeType, c.PreviousDN, c.ChangeNumber)
 }
 
+// Encode encodes a ControlTypeEntryChangeNotification
 func (c *ControlEntryChangeNotification) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeEntryChangeNotification, "Control Type ("+ControlTypeMap[ControlTypeEntryChangeNotification]+")"))
@@ -301,6 +357,7 @@ func (c *ControlEntryChangeNotification) Encode() *ber.Packet {
 	return packet
 }
 
+// FindControl returns the first control of the given type in the list, or nil
 func FindControl(controls []Control, controlType string) Control {
 	for _, c := range controls {
 		if c.GetControlType() == controlType {
@@ -310,6 +367,7 @@ func FindControl(controls []Control, controlType string) Control {
 	return nil
 }
 
+// DecodeControl returns a control read from the given packet, or nil if no recognized control can be made
 func DecodeControl(packet *ber.Packet) Control {
 	ControlType := packet.Children[0].Value.(string)
 	Criticality := false
@@ -457,6 +515,7 @@ func DecodeControl(packet *ber.Packet) Control {
 	return c
 }
 
+// NewControlString returns a generic control
 func NewControlString(controlType string, criticality bool, controlValue string) *ControlString {
 	return &ControlString{
 		ControlType:  controlType,
@@ -465,10 +524,12 @@ func NewControlString(controlType string, criticality bool, controlValue string)
 	}
 }
 
+// NewControlPaging returns a paging control
 func NewControlPaging(pagingSize uint32) *ControlPaging {
 	return &ControlPaging{PagingSize: pagingSize}
 }
 
+// NewControlBeheraPasswordPolicy returns a ControlBeheraPasswordPolicy
 func NewControlBeheraPasswordPolicy() *ControlBeheraPasswordPolicy {
 	return &ControlBeheraPasswordPolicy{
 		Expire: -1,
