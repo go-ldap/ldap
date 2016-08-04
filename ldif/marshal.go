@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/ldap.v2"
+	"io"
 )
 
 var foldWidth = 76
@@ -13,16 +14,19 @@ var foldWidth = 76
 // records in one LDIF
 var ErrMixed = errors.New("cannot mix change records and content records")
 
-// Marshal returns an LDIF string from the given LDIF struct. The default
-// line lenght is 76 characters. This can be changed by setting FoldWidth
-// on the LDIF struct.
-// For a FoldWidth < 0, no folding will be done, with 0, the default is used.
+// Marshal returns an LDIF string from the given LDIF.
+//
+// The default line lenght is 76 characters. This can be changed by setting
+// the fw parameter to something else than 0.
+// For a fold width < 0, no folding will be done, with 0, the default is used.
 func Marshal(l *LDIF) (data string, err error) {
+	hasEntry := false
+	hasChange := false
+
 	if l.Version > 0 {
 		data = "version: 1\n"
 	}
-	hasEntry := false
-	hasChange := false
+
 	fw := l.FoldWidth
 	if fw == 0 {
 		fw = foldWidth
@@ -110,6 +114,29 @@ func Marshal(l *LDIF) (data string, err error) {
 				data += "-\n"
 			}
 
+			/*
+				case e.ModDN != nil:
+					hasChange = true
+					if hasEntry {
+						return "", ErrMixed
+					}
+					changeType := "moddn"
+					// FIXME:
+					// if e.ModifyDN.NewSuperior == "" {
+					// 	changeType = "modrdn"
+					// }
+					delOld := 0
+					if e.ModDN.DeleteOldRDN {
+						delOld = 1
+					}
+					data += foldLine("dn: "+e.ModDN.DN, fw) + "\n"
+					data += foldLine("changetype: "+changeType) + "\n"
+					data += foldLine(fmt.Sprintf("deleteoldrdn: %d", delOld)) + "\n"
+					if e.ModDN.NewSuperior != "" {
+						data += foldLine("newsuperior: "+e.ModDN.NewSuperior) + "\n"
+					}
+					data += "-\n"
+			*/
 		default:
 			hasEntry = true
 			if hasChange {
@@ -168,43 +195,79 @@ func foldLine(line string, fw int) (folded string) {
 	return
 }
 
-// EntriesAsLDIF returns an LDIF struct with all entries, suitable to feed
-// to Marshal(), e.g.:
+// Dump writes the given entries to the io.Writer.
 //
-//   res, err := conn.Search(&ldap.SearchRequest{BaseDN: b, Filter: f})
-//   if err == nil {
-//       resLDIF, err := ldif.Marshal(ldif.EntriesAsLDIF(res.Entries...))
-//       if err == nil {
-//          log.Printf("Result from search:\n\n%s\n", resLDIF)
-//       }
-//   }
-func EntriesAsLDIF(entries ...*ldap.Entry) *LDIF {
-	l := &LDIF{}
-	for _, e := range entries {
-		l.Entries = append(l.Entries, &Entry{Entry: e})
+// The entries argument can be *ldap.Entry or a mix of *ldap.AddRequest,
+// *ldap.DelRequest, *ldap.ModifyRequest and *ldap.ModifyDNRequest or slices
+// of any of those.
+//
+// See Marshal() for the fw argument.
+func Dump(fh io.Writer, fw int, entries ...interface{}) error {
+	l, err := ToLDIF(entries...)
+	if err != nil {
+		return err
 	}
-	return l
+	l.FoldWidth = fw
+	str, err := Marshal(l)
+	if err != nil {
+		return err
+	}
+	_, err = fh.Write([]byte(str))
+	return err
 }
 
-// ChangesAsLDIF returns an LDIF struct with all changes (e.g.
-// *ldap.AddRequest, *ldap.DelRequest, ...) suitable to feed to Marshal()
-func ChangesAsLDIF(changes ...interface{}) (*LDIF, error) {
+// ToLDIF puts the given arguments in an LDIF struct and returns it.
+//
+// The entries argument can be *ldap.Entry or a mix of *ldap.AddRequest,
+// *ldap.DelRequest, *ldap.ModifyRequest and *ldap.ModifyDNRequest or slices
+// of any of those.
+func ToLDIF(entries ...interface{}) (*LDIF, error) {
 	l := &LDIF{}
-	for _, c := range changes {
-		var e *Entry
-		switch c.(type) {
+	for _, e := range entries {
+		switch e.(type) {
+		case []*ldap.Entry:
+			for _, en := range e.([]*ldap.Entry) {
+				l.Entries = append(l.Entries, &Entry{Entry: en})
+			}
+
+		case *ldap.Entry:
+			l.Entries = append(l.Entries, &Entry{Entry: e.(*ldap.Entry)})
+
+		case []*ldap.AddRequest:
+			for _, en := range e.([]*ldap.AddRequest) {
+				l.Entries = append(l.Entries, &Entry{Add: en})
+			}
+
 		case *ldap.AddRequest:
-			e = &Entry{Add: c.(*ldap.AddRequest)}
+			l.Entries = append(l.Entries, &Entry{Add: e.(*ldap.AddRequest)})
+
+		case []*ldap.DelRequest:
+			for _, en := range e.([]*ldap.DelRequest) {
+				l.Entries = append(l.Entries, &Entry{Del: en})
+			}
+
 		case *ldap.DelRequest:
-			e = &Entry{Del: c.(*ldap.DelRequest)}
+			l.Entries = append(l.Entries, &Entry{Del: e.(*ldap.DelRequest)})
+
+		case []*ldap.ModifyRequest:
+			for _, en := range e.([]*ldap.ModifyRequest) {
+				l.Entries = append(l.Entries, &Entry{Modify: en})
+			}
 		case *ldap.ModifyRequest:
-			e = &Entry{Modify: c.(*ldap.ModifyRequest)}
-		// case *ldap.ModifyDNRequest:
-		// 	e = &Entry{ModDN: c.(*ldap.ModifyDNRequest)}
+			l.Entries = append(l.Entries, &Entry{Modify: e.(*ldap.ModifyRequest)})
+
+			/*
+				case []*ldap.ModifyDNRequest:
+					for _, en := range e.([]*ldap.ModifyDNRequest) {
+						l.Entries = append(l.Entries, &Entry{ModifyDN: en})
+					}
+				case *ldap.ModifyDNRequest:
+					l.Entries = append(l.Entries, &Entry{ModDN: e.(*ldap.ModifyDNRequest)})
+			*/
+
 		default:
-			return nil, fmt.Errorf("unsupported type %T", c)
+			return nil, fmt.Errorf("unsupported type %T", e)
 		}
-		l.Entries = append(l.Entries, e)
 	}
 	return l, nil
 }

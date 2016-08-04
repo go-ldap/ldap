@@ -12,6 +12,7 @@ package ldif
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -59,6 +60,14 @@ var sep = string([]byte{cr, lf})
 var comment byte = '#'
 var space byte = ' '
 var spaces = string(space)
+
+// Parse wraps Unmarshal to parse an LDIF from a string
+func Parse(str string) (l *LDIF, err error) {
+	buf := bytes.NewBuffer([]byte(str))
+	l = &LDIF{}
+	err = Unmarshal(buf, l)
+	return
+}
 
 // Unmarshal parses the LDIF from the given io.Reader into the LDIF struct.
 // The caller is responsible for closing the io.Reader if that is
@@ -211,6 +220,7 @@ func (l *LDIF) parseLine(line string) (attr, val string, err error) {
 
 	if off > len(line)-2 {
 		err = errors.New("empty value")
+		// FIXME: this is allowed for some attributes
 		return
 	}
 
@@ -225,7 +235,6 @@ func (l *LDIF) parseLine(line string) (attr, val string, err error) {
 	case ':':
 		var n int
 		value := strings.TrimLeft(line[off+2:], spaces)
-		// fmt.Fprintf(os.Stderr, "LINE=%s\nVALUE=%s\n", line, value)
 		dec := make([]byte, base64.StdEncoding.DecodedLen(len([]byte(value))))
 		n, err = base64.StdEncoding.Decode(dec, []byte(value))
 		if err != nil {
@@ -239,15 +248,16 @@ func (l *LDIF) parseLine(line string) (attr, val string, err error) {
 		val = strings.TrimLeft(line[off+2:], spaces)
 		u, err = url.Parse(val)
 		if err != nil {
+			err = fmt.Errorf("failed to parse URL: %s", err)
 			return
 		}
 		if u.Scheme != "file" {
-			err = errors.New("unsupported URL scheme " + u.Scheme)
+			err = fmt.Errorf("unsupported URL scheme %s", u.Scheme)
 			return
 		}
 		data, err = ioutil.ReadFile(u.Path)
 		if err != nil {
-			err = errors.New("Failed to read " + u.Path + ": " + err.Error())
+			err = fmt.Errorf("failed to read %s: %s", u.Path, err)
 			return
 		}
 		val = string(data) // FIXME: safe?
@@ -306,4 +316,12 @@ func validAttr(attr string) error {
 	return nil
 }
 
-// vim: ts=4 sw=4 noexpandtab nolist
+// AllEntries returns all *ldap.Entries in the LDIF
+func (l *LDIF) AllEntries() (entries []*ldap.Entry) {
+	for _, entry := range l.Entries {
+		if entry.Entry != nil {
+			entries = append(entries, entry.Entry)
+		}
+	}
+	return entries
+}

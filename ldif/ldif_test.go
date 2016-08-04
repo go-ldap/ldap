@@ -1,19 +1,11 @@
 package ldif_test
 
 import (
-	"bytes"
 	"gopkg.in/ldap.v2/ldif"
 	"io/ioutil"
 	"os"
 	"testing"
 )
-
-func parseString(str string) (*ldif.LDIF, error) {
-	ex := bytes.NewBuffer([]byte(str))
-	l := &ldif.LDIF{}
-	err := ldif.Unmarshal(ex, l)
-	return l, err
-}
 
 var ldifRFC2849Example = `version: 1
 dn: cn=Barbara Jensen, ou=Product Development, dc=airius, dc=com
@@ -38,7 +30,7 @@ telephonenumber: +1 408 555 1212
 `
 
 func TestLDIFParseRFC2849Example(t *testing.T) {
-	l, err := parseString(ldifRFC2849Example)
+	l, err := ldif.Parse(ldifRFC2849Example)
 	if err != nil {
 		t.Errorf("Failed to parse RFC 2849 example: %s", err)
 	}
@@ -53,7 +45,7 @@ cn: Some User
 `
 
 func TestLDIFParseEmptyAttr(t *testing.T) {
-	_, err := parseString(ldifEmpty)
+	_, err := ldif.Parse(ldifEmpty)
 	if err == nil {
 		t.Errorf("Did not fail to parse empty attribute")
 	}
@@ -64,7 +56,7 @@ cn: Some User
 `
 
 func TestLDIFParseMissingDN(t *testing.T) {
-	_, err := parseString(ldifMissingDN)
+	_, err := ldif.Parse(ldifMissingDN)
 	if err == nil {
 		t.Errorf("Did not fail to parse missing DN attribute")
 	}
@@ -77,7 +69,7 @@ cn: Someone
 `
 
 func TestLDIFContinuation(t *testing.T) {
-	l, err := parseString(ldifContinuation)
+	l, err := ldif.Parse(ldifContinuation)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -92,7 +84,7 @@ sn:: U29tZSBPbmU=
 `
 
 func TestLDIFBase64(t *testing.T) {
-	l, err := parseString(ldifBase64)
+	l, err := ldif.Parse(ldifBase64)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -110,7 +102,7 @@ sn:: XXX-U29tZSBPbmU=
 `
 
 func TestLDIFBase64Broken(t *testing.T) {
-	_, err := parseString(ldifBase64Broken)
+	_, err := ldif.Parse(ldifBase64Broken)
 	if err == nil {
 		t.Errorf("Did not failed to parse broken base64")
 	}
@@ -122,7 +114,7 @@ sn:: U29tZSBPbmU=
 `
 
 func TestLDIFTrailingBlank(t *testing.T) {
-	_, err := parseString(ldifTrailingBlank)
+	_, err := ldif.Parse(ldifTrailingBlank)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -135,7 +127,7 @@ sn: someone
 `
 
 func TestLDIFComments(t *testing.T) {
-	l, err := parseString(ldifComments)
+	l, err := ldif.Parse(ldifComments)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -149,7 +141,7 @@ sn:someone
 `
 
 func TestLDIFNoSpace(t *testing.T) {
-	l, err := parseString(ldifNoSpace)
+	l, err := ldif.Parse(ldifNoSpace)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -163,7 +155,7 @@ sn:    someone
 `
 
 func TestLDIFMultiSpace(t *testing.T) {
-	l, err := parseString(ldifMultiSpace)
+	l, err := ldif.Parse(ldifMultiSpace)
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}
@@ -180,7 +172,7 @@ func TestLDIFURL(t *testing.T) {
 	defer os.Remove(f.Name())
 	f.Write([]byte("TEST\n"))
 	f.Sync()
-	l, err := parseString("dn: uid=someone,dc=example,dc=org\ndescription:< file://" + f.Name() + "\n")
+	l, err := ldif.Parse("dn: uid=someone,dc=example,dc=org\ndescription:< file://" + f.Name() + "\n")
 	if err != nil {
 		t.Errorf("Failed to parse LDIF: %s", err)
 	}

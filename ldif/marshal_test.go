@@ -1,6 +1,7 @@
 package ldif_test
 
 import (
+	"bytes"
 	"gopkg.in/ldap.v2"
 	"gopkg.in/ldap.v2/ldif"
 	"testing"
@@ -70,7 +71,12 @@ var entries = []*ldap.Entry{
 }
 
 func TestMarshalSingleEntry(t *testing.T) {
-	res, err := ldif.Marshal(ldif.EntriesAsLDIF(entries[1]))
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Entry: entries[1]},
+		},
+	}
+	res, err := ldif.Marshal(l)
 	if err != nil {
 		t.Errorf("Failed to marshal entry: %s", err)
 	}
@@ -80,7 +86,13 @@ func TestMarshalSingleEntry(t *testing.T) {
 }
 
 func TestMarshalEntries(t *testing.T) {
-	res, err := ldif.Marshal(ldif.EntriesAsLDIF(entries...))
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Entry: entries[0]},
+			{Entry: entries[1]},
+		},
+	}
+	res, err := ldif.Marshal(l)
 	if err != nil {
 		t.Errorf("Failed to marshal entry: %s", err)
 	}
@@ -117,7 +129,12 @@ description:: VGhlIFBlw7ZwbGUgw5ZyZ2FuaXphdGlvbg==
 			},
 		},
 	}
-	res, err := ldif.Marshal(ldif.EntriesAsLDIF(entry))
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Entry: entry},
+		},
+	}
+	res, err := ldif.Marshal(l)
 	if err != nil {
 		t.Errorf("Failed to marshal entry: %s", err)
 	}
@@ -147,9 +164,10 @@ sn: One
 	mod.Add("givenName", []string{"Some"})
 	mod.Delete("mail", []string{})
 	mod.Delete("telephoneNumber", []string{"123 456 789 - 0"})
-	l, err := ldif.ChangesAsLDIF(mod)
-	if err != nil {
-		t.Errorf("Failed to return changes as LDIF: %s", err)
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Modify: mod},
+		},
 	}
 	res, err := ldif.Marshal(l)
 	if err != nil {
@@ -176,9 +194,10 @@ mail: someone@example.org
 	for _, a := range entries[1].Attributes {
 		add.Attribute(a.Name, a.Values)
 	}
-	l, err := ldif.ChangesAsLDIF(add)
-	if err != nil {
-		t.Errorf("Failed to return changes as LDIF: %s", err)
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Add: add},
+		},
 	}
 	res, err := ldif.Marshal(l)
 	if err != nil {
@@ -195,9 +214,10 @@ changetype: delete
 
 `
 	del := ldap.NewDelRequest("uid=someone,ou=people,dc=example,dc=org", nil)
-	l, err := ldif.ChangesAsLDIF(del)
-	if err != nil {
-		t.Errorf("Failed to return changes as LDIF: %s", err)
+	l := &ldif.LDIF{
+		Entries: []*ldif.Entry{
+			{Del: del},
+		},
 	}
 	res, err := ldif.Marshal(l)
 	if err != nil {
@@ -208,4 +228,45 @@ changetype: delete
 	}
 }
 
-// vim: ts=4 sw=4 noexpandtab nolist
+func TestDump(t *testing.T) {
+	delLDIF := `dn: uid=someone,ou=people,dc=example,dc=org
+changetype: delete
+
+`
+	del := ldap.NewDelRequest("uid=someone,ou=people,dc=example,dc=org", nil)
+	buf := bytes.NewBuffer(nil)
+	err := ldif.Dump(buf, 0, del)
+	if err != nil {
+		t.Errorf("Failed to dump entry: %s", err)
+	}
+	res := buf.String()
+	if res != delLDIF {
+		t.Errorf("unexpected result: >>%s<<", res)
+	}
+}
+
+/*
+func TestMarshalModDN(t *testing.T) {
+	moddnLDIF := `dn: uid=someone,ou=people,dc=example,dc=org
+changetype: moddn
+deleteoldrdn: 1
+newrdn: uid=somebody
+newsuperior: ou=people,dc=example,dc=org
+-
+
+`
+	mod := ldap.NewModifyDNRequest("uid=someone,ou=people,dc=example,dc=org", "uid=somebody", true, "ou=people,dc=example,dc=org")
+    l := &ldif.LDIF{
+        Entries: []*ldif.Entry{
+            {ModifyDN: mod},
+        },
+    }
+	res, err := ldif.Marshal(l)
+	if err != nil {
+		t.Errorf("Failed to marshal: %s", err)
+	}
+	if res != moddnLDIF {
+		t.Errorf("unexprected result: >>%s<<", res)
+	}
+}
+*/
