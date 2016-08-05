@@ -1,10 +1,11 @@
 package ldif_test
 
 import (
-	"gopkg.in/ldap.v2/ldif"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"gopkg.in/ldap.v2/ldif"
 )
 
 var ldifRFC2849Example = `version: 1
@@ -181,4 +182,28 @@ func TestLDIFURL(t *testing.T) {
 	}
 }
 
-// vim: ts=4 sw=4 noexpandtab nolist
+var ldifMultiBlankLines = `# Organization Units
+dn: ou=users,dc=example,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: users
+
+
+# searches for above empty line for dn but fails and errors out in this PR
+# Even though this is a valid LDIF file for ldapadd
+dn: ou=groups,dc=example,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: groups
+`
+
+func TestLDIFMultiBlankLines(t *testing.T) {
+	l, err := ldif.Parse(ldifMultiBlankLines)
+	if err != nil {
+		t.Errorf("Failed to parse LDIF: %s", err)
+	}
+	ou := l.Entries[1].Entry.GetAttributeValue("ou")
+	if ou != "groups" {
+		t.Errorf("wrong ou in second entry: %s", ou)
+	}
+}

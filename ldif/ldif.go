@@ -16,10 +16,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"gopkg.in/ldap.v2"
 	"io"
 	"io/ioutil"
 	"net/url"
+
+	"gopkg.in/ldap.v2"
 	// "os"
 	"strconv"
 	"strings"
@@ -97,6 +98,9 @@ func Unmarshal(r io.Reader, l *LDIF) (err error) {
 			case 0:
 				if len(line) == 0 && err == io.EOF {
 					return nil
+				}
+				if len(line) == 0 && len(lines) == 0 {
+					continue
 				}
 				lines = append(lines, line)
 				entry, perr := l.parseEntry(lines)
