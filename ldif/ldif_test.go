@@ -207,3 +207,53 @@ func TestLDIFMultiBlankLines(t *testing.T) {
 		t.Errorf("wrong ou in second entry: %s", ou)
 	}
 }
+
+var ldifLeadingTrailingBlankLines = `
+
+# Organization Units
+dn: ou=users,dc=example,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: users
+
+
+`
+
+func TestLDIFLeadingTrailingBlankLines(t *testing.T) {
+	l, err := ldif.Parse(ldifLeadingTrailingBlankLines)
+	if err != nil {
+		t.Errorf("Failed to parse LDIF: %s", err)
+	}
+	ou := l.Entries[0].Entry.GetAttributeValue("ou")
+	if ou != "users" {
+		t.Errorf("wrong ou in entry: %s", ou)
+	}
+}
+
+var ldifVersionOnSecond = `dn: cn=Barbara Jensen, ou=Product Development, dc=airius, dc=com
+objectclass: top
+objectclass: person
+objectclass: organizationalPerson
+cn: Barbara Jensen
+cn: Barbara J Jensen
+cn: Babs Jensen
+sn: Jensen
+uid: bjensen
+telephonenumber: +1 408 555 1212
+description: A big sailing fan.
+
+version: 1
+dn: cn=Bjorn Jensen, ou=Accounting, dc=airius, dc=com
+objectclass: top
+objectclass: person
+objectclass: organizationalPerson
+cn: Bjorn Jensen
+sn: Jensen
+telephonenumber: +1 408 555 1212
+`
+
+func TestLDIFVersionOnSecond(t *testing.T) {
+	if _, err := ldif.Parse(ldifVersionOnSecond); err == nil {
+		t.Errorf("did not fail to parse LDIF")
+	}
+}

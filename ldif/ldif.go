@@ -41,6 +41,7 @@ type LDIF struct {
 	Version    int
 	changeType string
 	FoldWidth  int
+	firstEntry bool
 }
 
 // The ParseError holds the error message and the line in the ldif
@@ -86,6 +87,7 @@ func Unmarshal(r io.Reader, l *LDIF) (err error) {
 
 	var lines []string
 	var line, nextLine string
+	l.firstEntry = true
 
 	for {
 		curLine++
@@ -146,7 +148,8 @@ func (l *LDIF) parseEntry(lines []string) (entry *Entry, err error) {
 		return nil, errors.New("empty entry?")
 	}
 
-	if l.Version == 0 && strings.HasPrefix(lines[0], "version:") {
+	if l.firstEntry && strings.HasPrefix(lines[0], "version:") {
+		l.firstEntry = false
 		line := strings.TrimLeft(lines[0][8:], spaces)
 		if l.Version, err = strconv.Atoi(line); err != nil {
 			return nil, err
@@ -162,6 +165,7 @@ func (l *LDIF) parseEntry(lines []string) (entry *Entry, err error) {
 		}
 		lines = lines[1:]
 	}
+	l.firstEntry = false
 
 	if len(lines) == 0 {
 		return nil, nil
