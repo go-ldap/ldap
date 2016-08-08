@@ -370,6 +370,10 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 
 // Search performs the given search request
 func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
+	return l.doSearch(searchRequest, nil)
+}
+
+func (l *Conn) doSearch(searchRequest *SearchRequest, callBack func(*SearchResult) bool) (*SearchResult, error) {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 	// encode search request
@@ -415,9 +419,8 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 			ber.PrintPacket(packet)
 		}
-
 		switch packet.Children[1].Tag {
-		case 4:
+		case ApplicationSearchResultEntry:
 			entry := new(Entry)
 			entry.DN = packet.Children[1].Children[0].Value.(string)
 			for _, child := range packet.Children[1].Children[1].Children {
@@ -430,7 +433,14 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				entry.Attributes = append(entry.Attributes, attr)
 			}
 			result.Entries = append(result.Entries, entry)
-		case 5:
+			// used by persistent search control -> entry change notification control:
+			if len(packet.Children) == 3 {
+				for _, child := range packet.Children[2].Children {
+					result.Controls = append(result.Controls, DecodeControl(child))
+				}
+			}
+
+		case ApplicationSearchResultDone:
 			resultCode, resultDescription := getLDAPResultCode(packet)
 			if resultCode != 0 {
 				return result, NewError(resultCode, errors.New(resultDescription))
@@ -441,10 +451,46 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				}
 			}
 			foundSearchResultDone = true
-		case 19:
+		case ApplicationSearchResultReference:
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+		}
+		if callBack != nil {
+			callBack(result)
+			result = &SearchResult{
+				Entries:   make([]*Entry, 0),
+				Referrals: make([]string, 0),
+				Controls:  make([]Control, 0),
+			}
 		}
 	}
 	l.Debug.Printf("%d: returning", msgCtx.id)
 	return result, nil
+}
+
+// PersistentSearch accepts a search request options for the PersistentSearch
+// Control and a callback function which will be called on every result that
+// resturns from the server. Except for errors, the PersistentSearch()
+// will never return.
+//
+// Possible values for the changeTypes are: "add", "delete", "modify",
+// "moddn". "any" is a shortcut to include all of the possible change types,
+// this is also the default if you pass an empty list.
+//
+// With a true changesOnly, you will only get changes which match your search
+// criteria when they change and not the full result in the beginning.
+//
+// When returnECs is true, the result passed to the callBack() function will
+// include an EntryChangeNotification control which incudes the change type
+// and when the change type includes "moddn" also the previous DN.
+func (l *Conn) PersistentSearch(searchRequest *SearchRequest, changeTypes []string, changesOnly bool, returnECs bool, callBack func(*SearchResult) bool) error {
+	searchRequest.Controls = append(searchRequest.Controls, NewPersistentSearchControl(changeTypes, changesOnly, returnECs))
+	_, err := l.doSearch(searchRequest, callBack)
+	return err
+}
+
+// SearchWithFunc behaves like Search(), but instead of returning all results every incoming Entry is passed
+// as SearchResult to the given callBack()
+func (l *Conn) SearchWithFunc(searchRequest *SearchRequest, callBack func(*SearchResult) bool) error {
+	_, err := l.doSearch(searchRequest, callBack)
+	return err
 }

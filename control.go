@@ -7,6 +7,7 @@ package ldap
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -22,13 +23,19 @@ const (
 	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
 	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
+	// ControlTypePersistentSearch - https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
+	ControlTypePersistentSearch = "2.16.840.1.113730.3.4.3"
+	// ControlTypeEntryChangeNotification - https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
+	ControlTypeEntryChangeNotification = "2.16.840.1.113730.3.4.7"
 )
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
-	ControlTypePaging:               "Paging",
-	ControlTypeBeheraPasswordPolicy: "Password Policy - Behera Draft",
-	ControlTypeManageDsaIT:          "Manage DSA IT",
+	ControlTypePaging:                  "Paging",
+	ControlTypeBeheraPasswordPolicy:    "Password Policy - Behera Draft",
+	ControlTypeManageDsaIT:             "Manage DSA IT",
+	ControlTypePersistentSearch:        "Persistent Search",
+	ControlTypeEntryChangeNotification: "Entry Change Notification",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -242,6 +249,118 @@ func NewControlManageDsaIT(Criticality bool) *ControlManageDsaIT {
 	return &ControlManageDsaIT{Criticality: Criticality}
 }
 
+var pSearchTypes = map[string]int{
+	"add":    1,
+	"delete": 2,
+	"modify": 4,
+	"moddn":  8,
+	"any":    15,
+}
+var pSearchTypesRev = map[int]string{
+	1: "add",
+	2: "delete",
+	4: "modify",
+	8: "moddn",
+}
+
+// ControlPersistentSearch implements the persistent search control from
+// https://tools.ietf.org/html/draft-ietf-ldapext-psearch-03
+type ControlPersistentSearch struct {
+	ChangeTypes int
+	ChangesOnly bool
+	ReturnECs   bool
+}
+
+// NewPersistentSearchControl returns a new control, changeTypes are one
+// of "add", "delete", "modify", "moddn" or "any" (which means all of
+// the former mentioned. An empty changeType is set to "any".
+func NewPersistentSearchControl(changeTypes []string, changesOnly bool, returnECs bool) *ControlPersistentSearch {
+	if len(changeTypes) == 0 {
+		changeTypes = []string{"add", "delete", "modify", "moddn"}
+	}
+	var types int
+	for _, val := range changeTypes {
+		if v := pSearchTypes[val]; v != 0 {
+			types |= v
+		}
+	}
+	return &ControlPersistentSearch{
+		ChangeTypes: types,
+		ChangesOnly: changesOnly,
+		ReturnECs:   returnECs,
+	}
+}
+
+// GetControlType returns the OID
+func (c *ControlPersistentSearch) GetControlType() string {
+	return ControlTypePersistentSearch
+}
+
+// Encode encodes the control
+func (c *ControlPersistentSearch) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypePersistentSearch, "Control Type ("+ControlTypeMap[ControlTypePersistentSearch]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, true, "Criticality"))
+
+	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (Persistent Search)")
+	seq := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagSequence, nil, "Control Value (Persistent Search)")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, uint64(c.ChangeTypes), "Change Types"))
+	seq.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.ChangesOnly, "Changes Only"))
+	seq.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.ReturnECs, "Return ECs"))
+	p2.AppendChild(seq)
+	packet.AppendChild(p2)
+	return packet
+}
+
+// String returns a human-readable description
+func (c *ControlPersistentSearch) String() string {
+	var t []string
+	for i, v := range pSearchTypesRev {
+		if c.ChangeTypes&i != 0 {
+			t = append(t, v)
+		}
+	}
+	return fmt.Sprintf("Control Type: PersistentSearch,  Change Types: [%s], Changes Only: %t, Return ECs: %t", strings.Join(t, ", "), c.ChangesOnly, c.ReturnECs)
+}
+
+// ControlEntryChangeNotification implements the entry change notification in
+// the persistent search
+type ControlEntryChangeNotification struct {
+	ChangeType   int
+	PreviousDN   string
+	ChangeNumber int64
+}
+
+// GetControlType returns the OID
+func (c *ControlEntryChangeNotification) GetControlType() string {
+	return ControlTypeEntryChangeNotification
+}
+
+// String returns a human-readable description
+func (c *ControlEntryChangeNotification) String() string {
+	return fmt.Sprintf("Control Type: Entry Change Notification, Change Type: %d, Previous DN: %s, Change Number: %d", c.ChangeType, c.PreviousDN, c.ChangeNumber)
+}
+
+// Encode encodes a ControlTypeEntryChangeNotification
+func (c *ControlEntryChangeNotification) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeEntryChangeNotification, "Control Type ("+ControlTypeMap[ControlTypeEntryChangeNotification]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, true, "Criticality"))
+
+	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (Entry Change Notification)")
+	seq := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagSequence, nil, "Control Value (Entry Change Notification)")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, uint64(c.ChangeType), "Change Type"))
+	if c.PreviousDN != "" {
+		seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.PreviousDN, "Previous DN"))
+	}
+	if c.ChangeNumber != 0 {
+		seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, c.ChangeNumber, "Change Number"))
+	}
+	p2.AppendChild(seq)
+	packet.AppendChild(p2)
+	return packet
+}
+
 // FindControl returns the first control of the given type in the list, or nil
 func FindControl(controls []Control, controlType string) Control {
 	for _, c := range controls {
@@ -376,6 +495,55 @@ func DecodeControl(packet *ber.Packet) Control {
 		c.Expire = expire
 		value.Value = c.Expire
 
+		return c
+	case ControlTypePersistentSearch:
+		value.Description += " (Persistent Search)"
+		c := new(ControlPersistentSearch)
+		if value.Value != nil {
+			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			value.Data.Truncate(0)
+			value.Value = nil
+			value.AppendChild(valueChildren)
+		}
+		value = value.Children[0]
+		value.Description = "Persistent Search Values"
+		value.Children[0].Description = "Change Types"
+		value.Children[1].Description = "Changes Only"
+		value.Children[2].Description = "ReturnECs"
+		t := int(value.Children[0].Value.(int64))
+		var ts []string
+		for i, v := range pSearchTypesRev {
+			if t&i != 0 {
+				ts = append(ts, v)
+			}
+		}
+		value.Children[0].Description += ": " + strings.Join(ts, ", ")
+		c.ChangeTypes = t
+		c.ChangesOnly = value.Children[1].Value.(bool)
+		c.ReturnECs = value.Children[2].Value.(bool)
+		return c
+	case ControlTypeEntryChangeNotification:
+		value.Description += " (Entry Change Notification)"
+		c := new(ControlEntryChangeNotification)
+		if value.Value != nil {
+			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			value.Data.Truncate(0)
+			value.Value = nil
+			value.AppendChild(valueChildren)
+		}
+
+		seq := value.Children[0]
+		for i, child := range seq.Children {
+			if i == 0 {
+				c.ChangeType = int(child.Value.(int64))
+			} else {
+				if child.Tag == 0x04 {
+					c.PreviousDN = string(child.Data.Bytes())
+				} else {
+					c.ChangeNumber = child.Value.(int64)
+				}
+			}
+		}
 		return c
 	default:
 		c := new(ControlString)
