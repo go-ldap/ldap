@@ -257,16 +257,22 @@ func DecodeControl(packet *ber.Packet) Control {
 	ControlType := packet.Children[0].Value.(string)
 	Criticality := false
 
+	var value *ber.Packet
 	packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-	value := packet.Children[1]
-	if len(packet.Children) == 3 {
-		value = packet.Children[2]
-		packet.Children[1].Description = "Criticality"
-		Criticality = packet.Children[1].Value.(bool)
+	if len(packet.Children) > 1 {
+		value = packet.Children[1]
+		if len(packet.Children) == 3 {
+			value = packet.Children[2]
+			packet.Children[1].Description = "Criticality"
+			Criticality = packet.Children[1].Value.(bool)
+		}
+		value.Description = "Control Value"
 	}
 
-	value.Description = "Control Value"
 	switch ControlType {
+	case ControlTypeManageDsaIT:
+		return NewControlManageDsaIT(Criticality)
+
 	case ControlTypePaging:
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
