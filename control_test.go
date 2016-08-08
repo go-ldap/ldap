@@ -15,6 +15,11 @@ func TestControlPaging(t *testing.T) {
 	runControlTest(t, NewControlPaging(100))
 }
 
+func TestControlManageDsaIT(t *testing.T) {
+	runControlTest(t, NewControlManageDsaIT(true))
+	runControlTest(t, NewControlManageDsaIT(false))
+}
+
 func runControlTest(t *testing.T, originalControl Control) {
 	header := ""
 	if callerpc, _, line, ok := runtime.Caller(1); ok {
