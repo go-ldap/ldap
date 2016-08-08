@@ -377,12 +377,15 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Value = c.Expire
 
 		return c
+	default:
+		c := new(ControlString)
+		c.ControlType = ControlType
+		c.Criticality = Criticality
+		if value != nil {
+			c.ControlValue = value.Value.(string)
+		}
+		return c
 	}
-	c := new(ControlString)
-	c.ControlType = ControlType
-	c.Criticality = Criticality
-	c.ControlValue = value.Value.(string)
-	return c
 }
 
 // NewControlString returns a generic control

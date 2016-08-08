@@ -20,6 +20,13 @@ func TestControlManageDsaIT(t *testing.T) {
 	runControlTest(t, NewControlManageDsaIT(false))
 }
 
+func TestControlString(t *testing.T) {
+	runControlTest(t, NewControlString("x", true, "y"))
+	runControlTest(t, NewControlString("x", true, ""))
+	runControlTest(t, NewControlString("x", false, "y"))
+	runControlTest(t, NewControlString("x", false, ""))
+}
+
 func runControlTest(t *testing.T, originalControl Control) {
 	header := ""
 	if callerpc, _, line, ok := runtime.Caller(1); ok {
