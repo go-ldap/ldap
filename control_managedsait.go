@@ -50,7 +50,7 @@ func (c ControlManageDsaIT) String() string {
 		"Control Type: %s (%q)  Criticality: %t",
 		ControlDescription(ControlTypeManageDsaIT),
 		ControlTypeManageDsaIT,
-		c)
+		bool(c))
 }
 
 // NewControlManageDsaIT returns a ControlManageDsaIT control
