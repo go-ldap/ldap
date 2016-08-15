@@ -39,7 +39,10 @@ func runControlTest(t *testing.T, originalControl Control) {
 	encodedBytes := encodedPacket.Bytes()
 
 	// Decode directly from the encoded packet (ensures Value is correct)
-	fromPacket := DecodeControl(encodedPacket)
+	fromPacket, err := DecodeControl(encodedPacket)
+	if err != nil {
+		t.Errorf("DecodeControl returned error: %s", err)
+	}
 	if !bytes.Equal(encodedBytes, fromPacket.Encode().Bytes()) {
 		t.Errorf("%sround-trip from encoded packet failed", header)
 	}
@@ -48,7 +51,10 @@ func runControlTest(t *testing.T, originalControl Control) {
 	}
 
 	// Decode from the wire bytes (ensures ber-encoding is correct)
-	fromBytes := DecodeControl(ber.DecodePacket(encodedBytes))
+	fromBytes, err := DecodeControl(ber.DecodePacket(encodedBytes))
+	if err != nil {
+		t.Errorf("DecodeControl returned error: %s", err)
+	}
 	if !bytes.Equal(encodedBytes, fromBytes.Encode().Bytes()) {
 		t.Errorf("%sround-trip from encoded bytes failed", header)
 	}

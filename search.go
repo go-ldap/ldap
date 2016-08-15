@@ -437,7 +437,11 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 			if len(packet.Children) == 3 {
 				for _, child := range packet.Children[2].Children {
-					result.Controls = append(result.Controls, DecodeControl(child))
+					ctrl, err := DecodeControl(child)
+					if err != nil {
+						return nil, err
+					}
+					result.Controls = append(result.Controls, ctrl)
 				}
 			}
 			foundSearchResultDone = true

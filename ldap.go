@@ -154,7 +154,7 @@ func addControlDescriptions(packet *ber.Packet) {
 	packet.Description = "Controls"
 	for _, child := range packet.Children {
 		child.Description = "Control"
-		child.Children[0].Description = "Control Type (" + ControlTypeMap[child.Children[0].Value.(string)] + ")"
+		child.Children[0].Description = "Control Type (" + ControlDescription(child.Children[0].Value.(string)) + ")"
 		value := child.Children[1]
 		if len(child.Children) == 3 {
 			child.Children[1].Description = "Criticality"
@@ -162,58 +162,8 @@ func addControlDescriptions(packet *ber.Packet) {
 		}
 		value.Description = "Control Value"
 
-		switch child.Children[0].Value.(string) {
-		case ControlTypePaging:
-			value.Description += " (Paging)"
-			if value.Value != nil {
-				valueChildren := ber.DecodePacket(value.Data.Bytes())
-				value.Data.Truncate(0)
-				value.Value = nil
-				valueChildren.Children[1].Value = valueChildren.Children[1].Data.Bytes()
-				value.AppendChild(valueChildren)
-			}
-			value.Children[0].Description = "Real Search Control Value"
-			value.Children[0].Children[0].Description = "Paging Size"
-			value.Children[0].Children[1].Description = "Cookie"
-
-		case ControlTypeBeheraPasswordPolicy:
-			value.Description += " (Password Policy - Behera Draft)"
-			if value.Value != nil {
-				valueChildren := ber.DecodePacket(value.Data.Bytes())
-				value.Data.Truncate(0)
-				value.Value = nil
-				value.AppendChild(valueChildren)
-			}
-			sequence := value.Children[0]
-			for _, child := range sequence.Children {
-				if child.Tag == 0 {
-					//Warning
-					child := child.Children[0]
-					packet := ber.DecodePacket(child.Data.Bytes())
-					val, ok := packet.Value.(int64)
-					if ok {
-						if child.Tag == 0 {
-							//timeBeforeExpiration
-							value.Description += " (TimeBeforeExpiration)"
-							child.Value = val
-						} else if child.Tag == 1 {
-							//graceAuthNsRemaining
-							value.Description += " (GraceAuthNsRemaining)"
-							child.Value = val
-						}
-					}
-				} else if child.Tag == 1 {
-					// Error
-					packet := ber.DecodePacket(child.Data.Bytes())
-					val, ok := packet.Value.(int8)
-					if !ok {
-						val = -1
-					}
-					child.Description = "Error"
-					child.Value = val
-				}
-			}
-		}
+		ctrl := GetControl(child.Children[0].Value.(string))
+		ctrl.Describe(value)
 	}
 }
 

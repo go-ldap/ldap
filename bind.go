@@ -85,7 +85,11 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 
 	if len(packet.Children) == 3 {
 		for _, child := range packet.Children[2].Children {
-			result.Controls = append(result.Controls, DecodeControl(child))
+			ctrl, err := DecodeControl(child)
+			if err != nil {
+				return nil, err
+			}
+			result.Controls = append(result.Controls, ctrl)
 		}
 	}
 
