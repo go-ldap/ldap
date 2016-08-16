@@ -164,11 +164,11 @@ func addControlDescriptions(packet *ber.Packet) {
 		case 1:
 			// just type, no criticality or value
 			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+			child.Children[0].Description = "Control Type (" + ControlDescription(controlType) + ")"
 
 		case 2:
 			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+			child.Children[0].Description = "Control Type (" + ControlDescription(controlType) + ")"
 			// Children[1] could be criticality or value (both are optional)
 			// duck-type on whether this is a boolean
 			if _, ok := child.Children[1].Value.(bool); ok {
@@ -181,7 +181,7 @@ func addControlDescriptions(packet *ber.Packet) {
 		case 3:
 			// criticality and value present
 			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+			child.Children[0].Description = "Control Type (" + ControlDescription(controlType) + ")"
 			child.Children[1].Description = "Criticality"
 			child.Children[2].Description = "Control Value"
 			value = child.Children[2]
