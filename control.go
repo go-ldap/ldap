@@ -333,19 +333,18 @@ func DecodeControl(packet *ber.Packet) Control {
 
 		for _, child := range sequence.Children {
 			if child.Tag == 0 {
-				//Warning
-				child := child.Children[0]
-				packet := ber.DecodePacket(child.Data.Bytes())
+				child1 := child.Children[0]
+				packet := ber.DecodePacket(child1.Data.Bytes())
 				val, ok := packet.Value.(int64)
 				if ok {
-					if child.Tag == 0 {
+					if child1.Tag == 0 {
 						//timeBeforeExpiration
 						c.Expire = val
-						child.Value = c.Expire
-					} else if child.Tag == 1 {
+						child1.Value = c.Expire
+					} else if child1.Tag == 1 {
 						//graceAuthNsRemaining
 						c.Grace = val
-						child.Value = c.Grace
+						child1.Value = c.Grace
 					}
 				}
 			} else if child.Tag == 1 {
