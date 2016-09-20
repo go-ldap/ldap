@@ -188,18 +188,18 @@ func addControlDescriptions(packet *ber.Packet) {
 			for _, child := range sequence.Children {
 				if child.Tag == 0 {
 					//Warning
-					child := child.Children[0]
-					packet := ber.DecodePacket(child.Data.Bytes())
+					warningPacket := child.Children[0]
+					packet := ber.DecodePacket(warningPacket.Data.Bytes())
 					val, ok := packet.Value.(int64)
 					if ok {
-						if child.Tag == 0 {
+						if warningPacket.Tag == 0 {
 							//timeBeforeExpiration
 							value.Description += " (TimeBeforeExpiration)"
-							child.Value = val
-						} else if child.Tag == 1 {
+							warningPacket.Value = val
+						} else if warningPacket.Tag == 1 {
 							//graceAuthNsRemaining
 							value.Description += " (GraceAuthNsRemaining)"
-							child.Value = val
+							warningPacket.Value = val
 						}
 					}
 				} else if child.Tag == 1 {
