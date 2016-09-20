@@ -30,7 +30,7 @@ type ModifyDNRequest struct {
 // To move an object in the tree, set the "newSup" to the new parent entry DN. Use an
 // empty string for just changing the object's RDN.
 //
-// For moving the object without renaming the "rdn" must be the first
+// For moving the object without renaming, the "rdn" must be the first
 // RDN of the given DN.
 //
 // A call like
