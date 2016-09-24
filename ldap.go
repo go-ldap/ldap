@@ -153,16 +153,47 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 func addControlDescriptions(packet *ber.Packet) {
 	packet.Description = "Controls"
 	for _, child := range packet.Children {
+		var value *ber.Packet
+		controlType := ""
 		child.Description = "Control"
-		child.Children[0].Description = "Control Type (" + ControlTypeMap[child.Children[0].Value.(string)] + ")"
-		value := child.Children[1]
-		if len(child.Children) == 3 {
-			child.Children[1].Description = "Criticality"
-			value = child.Children[2]
-		}
-		value.Description = "Control Value"
+		switch len(child.Children) {
+		case 0:
+			// at least one child is required for control type
+			continue
 
-		switch child.Children[0].Value.(string) {
+		case 1:
+			// just type, no criticality or value
+			controlType = child.Children[0].Value.(string)
+			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+
+		case 2:
+			controlType = child.Children[0].Value.(string)
+			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+			// Children[1] could be criticality or value (both are optional)
+			// duck-type on whether this is a boolean
+			if _, ok := child.Children[1].Value.(bool); ok {
+				child.Children[1].Description = "Criticality"
+			} else {
+				child.Children[1].Description = "Control Value"
+				value = child.Children[1]
+			}
+
+		case 3:
+			// criticality and value present
+			controlType = child.Children[0].Value.(string)
+			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+			child.Children[1].Description = "Criticality"
+			child.Children[2].Description = "Control Value"
+			value = child.Children[2]
+
+		default:
+			// more than 3 children is invalid
+			continue
+		}
+		if value == nil {
+			continue
+		}
+		switch controlType {
 		case ControlTypePaging:
 			value.Description += " (Paging)"
 			if value.Value != nil {
