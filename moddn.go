@@ -61,7 +61,7 @@ func (m ModifyDNRequest) encode() *ber.Packet {
 // to NewModifyDNRequest() is not "").
 func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID, "MessageID"))
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 	packet.AppendChild(m.encode())
 
 	l.Debug.PrintPacket(packet)
