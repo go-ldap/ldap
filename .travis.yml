@@ -1,8 +1,8 @@
 language: go
 env:
     global:
-        - VET_VERSIONS="1.5 1.6 1.7 tip"
-        - LINT_VERSIONS="1.5 1.6 1.7 tip"
+        - VET_VERSIONS="1.6 1.7 tip"
+        - LINT_VERSIONS="1.6 1.7 tip"
 go:
     - 1.2
     - 1.3
