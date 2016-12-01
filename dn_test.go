@@ -31,6 +31,22 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "net"}}}}},
 		"CN=Lu\\C4\\8Di\\C4\\87": ldap.DN{[]*ldap.RelativeDN{
 			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"CN", "Lučić"}}}}},
+		"  CN  =  Lu\\C4\\8Di\\C4\\87  ": ldap.DN{[]*ldap.RelativeDN{
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"CN", "Lučić"}}}}},
+		`   A   =   1   ,   B   =   2   `: ldap.DN{[]*ldap.RelativeDN{
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"A", "1"}}},
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"B", "2"}}}}},
+		`   A   =   1   +   B   =   2   `: ldap.DN{[]*ldap.RelativeDN{
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{
+				&ldap.AttributeTypeAndValue{"A", "1"},
+				&ldap.AttributeTypeAndValue{"B", "2"}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    ,   \ \ B\ \    =   \ \ 2\ \    `: ldap.DN{[]*ldap.RelativeDN{
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"  A  ", "  1  "}}},
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"  B  ", "  2  "}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    +   \ \ B\ \    =   \ \ 2\ \    `: ldap.DN{[]*ldap.RelativeDN{
+			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{
+				&ldap.AttributeTypeAndValue{"  A  ", "  1  "},
+				&ldap.AttributeTypeAndValue{"  B  ", "  2  "}}}}},
 	}
 
 	for test, answer := range testcases {
@@ -41,6 +57,13 @@ func TestSuccessfulDNParsing(t *testing.T) {
 		}
 		if !reflect.DeepEqual(dn, &answer) {
 			t.Errorf("Parsed DN %s is not equal to the expected structure", test)
+			t.Logf("Expected:")
+			for _, rdn := range answer.RDNs {
+				for _, attribs := range rdn.Attributes {
+					t.Logf("#%v\n", attribs)
+				}
+			}
+			t.Logf("Actual:")
 			for _, rdn := range dn.RDNs {
 				for _, attribs := range rdn.Attributes {
 					t.Logf("#%v\n", attribs)
