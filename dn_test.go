@@ -91,3 +91,119 @@ func TestErrorDNParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestDNEqual(t *testing.T) {
+	testcases := []struct {
+		A     string
+		B     string
+		Equal bool
+	}{
+		// Exact match
+		{"", "", true},
+		{"o=A", "o=A", true},
+		{"o=A", "o=B", false},
+
+		{"o=A,o=B", "o=A,o=B", true},
+		{"o=A,o=B", "o=A,o=C", false},
+
+		{"o=A+o=B", "o=A+o=B", true},
+		{"o=A+o=B", "o=A+o=C", false},
+
+		// Case mismatch in type is ignored
+		{"o=A", "O=A", true},
+		{"o=A,o=B", "o=A,O=B", true},
+		{"o=A+o=B", "o=A+O=B", true},
+
+		// Case mismatch in value is significant
+		{"o=a", "O=A", false},
+		{"o=a,o=B", "o=A,O=B", false},
+		{"o=a+o=B", "o=A+O=B", false},
+
+		// Multi-valued RDN order mismatch is ignored
+		{"o=A+o=B", "O=B+o=A", true},
+		// Number of RDN attributes is significant
+		{"o=A+o=B", "O=B+o=A+O=B", false},
+
+		// Missing values are significant
+		{"o=A+o=B", "O=B+o=A+O=C", false}, // missing values matter
+		{"o=A+o=B+o=C", "O=B+o=A", false}, // missing values matter
+
+		// Whitespace tests
+		// Matching
+		{
+			"cn=John Doe, ou=People, dc=sun.com",
+			"cn=John Doe, ou=People, dc=sun.com",
+			true,
+		},
+		// Difference in leading/trailing chars is ignored
+		{
+			"cn=John Doe, ou=People, dc=sun.com",
+			"cn=John Doe,ou=People,dc=sun.com",
+			true,
+		},
+		// Difference in values is significant
+		{
+			"cn=John Doe, ou=People, dc=sun.com",
+			"cn=John  Doe, ou=People, dc=sun.com",
+			false,
+		},
+	}
+
+	for i, tc := range testcases {
+		a, err := ldap.ParseDN(tc.A)
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+			continue
+		}
+		b, err := ldap.ParseDN(tc.B)
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+			continue
+		}
+		if expected, actual := tc.Equal, a.Equal(b); expected != actual {
+			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			continue
+		}
+		if expected, actual := tc.Equal, b.Equal(a); expected != actual {
+			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			continue
+		}
+	}
+}
+
+func TestDNAncestor(t *testing.T) {
+	testcases := []struct {
+		A        string
+		B        string
+		Ancestor bool
+	}{
+		// Exact match returns false
+		{"", "", false},
+		{"o=A", "o=A", false},
+		{"o=A,o=B", "o=A,o=B", false},
+		{"o=A+o=B", "o=A+o=B", false},
+
+		// Mismatch
+		{"ou=C,ou=B,o=A", "ou=E,ou=D,ou=B,o=A", false},
+
+		// Descendant
+		{"ou=C,ou=B,o=A", "ou=E,ou=C,ou=B,o=A", true},
+	}
+
+	for i, tc := range testcases {
+		a, err := ldap.ParseDN(tc.A)
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+			continue
+		}
+		b, err := ldap.ParseDN(tc.B)
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+			continue
+		}
+		if expected, actual := tc.Ancestor, a.AncestorOf(b); expected != actual {
+			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			continue
+		}
+	}
+}
