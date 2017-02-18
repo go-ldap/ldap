@@ -264,6 +264,15 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 	return nil
 }
 
+// TLSConnectionState returns the current connection's TLS ConnectionState, or an error if not TLS.
+func (l *Conn) TLSConnectionState() (*tls.ConnectionState, error) {
+	if !l.isTLS {
+		return nil, errors.New("ldap: Cannot get TLS Connection State for non-TLS connection")
+	}
+	state := l.conn.(*tls.Conn).ConnectionState()
+	return &state, nil
+}
+
 func (l *Conn) sendMessage(packet *ber.Packet) (*messageContext, error) {
 	return l.sendMessageWithFlags(packet, 0)
 }
