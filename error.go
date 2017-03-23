@@ -47,6 +47,11 @@ const (
 	LDAPResultObjectClassModsProhibited    = 69
 	LDAPResultAffectsMultipleDSAs          = 71
 	LDAPResultOther                        = 80
+	// https://tools.ietf.org/html/rfc4370 chap 6:
+	// "A result code (123) has been assigned by the IANA for the case where
+	// the server does not execute a request using the proxy authorization
+	// identity."
+	LDAPResultAuthorizationDenied = 123
 
 	ErrorNetwork            = 200
 	ErrorFilterCompile      = 201
@@ -96,6 +101,7 @@ var LDAPResultCodeMap = map[uint8]string{
 	LDAPResultEntryAlreadyExists:           "Entry Already Exists",
 	LDAPResultObjectClassModsProhibited:    "Object Class Mods Prohibited",
 	LDAPResultAffectsMultipleDSAs:          "Affects Multiple DSAs",
+	LDAPResultAuthorizationDenied:          "Authorization Denied",
 	LDAPResultOther:                        "Other",
 
 	ErrorNetwork:            "Network Error",
