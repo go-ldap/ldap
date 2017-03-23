@@ -259,11 +259,12 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		extensibleDNAttributes := false
 		extensibleMatchingRule := ""
 		condition := ""
+		filterValueParensCount := 0
 
 		for newPos < len(filter) {
 			remainingFilter := filter[newPos:]
 			currentRune, currentWidth = utf8.DecodeRuneInString(remainingFilter)
-			if currentRune == ')' {
+			if currentRune == ')' && filterValueParensCount == 0 {
 				break
 			}
 			if currentRune == utf8.RuneError {
@@ -344,9 +345,24 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 				}
 
 			case stateReadingCondition:
-				// append to the condition
-				condition += fmt.Sprintf("%c", currentRune)
-				newPos += currentWidth
+				switch {
+
+				case currentRune == '(':
+					filterValueParensCount++
+					condition += fmt.Sprintf("%c", currentRune)
+					newPos += currentWidth
+
+				case currentRune == ')':
+					filterValueParensCount--
+					condition += fmt.Sprintf("%c", currentRune)
+					newPos += currentWidth
+
+				default:
+					// append to the condition
+					condition += fmt.Sprintf("%c", currentRune)
+					newPos += currentWidth
+				}
+
 			}
 		}
 

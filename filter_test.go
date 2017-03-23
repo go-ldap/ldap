@@ -173,6 +173,16 @@ var testFilters = []compileTest{
 		expectedType:   ldap.FilterExtensibleMatch,
 	},
 	compileTest{
+		filterStr:      `(&(objectclass=inetorgperson)(memberOf:1.2.840.113556.1.4.1941:=CN=User1 (CA),OU=blah,DC=mydomain,DC=net))`,
+		expectedFilter: `(&(objectclass=inetorgperson)(memberOf:1.2.840.113556.1.4.1941:=CN=User1 \28CA\29,OU=blah,DC=mydomain,DC=net))`,
+		expectedType:   0,
+	},
+	compileTest{
+		filterStr:      `(memberOf:1.2.840.113556.1.4.1941:=CN=User1 (CA),OU=blah,DC=mydomain,DC=net)`,
+		expectedFilter: `(memberOf:1.2.840.113556.1.4.1941:=CN=User1 \28CA\29,OU=blah,DC=mydomain,DC=net)`,
+		expectedType:   ldap.FilterExtensibleMatch,
+	},
+	compileTest{
 		filterStr:      `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
 		expectedFilter: `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
 		expectedType:   ldap.FilterExtensibleMatch,
