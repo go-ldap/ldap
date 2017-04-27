@@ -448,3 +448,64 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 	l.Debug.Printf("%d: returning", msgCtx.id)
 	return result, nil
 }
+
+// DirSync does a Search with dirSync Control.
+func (l *Conn) DirSync(searchRequest *SearchRequest, flags int64, maxAttrCount int64) (*SearchResult, error) {
+	var dirSyncControl *ControlDirSync
+
+	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
+	if control == nil {
+		dirSyncControl = NewControlDirSync(flags, maxAttrCount, nil)
+		searchRequest.Controls = append(searchRequest.Controls, dirSyncControl)
+	} else {
+		castControl, ok := control.(*ControlDirSync)
+		if !ok {
+			return nil, fmt.Errorf("Expected DirSync control to be of type *ControlDirSync, got %v", control)
+		}
+		if castControl.Flags != flags {
+			return nil, fmt.Errorf("flags given in search request (%d) conflicts with flags given in search call (%d)", castControl.Flags, flags)
+		}
+		if castControl.MaxAttrCnt != maxAttrCount {
+			return nil, fmt.Errorf("MaxAttrCnt given in search request (%d) conflicts with maxAttrCount given in search call (%d)", castControl.MaxAttrCnt, maxAttrCount)
+		}
+		dirSyncControl = castControl
+	}
+
+	searchResult := new(SearchResult)
+	result, err := l.Search(searchRequest)
+	l.Debug.Printf("Looking for result...")
+	if err != nil {
+		return searchResult, err
+	}
+	if result == nil {
+		return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
+	}
+
+	for _, entry := range result.Entries {
+		searchResult.Entries = append(searchResult.Entries, entry)
+	}
+	for _, referral := range result.Referrals {
+		searchResult.Referrals = append(searchResult.Referrals, referral)
+	}
+	for _, control := range result.Controls {
+		searchResult.Controls = append(searchResult.Controls, control)
+	}
+
+	l.Debug.Printf("Looking for DirSync Control...")
+	dirSyncResult := FindControl(result.Controls, ControlTypeDirSync)
+	if dirSyncResult == nil {
+		dirSyncControl = nil
+		l.Debug.Printf("Could not find dirSyncControl control.  Breaking...")
+		return searchResult, nil
+	}
+
+	cookie := dirSyncResult.(*ControlDirSync).Cookie
+	if len(cookie) == 0 {
+		dirSyncControl = nil
+		l.Debug.Printf("Could not find cookie.  Breaking...")
+		return searchResult, nil
+	}
+	dirSyncControl.SetCookie(cookie)
+
+	return searchResult, nil
+}

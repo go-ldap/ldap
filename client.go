@@ -24,4 +24,5 @@ type Client interface {
 
 	Search(searchRequest *SearchRequest) (*SearchResult, error)
 	SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error)
+	DirSync(searchRequest *SearchRequest, flags, maxAttrCount int64) (*SearchResult, error)
 }

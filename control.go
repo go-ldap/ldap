@@ -22,6 +22,16 @@ const (
 	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
 	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
+	// ControlTypeDirSync - Active Directory DirSync - https://msdn.microsoft.com/en-us/library/aa366978(v=vs.85).aspx
+	ControlTypeDirSync = "1.2.840.113556.1.4.841"
+)
+
+// Flags for DirSync control
+const (
+	DirSyncIncrementalValues   int64 = 2147483648
+	DirSyncPublicDataOnly      int64 = 8192
+	DirSyncAncestorsFirstOrder int64 = 2048
+	DirSyncObjectSecurity      int64 = 1
 )
 
 // ControlTypeMap maps controls to text descriptions
@@ -29,6 +39,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypePaging:               "Paging",
 	ControlTypeBeheraPasswordPolicy: "Password Policy - Behera Draft",
 	ControlTypeManageDsaIT:          "Manage DSA IT",
+	ControlTypeDirSync:              "DirSync",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -377,6 +388,26 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Value = c.Expire
 
 		return c
+	case ControlTypeDirSync:
+		value.Description += " (DirSync)"
+		c := new(ControlDirSync)
+		if value.Value != nil {
+			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			value.Data.Truncate(0)
+			value.Value = nil
+			value.AppendChild(valueChildren)
+		}
+		value = value.Children[0]
+		value.Description = "DirSync Control Value"
+		value.Children[0].Description = "Flags"
+		value.Children[1].Description = "MaxAttrCnt"
+		value.Children[2].Description = "Cookie"
+		c.Flags = value.Children[0].Value.(int64)
+		c.MaxAttrCnt = value.Children[0].Value.(int64)
+		c.Cookie = value.Children[2].Data.Bytes()
+		value.Children[2].Value = c.Cookie
+		return c
+
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -417,4 +448,60 @@ func encodeControls(controls []Control) *ber.Packet {
 		packet.AppendChild(control.Encode())
 	}
 	return packet
+}
+
+// ControlDirSync implements the control described in https://msdn.microsoft.com/en-us/library/aa366978(v=vs.85).aspx
+type ControlDirSync struct {
+	Flags      int64
+	MaxAttrCnt int64
+	Cookie     []byte
+}
+
+// NewControlDirSync returns a dir sync control
+func NewControlDirSync(flags int64, maxAttrCount int64, cookie []byte) *ControlDirSync {
+	return &ControlDirSync{
+		Flags:      flags,
+		MaxAttrCnt: maxAttrCount,
+		Cookie:     cookie,
+	}
+}
+
+// GetControlType returns the OID
+func (c *ControlDirSync) GetControlType() string {
+	return ControlTypeDirSync
+}
+
+// String returns a human-readable description
+func (c *ControlDirSync) String() string {
+	return fmt.Sprintf("ControlType: %s (%q), Criticality: true, ControlValue: Flags: %d, MaxAttrCnt: %d", ControlTypeMap[ControlTypeDirSync], ControlTypeDirSync, c.Flags, c.MaxAttrCnt)
+}
+
+// Encode returns the ber packet representation
+func (c *ControlDirSync) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, true, "Criticality")) // must be true always
+
+	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
+
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.Flags), "Flags"))
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.MaxAttrCnt), "MaxAttrCount"))
+
+	cookie := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "Cookie")
+	if len(c.Cookie) != 0 {
+		cookie.Value = c.Cookie
+		cookie.Data.Write(c.Cookie)
+	}
+	seq.AppendChild(cookie)
+
+	val.AppendChild(seq)
+
+	packet.AppendChild(val)
+	return packet
+}
+
+// SetCookie stores the given cookie in the dirSync control
+func (c *ControlDirSync) SetCookie(cookie []byte) {
+	c.Cookie = cookie
 }
