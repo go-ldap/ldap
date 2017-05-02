@@ -27,6 +27,11 @@ func TestControlString(t *testing.T) {
 	runControlTest(t, NewControlString("x", false, ""))
 }
 
+func TestControlDirSync(t *testing.T) {
+	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil))
+	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
+}
+
 func runControlTest(t *testing.T, originalControl Control) {
 	header := ""
 	if callerpc, _, line, ok := runtime.Caller(1); ok {
@@ -72,6 +77,10 @@ func TestDescribeControlString(t *testing.T) {
 	runAddControlDescriptions(t, NewControlString("x", true, ""), "Control Type ()", "Criticality", "Control Value")
 	runAddControlDescriptions(t, NewControlString("x", false, "y"), "Control Type ()", "Control Value")
 	runAddControlDescriptions(t, NewControlString("x", false, ""), "Control Type ()", "Control Value")
+}
+
+func TestDescribeControlDirSync(t *testing.T) {
+	runAddControlDescriptions(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
 }
 
 func runAddControlDescriptions(t *testing.T, originalControl Control, childDescriptions ...string) {

@@ -398,12 +398,15 @@ func DecodeControl(packet *ber.Packet) Control {
 			value.AppendChild(valueChildren)
 		}
 		value = value.Children[0]
+		if len(value.Children) != 3 { // also on initial creation, Cookie is an empty string
+			return nil
+		}
 		value.Description = "DirSync Control Value"
 		value.Children[0].Description = "Flags"
 		value.Children[1].Description = "MaxAttrCnt"
 		value.Children[2].Description = "Cookie"
 		c.Flags = value.Children[0].Value.(int64)
-		c.MaxAttrCnt = value.Children[0].Value.(int64)
+		c.MaxAttrCnt = value.Children[1].Value.(int64)
 		c.Cookie = value.Children[2].Data.Bytes()
 		value.Children[2].Value = c.Cookie
 		return c
