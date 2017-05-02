@@ -317,7 +317,10 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
-			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+			if err != nil {
+				return nil
+			}
 			value.Data.Truncate(0)
 			value.Value = nil
 			value.AppendChild(valueChildren)
@@ -334,7 +337,10 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Description += " (Password Policy - Behera)"
 		c := NewControlBeheraPasswordPolicy()
 		if value.Value != nil {
-			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+			if err != nil {
+				return nil
+			}
 			value.Data.Truncate(0)
 			value.Value = nil
 			value.AppendChild(valueChildren)
@@ -392,7 +398,10 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Description += " (DirSync)"
 		c := new(ControlDirSync)
 		if value.Value != nil {
-			valueChildren := ber.DecodePacket(value.Data.Bytes())
+			valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+			if err != nil {
+				return nil
+			}
 			value.Data.Truncate(0)
 			value.Value = nil
 			value.AppendChild(valueChildren)
