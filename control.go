@@ -275,8 +275,8 @@ func (c *ControlProxiedAuthorization) String() string {
 		c.Criticality)
 }
 
-// NewControlProxiedAuthoization returns a ProxiedAuthoization control
-func NewControlProxiedAuthoization(authzID string) *ControlProxiedAuthorization {
+// NewControlProxiedAuthorization returns a ProxiedAuthorization control
+func NewControlProxiedAuthorization(authzID string) *ControlProxiedAuthorization {
 	return &ControlProxiedAuthorization{
 		Criticality: true,
 		AuthzID:     authzID,
@@ -417,6 +417,12 @@ func DecodeControl(packet *ber.Packet) Control {
 		c.Expire = expire
 		value.Value = c.Expire
 
+		return c
+
+	case ControlTypeProxiedAuthorization:
+		c := &ControlProxiedAuthorization{Criticality: true}
+		authzID := ber.DecodeString(value.Data.Bytes())
+		c.AuthzID = authzID
 		return c
 	default:
 		c := new(ControlString)

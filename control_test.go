@@ -27,6 +27,10 @@ func TestControlString(t *testing.T) {
 	runControlTest(t, NewControlString("x", false, ""))
 }
 
+func TestControlProxiedAuthorization(t *testing.T) {
+	runControlTest(t, NewControlProxiedAuthorization("dn:uid=someone,ou=people,dc=example,dc=net"))
+}
+
 func runControlTest(t *testing.T, originalControl Control) {
 	header := ""
 	if callerpc, _, line, ok := runtime.Caller(1); ok {

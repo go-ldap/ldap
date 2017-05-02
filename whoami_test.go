@@ -42,7 +42,7 @@ func ExampleWhoAmIProxied() {
 		log.Fatalf("Failed to bind: %s\n", err)
 	}
 
-	pa := ldap.NewControlProxiedAuthoization("dn:uid=other,ou=people,dc=example,dc=org")
+	pa := ldap.NewControlProxiedAuthorization("dn:uid=other,ou=people,dc=example,dc=org")
 
 	res, err := conn.WhoAmI([]ldap.Control{pa})
 	if err != nil {
