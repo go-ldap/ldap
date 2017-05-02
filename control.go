@@ -92,7 +92,7 @@ func (c *ControlPaging) Encode() *ber.Packet {
 
 	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (Paging)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Search Control Value")
-	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, uint64(c.PagingSize), "Paging Size"))
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.PagingSize), "Paging Size"))
 	cookie := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Cookie")
 	cookie.Value = c.Cookie
 	cookie.Data.Write(c.Cookie)
@@ -295,19 +295,54 @@ func FindControl(controls []Control, controlType string) Control {
 
 // DecodeControl returns a control read from the given packet, or nil if no recognized control can be made
 func DecodeControl(packet *ber.Packet) Control {
-	ControlType := packet.Children[0].Value.(string)
-	Criticality := false
+	var (
+		ControlType = ""
+		Criticality = false
+		value       *ber.Packet
+	)
 
-	packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-	value := packet.Children[1]
-	if len(packet.Children) == 3 {
-		value = packet.Children[2]
+	switch len(packet.Children) {
+	case 0:
+		// at least one child is required for control type
+		return nil
+
+	case 1:
+		// just type, no criticality or value
+		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
+		ControlType = packet.Children[0].Value.(string)
+
+	case 2:
+		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
+		ControlType = packet.Children[0].Value.(string)
+
+		// Children[1] could be criticality or value (both are optional)
+		// duck-type on whether this is a boolean
+		if _, ok := packet.Children[1].Value.(bool); ok {
+			packet.Children[1].Description = "Criticality"
+			Criticality = packet.Children[1].Value.(bool)
+		} else {
+			packet.Children[1].Description = "Control Value"
+			value = packet.Children[1]
+		}
+
+	case 3:
+		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
+		ControlType = packet.Children[0].Value.(string)
+
 		packet.Children[1].Description = "Criticality"
 		Criticality = packet.Children[1].Value.(bool)
+
+		packet.Children[2].Description = "Control Value"
+		value = packet.Children[2]
+
+	default:
+		// more than 3 children is invalid
+		return nil
 	}
 
-	value.Description = "Control Value"
 	switch ControlType {
+	case ControlTypeManageDsaIT:
+		return NewControlManageDsaIT(Criticality)
 	case ControlTypePaging:
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
@@ -340,18 +375,18 @@ func DecodeControl(packet *ber.Packet) Control {
 		for _, child := range sequence.Children {
 			if child.Tag == 0 {
 				//Warning
-				child := child.Children[0]
-				packet := ber.DecodePacket(child.Data.Bytes())
+				warningPacket := child.Children[0]
+				packet := ber.DecodePacket(warningPacket.Data.Bytes())
 				val, ok := packet.Value.(int64)
 				if ok {
-					if child.Tag == 0 {
+					if warningPacket.Tag == 0 {
 						//timeBeforeExpiration
 						c.Expire = val
-						child.Value = c.Expire
-					} else if child.Tag == 1 {
+						warningPacket.Value = c.Expire
+					} else if warningPacket.Tag == 1 {
 						//graceAuthNsRemaining
 						c.Grace = val
-						child.Value = c.Grace
+						warningPacket.Value = c.Grace
 					}
 				}
 			} else if child.Tag == 1 {
@@ -383,12 +418,15 @@ func DecodeControl(packet *ber.Packet) Control {
 		value.Value = c.Expire
 
 		return c
+	default:
+		c := new(ControlString)
+		c.ControlType = ControlType
+		c.Criticality = Criticality
+		if value != nil {
+			c.ControlValue = value.Value.(string)
+		}
+		return c
 	}
-	c := new(ControlString)
-	c.ControlType = ControlType
-	c.Criticality = Criticality
-	c.ControlValue = value.Value.(string)
-	return c
 }
 
 // NewControlString returns a generic control

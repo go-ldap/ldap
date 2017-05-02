@@ -103,6 +103,13 @@ var LDAPResultCodeMap = map[uint8]string{
 	LDAPResultAffectsMultipleDSAs:          "Affects Multiple DSAs",
 	LDAPResultAuthorizationDenied:          "Authorization Denied",
 	LDAPResultOther:                        "Other",
+
+	ErrorNetwork:            "Network Error",
+	ErrorFilterCompile:      "Filter Compile Error",
+	ErrorFilterDecompile:    "Filter Decompile Error",
+	ErrorDebugging:          "Debugging Error",
+	ErrorUnexpectedMessage:  "Unexpected Message",
+	ErrorUnexpectedResponse: "Unexpected Response",
 }
 
 func getLDAPResultCode(packet *ber.Packet) (code uint8, description string) {
