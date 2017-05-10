@@ -193,7 +193,7 @@ func (l *Conn) Close() {
 // SetTimeout sets the time after a request is sent that a MessageTimeout triggers
 func (l *Conn) SetTimeout(timeout time.Duration) {
 	if timeout > 0 {
-		l.requestTimeout = timeout
+		atomic.StoreInt64((*int64)(&l.requestTimeout), int64(timeout))
 	}
 }
 
@@ -388,14 +388,15 @@ func (l *Conn) processMessages() {
 				l.messageContexts[message.MessageID] = message.Context
 
 				// Add timeout if defined
-				if l.requestTimeout > 0 {
+				to := time.Duration(atomic.LoadInt64((*int64)(&l.requestTimeout)))
+				if to > 0 {
 					go func() {
 						defer func() {
 							if err := recover(); err != nil {
 								log.Printf("ldap: recovered panic in RequestTimeout: %v", err)
 							}
 						}()
-						time.Sleep(l.requestTimeout)
+						time.Sleep(to)
 						timeoutMessage := &messagePacket{
 							Op:        MessageTimeout,
 							MessageID: message.MessageID,
