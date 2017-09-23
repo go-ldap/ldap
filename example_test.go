@@ -9,7 +9,7 @@ import (
 )
 
 // ExampleConn_Bind demonstrates how to bind a connection to an ldap user
-// allowing access to restricted attrabutes that user has access to
+// allowing access to restricted attributes that user has access to
 func ExampleConn_Bind() {
 	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
