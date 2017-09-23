@@ -83,7 +83,7 @@ const (
 type Conn struct {
 	conn                net.Conn
 	isTLS               bool
-	closeCount          uint32
+	closing             uint32
 	closeErr            atomicValue
 	isStartingTLS       bool
 	Debug               debugging
@@ -91,9 +91,7 @@ type Conn struct {
 	messageContexts     map[int64]*messageContext
 	chanMessage         chan *messagePacket
 	chanMessageID       chan int64
-	wgSender            sync.WaitGroup
 	wgClose             sync.WaitGroup
-	once                sync.Once
 	outstandingRequests uint
 	messageMutex        sync.Mutex
 	requestTimeout      int64
@@ -161,20 +159,18 @@ func (l *Conn) Start() {
 
 // isClosing returns whether or not we're currently closing.
 func (l *Conn) isClosing() bool {
-	return atomic.LoadUint32(&l.closeCount) > 0
+	return atomic.LoadUint32(&l.closing) == 1
 }
 
 // setClosing sets the closing value to true
-func (l *Conn) setClosing() {
-	atomic.AddUint32(&l.closeCount, 1)
+func (l *Conn) setClosing() bool {
+	return atomic.CompareAndSwapUint32(&l.closing, 0, 1)
 }
 
 // Close closes the connection.
 func (l *Conn) Close() {
-	l.once.Do(func() {
-		l.setClosing()
-		l.wgSender.Wait()
 
+	if l.setClosing() {
 		l.Debug.Printf("Sending quit message and waiting for confirmation")
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
 		<-l.chanConfirm
@@ -186,7 +182,7 @@ func (l *Conn) Close() {
 		}
 
 		l.wgClose.Done()
-	})
+	}
 	l.wgClose.Wait()
 }
 
@@ -330,9 +326,7 @@ func (l *Conn) sendProcessMessage(message *messagePacket) bool {
 	if l.isClosing() {
 		return false
 	}
-	l.wgSender.Add(1)
 	l.chanMessage <- message
-	l.wgSender.Done()
 	return true
 }
 
