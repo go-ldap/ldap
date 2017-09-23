@@ -7,7 +7,7 @@ package ldap
 import (
 	"errors"
 
-	ber "gopkg.in/asn1-ber.v1"
+	"gopkg.in/asn1-ber.v1"
 )
 
 // SimpleBindRequest represents a username/password bind operation
