@@ -87,7 +87,7 @@ type Conn struct {
 	closeErr            atomicValue
 	isStartingTLS       bool
 	Debug               debugging
-	chanConfirm         chan bool
+	chanConfirm         chan struct{}
 	messageContexts     map[int64]*messageContext
 	chanMessage         chan *messagePacket
 	chanMessageID       chan int64
@@ -141,7 +141,7 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 func NewConn(conn net.Conn, isTLS bool) *Conn {
 	return &Conn{
 		conn:            conn,
-		chanConfirm:     make(chan bool),
+		chanConfirm:     make(chan struct{}),
 		chanMessageID:   make(chan int64),
 		chanMessage:     make(chan *messagePacket, 10),
 		messageContexts: map[int64]*messageContext{},
@@ -180,7 +180,7 @@ func (l *Conn) Close() {
 
 		l.Debug.Printf("Closing network connection")
 		if err := l.conn.Close(); err != nil {
-			log.Print(err)
+			log.Println(err)
 		}
 
 		l.wgClose.Done()
@@ -197,10 +197,8 @@ func (l *Conn) SetTimeout(timeout time.Duration) {
 
 // Returns the next available messageID
 func (l *Conn) nextMessageID() int64 {
-	if l.chanMessageID != nil {
-		if messageID, ok := <-l.chanMessageID; ok {
-			return messageID
-		}
+	if messageID, ok := <-l.chanMessageID; ok {
+		return messageID
 	}
 	return 0
 }
@@ -350,7 +348,6 @@ func (l *Conn) processMessages() {
 			delete(l.messageContexts, messageID)
 		}
 		close(l.chanMessageID)
-		l.chanConfirm <- true
 		close(l.chanConfirm)
 	}()
 
@@ -359,11 +356,7 @@ func (l *Conn) processMessages() {
 		select {
 		case l.chanMessageID <- messageID:
 			messageID++
-		case message, ok := <-l.chanMessage:
-			if !ok {
-				l.Debug.Printf("Shutting down - message channel is closed")
-				return
-			}
+		case message := <-l.chanMessage:
 			switch message.Op {
 			case MessageQuit:
 				l.Debug.Printf("Shutting down - quit message received")
