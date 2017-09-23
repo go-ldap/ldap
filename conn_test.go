@@ -188,7 +188,7 @@ func runWithTimeout(t *testing.T, timeout time.Duration, f func()) {
 	}
 }
 
-// packetTranslatorConn is a helful type which can be used with various tests
+// packetTranslatorConn is a helpful type which can be used with various tests
 // in this package. It implements the net.Conn interface to be used as an
 // underlying connection for a *ldap.Conn. Most methods are no-ops but the
 // Read() and Write() methods are able to translate ber-encoded packets for
@@ -241,7 +241,7 @@ func (c *packetTranslatorConn) Read(b []byte) (n int, err error) {
 }
 
 // SendResponse writes the given response packet to the response buffer for
-// this conection, signalling any goroutine waiting to read a response.
+// this connection, signalling any goroutine waiting to read a response.
 func (c *packetTranslatorConn) SendResponse(packet *ber.Packet) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
-// File contains DN parsing functionallity
+// File contains DN parsing functionality
 //
 // https://tools.ietf.org/html/rfc4514
 //
@@ -52,7 +52,7 @@ import (
 	"fmt"
 	"strings"
 
-	ber "gopkg.in/asn1-ber.v1"
+	"gopkg.in/asn1-ber.v1"
 )
 
 // AttributeTypeAndValue represents an attributeTypeAndValue from https://tools.ietf.org/html/rfc4514
