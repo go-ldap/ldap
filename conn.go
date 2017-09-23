@@ -169,6 +169,8 @@ func (l *Conn) setClosing() bool {
 
 // Close closes the connection.
 func (l *Conn) Close() {
+	l.messageMutex.Lock()
+	defer l.messageMutex.Unlock()
 
 	if l.setClosing() {
 		l.Debug.Printf("Sending quit message and waiting for confirmation")
@@ -323,6 +325,8 @@ func (l *Conn) finishMessage(msgCtx *messageContext) {
 }
 
 func (l *Conn) sendProcessMessage(message *messagePacket) bool {
+	l.messageMutex.Lock()
+	defer l.messageMutex.Unlock()
 	if l.isClosing() {
 		return false
 	}
