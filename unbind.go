@@ -6,7 +6,7 @@ import (
 	"gopkg.in/asn1-ber.v1"
 )
 
-// Unbind performs an unbind waiting for conenciton closing
+// Unbind performs an unbind waiting for connection closing
 func (l *Conn) Unbind() error {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
