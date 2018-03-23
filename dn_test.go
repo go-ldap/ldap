@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ldap"
+	"gopkg.in/ldap.v2"
 )
 
 func TestSuccessfulDNParsing(t *testing.T) {
