@@ -2,9 +2,10 @@ package ldap_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
-	"gopkg.in/ldap.v2"
+	"github.com/ldap"
 )
 
 func TestSuccessfulDNParsing(t *testing.T) {
@@ -168,6 +169,61 @@ func TestDNEqual(t *testing.T) {
 		}
 		if expected, actual := tc.Equal, b.Equal(a); expected != actual {
 			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			continue
+		}
+	}
+}
+
+func TestDNString(t *testing.T) {
+	testcases := []struct {
+		A     string
+		B     string
+		Equal bool
+	}{
+		// Exact match
+		{"", "", true},
+		{"o=A", "o=A", true},
+		{"o=A", "o=B", false},
+
+		{"o= A,o=B", "o=A,o=B", true},
+		{"o=A,o=B", "o=A,o=C", false},
+
+		{"o=A+o=B", "o=A+o=B", true},
+		{"o=A + o=B", "o=A+o=B", true},
+		{"o= A +o= B", "o=A+o=B", true},
+
+		// Number of RDN attributes is significant
+		{"o=A+o=B", "O=B+o=A+O=B", false},
+
+		// Missing values are significant
+		{"o=A+o=B", "O=B+o=A+O=C", false}, // missing values matter
+		{"o=A+o=B+o=C", "O=B+o=A", false}, // missing values matter
+
+		// Real examples
+		// Difference in leading/trailing chars is ignored
+		{
+			"cn=John Doe, ou=People, dc=sun.com",
+			"cn=John Doe,ou=People,dc=sun.com",
+			true,
+		},
+		// Difference in values is significant
+		{
+			"cn=John Doe, ou=People, dc=sun.com",
+			"cn=John  Doe, ou=People, dc=sun.com",
+			false,
+		},
+	}
+
+	for i, tc := range testcases {
+		a, err := ldap.ParseDN(tc.A)
+		if err != nil {
+			t.Errorf("%d: %v", i, err)
+			continue
+		}
+		dnstr := a.String()
+
+		if tc.Equal == (strings.Compare(tc.B, dnstr) != 0) {
+			t.Errorf("%d: when converting to string '%s', got '%s' expected and '%s'", i, tc.A, dnstr, tc.B)
 			continue
 		}
 	}

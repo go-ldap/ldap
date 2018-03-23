@@ -208,6 +208,27 @@ func (d *DN) AncestorOf(other *DN) bool {
 	return true
 }
 
+// String returns string representation of the DN Object with required
+// escaping of spaces and formatting applied
+func (d DN) String() string {
+	var buffer bytes.Buffer
+
+	for i := range d.RDNs {
+		if i > 0 {
+			buffer.WriteString(",")
+		}
+		for j := range d.RDNs[i].Attributes {
+			if j > 0 {
+				buffer.WriteString("+")
+			}
+			buffer.WriteString(d.RDNs[i].Attributes[j].Type)
+			buffer.WriteString("=")
+			buffer.WriteString(d.RDNs[i].Attributes[j].Value)
+		}
+	}
+	return buffer.String()
+}
+
 // Equal returns true if the RelativeDNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).
 // Relative distinguished names are the same if and only if they have the same number of AttributeTypeAndValues
 // and each attribute of the first RDN is the same as the attribute of the second RDN with the same attribute type.
