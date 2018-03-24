@@ -46,6 +46,7 @@ import (
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"gopkg.in/asn1-ber.v1"
@@ -223,10 +224,64 @@ func (d DN) String() string {
 			}
 			buffer.WriteString(d.RDNs[i].Attributes[j].Type)
 			buffer.WriteString("=")
-			buffer.WriteString(d.RDNs[i].Attributes[j].Value)
+			//Escape the value before building DN string
+			val := EscapeAttrValue(d.RDNs[i].Attributes[j].Value)
+			buffer.WriteString(val)
 		}
 	}
 	return buffer.String()
+}
+
+//EscapeAttrValue function escapes the LDAP special characters from the value part
+//of the RDN
+/**
+distinguishedName = [ relativeDistinguishedName
+		*( COMMA relativeDistinguishedName ) ]
+relativeDistinguishedName = attributeTypeAndValue
+		*( PLUS attributeTypeAndValue )
+attributeTypeAndValue = attributeType EQUALS attributeValue
+attributeType = descr / numericoid
+attributeValue = string / hexstring
+
+; The following characters are to be escaped when they appear
+; in the value to be encoded: ESC, one of <escaped>, leading
+; SHARP or SPACE, trailing SPACE, and NULL.
+string =   [ ( leadchar / pair ) [ *( stringchar / pair )
+	 ( trailchar / pair ) ] ]
+
+leadchar = LUTF1 / UTFMB
+LUTF1 = %x01-1F / %x21 / %x24-2A / %x2D-3A /
+	 %x3D / %x3F-5B / %x5D-7F
+
+trailchar  = TUTF1 / UTFMB
+TUTF1 = %x01-1F / %x21 / %x23-2A / %x2D-3A /
+%x3D / %x3F-5B / %x5D-7F
+
+stringchar = SUTF1 / UTFMB
+SUTF1 = %x01-21 / %x23-2A / %x2D-3A /
+%x3D / %x3F-5B / %x5D-7F
+
+pair = ESC ( ESC / special / hexpair )
+special = escaped / SPACE / SHARP / EQUALS
+escaped = DQUOTE / PLUS / COMMA / SEMI / LANGLE / RANGLE
+hexstring = SHARP 1*hexpair
+hexpair = HEX HEX
+
+where the productions <descr>, <numericoid>, <COMMA>, <DQUOTE>,
+<EQUALS>, <ESC>, <HEX>, <LANGLE>, <NULL>, <PLUS>, <RANGLE>, <SEMI>,
+<SPACE>, <SHARP>, and <UTFMB> are defined in [RFC4512].
+*/
+func EscapeAttrValue(in string) string {
+
+	escape := regexp.MustCompile("[,\\#+<>;\"=]")
+	out := escape.ReplaceAllString(in, "\\$0")
+	if strings.HasPrefix(out, " ") {
+		out = "\\" + out
+	}
+	if strings.HasSuffix(out, " ") {
+		out = out[:len(out)-1] + "\\ "
+	}
+	return out
 }
 
 // Equal returns true if the RelativeDNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).

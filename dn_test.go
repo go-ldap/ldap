@@ -174,6 +174,35 @@ func TestDNEqual(t *testing.T) {
 	}
 }
 
+func TestEscapeAttrValue(t *testing.T) {
+	testcases := []struct {
+		A     string
+		B     string
+		Equal bool
+	}{
+		// Exact match
+		{"", "", true},
+		{"o=A", "o\\=A", true},
+		{"o,A", "o\\,A", true},
+		{"o#A", "o\\#A", true},
+		{"o<A", "o\\<A", true},
+		{"o>A", "o\\>A", true},
+		{"o;A", "o\\;A", true},
+		{"o\"A", "o\\\"A", true},
+		{"o+A", "o\\+A", true},
+		{" o=A", "\\ o\\=A", true},
+		{"o=A ", "o\\=A\\ ", true},
+		{" o=A ", "\\ o\\=A\\ ", true},
+	}
+	for i, tc := range testcases {
+		a := ldap.EscapeAttrValue(tc.A)
+		if strings.Compare(tc.B, a) != 0 {
+			t.Errorf("%d: when escaping string '%s', got '%s' expected and '%s'", i, tc.A, a, tc.B)
+			continue
+		}
+	}
+}
+
 func TestDNString(t *testing.T) {
 	testcases := []struct {
 		A     string
