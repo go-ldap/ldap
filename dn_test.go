@@ -2,7 +2,6 @@ package ldap_test
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"gopkg.in/ldap.v2"
@@ -196,7 +195,7 @@ func TestEscapeAttrValue(t *testing.T) {
 	}
 	for i, tc := range testcases {
 		a := ldap.EscapeAttrValue(tc.A)
-		if strings.Compare(tc.B, a) != 0 {
+		if tc.B != a {
 			t.Errorf("%d: when escaping string '%s', got '%s' expected and '%s'", i, tc.A, a, tc.B)
 			continue
 		}
@@ -251,7 +250,7 @@ func TestDNString(t *testing.T) {
 		}
 		dnstr := a.String()
 
-		if tc.Equal == (strings.Compare(tc.B, dnstr) != 0) {
+		if tc.Equal == (tc.B != dnstr) {
 			t.Errorf("%d: when converting to string '%s', got '%s' expected and '%s'", i, tc.A, dnstr, tc.B)
 			continue
 		}
