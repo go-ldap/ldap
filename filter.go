@@ -71,7 +71,10 @@ var MatchingRuleAssertionMap = map[uint64]string{
 
 // CompileFilter converts a string representation of a filter into a BER-encoded packet
 func CompileFilter(filter string) (*ber.Packet, error) {
-	if len(filter) == 0 || filter[0] != '(' {
+	if len(filter) == 0 {
+		filter = "(objectClass=*)"
+	}
+	if filter[0] != '(' {
 		return nil, NewError(ErrorFilterCompile, errors.New("ldap: filter does not start with an '('"))
 	}
 	packet, pos, err := compileFilter(filter, 1)
