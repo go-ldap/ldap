@@ -58,7 +58,7 @@ const (
 	LDAPResultDecodingError                      = 84
 	LDAPResultTimeout                            = 85
 	LDAPResultAuthUnknown                        = 86
-	LDAPResultFilter_Error                       = 87
+	LDAPResultFilterError                        = 87
 	LDAPResultUserCanceled                       = 88
 	LDAPResultParamError                         = 89
 	LDAPResultNoMemory                           = 90
@@ -71,7 +71,7 @@ const (
 	LDAPResultReferralLimitExceeded              = 97
 	LDAPResultInvalidResponse                    = 100
 	LDAPResultAmbiguousResponse                  = 101
-	LDAPResultTlsNotSupported                    = 112
+	LDAPResultTLSNotSupported                    = 112
 	LDAPResultIntermediateResponse               = 113
 	LDAPResultUnknownType                        = 114
 	LDAPResultCanceled                           = 118
@@ -144,7 +144,7 @@ var LDAPResultCodeMap = map[uint16]string{
 	LDAPResultDecodingError:                      "LDAP encountered an error while decoding",
 	LDAPResultTimeout:                            "LDAP timeout while waiting for a response from the server",
 	LDAPResultAuthUnknown:                        "The auth method requested in a bind request is unknown",
-	LDAPResultFilter_Error:                       "An error occurred while encoding the given search filter",
+	LDAPResultFilterError:                        "An error occurred while encoding the given search filter",
 	LDAPResultUserCanceled:                       "The user canceled the operation",
 	LDAPResultParamError:                         "An invalid parameter was specified",
 	LDAPResultNoMemory:                           "Out of memory error",
@@ -164,7 +164,7 @@ var LDAPResultCodeMap = map[uint16]string{
 	LDAPResultNoOperation:                        "No changes to the data in the server",
 	LDAPResultInvalidResponse:                    "Invalid Response",
 	LDAPResultAmbiguousResponse:                  "Ambiguous Response",
-	LDAPResultTlsNotSupported:                    "Tls Not Supported",
+	LDAPResultTLSNotSupported:                    "Tls Not Supported",
 	LDAPResultIntermediateResponse:               "Intermediate Response",
 	LDAPResultUnknownType:                        "Unknown Type",
 	LDAPResultAuthorizationDenied:                "Authorization Denied",
