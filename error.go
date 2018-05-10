@@ -81,7 +81,6 @@ const (
 	LDAPResultAssertionFailed                    = 122
 	LDAPResultAuthorizationDenied                = 123
 	LDAPResultSyncRefreshRequired                = 4096
-	LDAPResultNoOperation                        = 16654
 
 	ErrorNetwork            = 200
 	ErrorFilterCompile      = 201
@@ -161,7 +160,6 @@ var LDAPResultCodeMap = map[uint16]string{
 	LDAPResultCannotCancel:                       "The identified operation does not support cancellation or the cancel operation cannot be performed",
 	LDAPResultAssertionFailed:                    "An assertion control given in the LDAP operation evaluated to false causing the operation to not be performed",
 	LDAPResultSyncRefreshRequired:                "Refresh Required",
-	LDAPResultNoOperation:                        "No changes to the data in the server",
 	LDAPResultInvalidResponse:                    "Invalid Response",
 	LDAPResultAmbiguousResponse:                  "Ambiguous Response",
 	LDAPResultTLSNotSupported:                    "Tls Not Supported",
