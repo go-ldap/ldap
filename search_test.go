@@ -50,6 +50,7 @@ func ExampleDirSync() {
 		Attributes: []string{"*"},
 		Scope:      ScopeWholeSubtree,
 	}
+	// This is the initial sync with all entries matching the filter
 	doMore := true
 	for doMore {
 		res, err := conn.DirSync(req, DirSyncObjectSecurity, 1000)
@@ -64,6 +65,8 @@ func ExampleDirSync() {
 			doMore = false
 		}
 	}
+	// We're done with the initial sync. Now pull every 15 seconds for the
+	// updated entries - note that you get just the changes, not a full entry.
 	for {
 		res, err := conn.DirSync(req, DirSyncObjectSecurity, 1000)
 		if err != nil {
@@ -74,5 +77,4 @@ func ExampleDirSync() {
 		}
 		time.Sleep(15 * time.Second)
 	}
-
 }
