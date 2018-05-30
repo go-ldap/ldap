@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"errors"
+	"fmt"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -90,7 +91,11 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 
 	if len(packet.Children) == 3 {
 		for _, child := range packet.Children[2].Children {
-			result.Controls = append(result.Controls, DecodeControl(child))
+			decodedChild, err := DecodeControl(child)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode child control: %s", err)
+			}
+			result.Controls = append(result.Controls, decodedChild)
 		}
 	}
 
