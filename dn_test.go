@@ -76,10 +76,10 @@ func TestSuccessfulDNParsing(t *testing.T) {
 func TestErrorDNParsing(t *testing.T) {
 	testcases := map[string]string{
 		"*":                       "DN ended with incomplete type, value pair",
-		"cn=Jim\\0Test":           "Failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
-		"cn=Jim\\0":               "Got corrupted escaped character",
+		"cn=Jim\\0Test":           "failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
+		"cn=Jim\\0":               "got corrupted escaped character",
 		"DC=example,=net":         "DN ended with incomplete type, value pair",
-		"1=#0402486":              "Failed to decode BER encoding: encoding/hex: odd length hex string",
+		"1=#0402486":              "failed to decode BER encoding: encoding/hex: odd length hex string",
 		"test,DC=example,DC=com":  "incomplete type, value pair",
 		"=test,DC=example,DC=com": "incomplete type, value pair",
 	}
