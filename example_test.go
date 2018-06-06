@@ -79,7 +79,7 @@ func ExampleConn_SearchWithChannel() {
 		wg.Done()
 	}()
 
-	err := l.SearchWithChannel(searchRequest, ch)
+	err = l.SearchWithChannel(searchRequest, ch)
 
 	wg.Wait()
 
