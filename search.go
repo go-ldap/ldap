@@ -60,6 +60,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"gopkg.in/asn1-ber.v1"
 )
@@ -364,8 +365,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 	return searchResult, nil
 }
 
-// Search performs the given search request
-func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
+func (l *Conn) encodeSearchRequest(searchRequest *SearchRequest) (*ber.Packet, error) {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 	// encode search request
@@ -381,39 +381,48 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 
 	l.Debug.PrintPacket(packet)
 
+	return packet, nil
+}
+
+func (l *Conn) SearchWithChannel(searchRequest *SearchRequest, ch chan *SearchResult) error {
+	if ch == nil {
+		return NewError(ErrorUsage, errors.New("ldap: SearchWithChannel got nil channel"))
+	}
+	defer close(ch)
+
+	packet, err := l.encodeSearchRequest(searchRequest)
+	if err != nil {
+		return err
+	}
+
 	msgCtx, err := l.sendMessage(packet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer l.finishMessage(msgCtx)
-
-	result := &SearchResult{
-		Entries:   make([]*Entry, 0),
-		Referrals: make([]string, 0),
-		Controls:  make([]Control, 0)}
 
 	foundSearchResultDone := false
 	for !foundSearchResultDone {
 		l.Debug.Printf("%d: waiting for response", msgCtx.id)
 		packetResponse, ok := <-msgCtx.responses
 		if !ok {
-			return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+			return NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
 		}
 		packet, err = packetResponse.ReadPacket()
 		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if l.Debug {
 			if err := addLDAPDescriptions(packet); err != nil {
-				return nil, err
+				return err
 			}
 			ber.PrintPacket(packet)
 		}
 
 		switch packet.Children[1].Tag {
-		case 4:
+		case ApplicationSearchResultEntry:
 			entry := new(Entry)
 			entry.DN = packet.Children[1].Children[0].Value.(string)
 			for _, child := range packet.Children[1].Children[1].Children {
@@ -425,26 +434,59 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				}
 				entry.Attributes = append(entry.Attributes, attr)
 			}
-			result.Entries = append(result.Entries, entry)
-		case 5:
+			ch <- &SearchResult{Entries: []*Entry{entry}}
+
+		case ApplicationSearchResultDone:
 			resultCode, resultDescription := getLDAPResultCode(packet)
 			if resultCode != 0 {
-				return result, NewError(resultCode, errors.New(resultDescription))
+				return NewError(resultCode, errors.New(resultDescription))
 			}
 			if len(packet.Children) == 3 {
+				result := &SearchResult{}
 				for _, child := range packet.Children[2].Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
-						return nil, fmt.Errorf("failed to decode child control: %s", err)
+						return fmt.Errorf("failed to decode child control: %s", err)
 					}
 					result.Controls = append(result.Controls, decodedChild)
 				}
+				ch <- result
 			}
 			foundSearchResultDone = true
-		case 19:
-			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+
+		case ApplicationSearchResultReference:
+			ref := packet.Children[1].Children[0].Value.(string)
+			ch <- &SearchResult{Referrals: []string{ref}}
 		}
 	}
+
 	l.Debug.Printf("%d: returning", msgCtx.id)
+	return nil
+
+}
+
+// Search performs the given search request
+func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
+	ch := make(chan *SearchResult)
+	result := &SearchResult{}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		for res := range ch {
+			result.Entries = append(result.Entries, res.Entries...)
+			result.Controls = append(result.Controls, res.Controls...)
+			result.Referrals = append(result.Referrals, res.Referrals...)
+		}
+		wg.Done()
+	}()
+
+	err := l.SearchWithChannel(searchRequest, ch)
+
+	wg.Wait()
+
+	if err != nil {
+		return nil, err
+	}
 	return result, nil
 }

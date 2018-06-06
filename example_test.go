@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"sync"
 
 	"gopkg.in/ldap.v2"
 )
@@ -46,6 +47,44 @@ func ExampleConn_Search() {
 
 	for _, entry := range sr.Entries {
 		fmt.Printf("%s: %v\n", entry.DN, entry.GetAttributeValue("cn"))
+	}
+}
+
+func ExampleConn_SearchWithChannel() {
+	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := ldap.NewSearchRequest(
+		"dc=example,dc=com", // The base dn to search
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		"(&(objectClass=organizationalPerson))", // The filter to apply
+		[]string{"dn", "cn"},                    // A list attributes to retrieve
+		nil,
+	)
+
+	// this is basically how Search() does it:
+	ch := make(chan *ldap.SearchResult)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		for res := range ch {
+			if len(res.Entries) != 0 {
+				fmt.Printf("%s has DN %s\n", res.Entries[0].GetAttributeValue("cn"), res.Entries[0].DN)
+			}
+		}
+		wg.Done()
+	}()
+
+	err := l.SearchWithChannel(searchRequest, ch)
+
+	wg.Wait()
+
+	if err != nil {
+		log.Fatalf("Error while searching: %s", err)
 	}
 }
 
