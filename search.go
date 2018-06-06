@@ -384,6 +384,10 @@ func (l *Conn) encodeSearchRequest(searchRequest *SearchRequest) (*ber.Packet, e
 	return packet, nil
 }
 
+// SearchWithChannel performs a search request and returns all search results via the given
+// channel as soon as they are received. This means you get all results until an error
+// happens (or the search successfully finished), e.g. for size / time limited requests all
+// are recieved via the channel until the limit is reached.
 func (l *Conn) SearchWithChannel(searchRequest *SearchRequest, ch chan *SearchResult) error {
 	if ch == nil {
 		return NewError(ErrorUsage, errors.New("ldap: SearchWithChannel got nil channel"))
