@@ -2,6 +2,10 @@
 
 This documents the changes made between v2 and v3. 
 
+## Go 
+
+Support for go < 1.4 was dropped
+
 ## API Changes
 
 ### NewAddRequest()
