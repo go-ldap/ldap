@@ -80,7 +80,7 @@ type Conn struct {
 	conn                net.Conn
 	isTLS               bool
 	closing             uint32
-	closeErr            atomicValue
+	closeErr            atomic.Value
 	isStartingTLS       bool
 	Debug               debugging
 	chanConfirm         chan struct{}

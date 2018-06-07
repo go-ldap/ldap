@@ -152,7 +152,7 @@ func ExampleConn_Modify() {
 	defer l.Close()
 
 	// Add a description, and replace the mail attributes
-	modify := ldap.NewModifyRequest("cn=user,dc=example,dc=com")
+	modify := ldap.NewModifyRequest("cn=user,dc=example,dc=com", nil)
 	modify.Add("description", []string{"An example user"})
 	modify.Replace("mail", []string{"user@example.org"})
 
