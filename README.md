@@ -40,12 +40,13 @@ Bug reports and pull requests are welcome!
 
 Before submitting a pull request, please make sure tests and verification scripts pass:
 ```
-make all
+make
 ```
 
 To set up a pre-push hook to run the tests and verify scripts before pushing:
 ```
-ln -s ../../.githooks/pre-push .git/hooks/pre-push
+cd .git/hooks
+ln -s ../../.githooks/pre-push pre-push
 ```
 
 ---

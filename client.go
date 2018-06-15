@@ -13,6 +13,7 @@ type Client interface {
 	SetTimeout(time.Duration)
 
 	Bind(username, password string) error
+	Unbind() error
 	SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResult, error)
 
 	Add(addRequest *AddRequest) error
