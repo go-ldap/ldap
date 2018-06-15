@@ -152,7 +152,7 @@ func ExampleConn_Modify() {
 	defer l.Close()
 
 	// Add a description, and replace the mail attributes
-	modify := ldap.NewModifyRequest("cn=user,dc=example,dc=com")
+	modify := ldap.NewModifyRequest("cn=user,dc=example,dc=com", nil)
 	modify.Add("description", []string{"An example user"})
 	modify.Replace("mail", []string{"user@example.org"})
 
@@ -301,5 +301,44 @@ func Example_vchuppolicy() {
 			}
 		}
 		log.Print(logStr)
+	}
+}
+
+// This example demonstrates how to use ControlPaging to manually execute a
+// paginated search request instead of using SearchWithPaging.
+func ExampleControlPaging_manualPaging() {
+	conn, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	var pageSize uint32 = 32
+	searchBase := "dc=example,dc=com"
+	filter := "(objectClass=group)"
+	pagingControl := ldap.NewControlPaging(pageSize)
+	attributes := []string{}
+	controls := []ldap.Control{pagingControl}
+
+	for {
+		request := ldap.NewSearchRequest(searchBase, ldap.ScopeWholeSubtree, ldap.DerefAlways, 0, 0, false, filter, attributes, controls)
+		response, err := conn.Search(request)
+		if err != nil {
+			log.Fatalf("Failed to execute search request: %s", err.Error())
+		}
+
+		// [do something with the response entries]
+
+		// In order to prepare the next request, we check if the response
+		// contains another ControlPaging object and a not-empty cookie and
+		// copy that cookie into our pagingControl object:
+		updatedControl := ldap.FindControl(response.Controls, ldap.ControlTypePaging)
+		if ctrl, ok := updatedControl.(*ldap.ControlPaging); ctrl != nil && ok && len(ctrl.Cookie) != 0 {
+			pagingControl.SetCookie(ctrl.Cookie)
+			continue
+		}
+		// If no new paging information is available or the cookie is empty, we
+		// are done with the pagination.
+		break
 	}
 }
