@@ -270,7 +270,7 @@ func (c *ControlMicrosoftNotification) String() string {
 }
 
 // NewControlMicrosoftNotification returns a ControlMicrosoftNotification control
-func NewControlMicrosoftNotification(Criticality bool) *ControlMicrosoftNotification {
+func NewControlMicrosoftNotification() *ControlMicrosoftNotification {
 	return &ControlMicrosoftNotification{}
 }
 
@@ -299,7 +299,7 @@ func (c *ControlMicrosoftShowDeleted) String() string {
 }
 
 // NewControlMicrosoftShowDeleted returns a ControlMicrosoftShowDeleted control
-func NewControlMicrosoftShowDeleted(Criticality bool) *ControlMicrosoftShowDeleted {
+func NewControlMicrosoftShowDeleted() *ControlMicrosoftShowDeleted {
 	return &ControlMicrosoftShowDeleted{}
 }
 
@@ -450,6 +450,10 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		value.Value = c.Expire
 
 		return c, nil
+	case ControlTypeMicrosoftNotification:
+		return NewControlMicrosoftNotification(), nil
+	case ControlTypeMicrosoftShowDeleted:
+		return NewControlMicrosoftShowDeleted(), nil
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
