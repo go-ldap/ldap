@@ -6,7 +6,7 @@ import (
 
 // ExampleConn_ModifyDN_renameNoMove shows how to rename an entry without moving it
 func ExampleConn_ModifyDN_renameNoMove() {
-	conn, err := Dial("tcp", "example.org:389")
+	conn, err := Dial("tcp", "ldap.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
 	}
@@ -28,7 +28,7 @@ func ExampleConn_ModifyDN_renameNoMove() {
 
 // ExampleConn_ModifyDN_renameAndMove shows how to rename an entry and moving it to a new base
 func ExampleConn_ModifyDN_renameAndMove() {
-	conn, err := Dial("tcp", "example.org:389")
+	conn, err := Dial("tcp", "ldap.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
 	}
@@ -52,7 +52,7 @@ func ExampleConn_ModifyDN_renameAndMove() {
 
 // ExampleConn_ModifyDN_moveOnly shows how to move an entry to a new base without renaming the RDN
 func ExampleConn_ModifyDN_moveOnly() {
-	conn, err := Dial("tcp", "example.org:389")
+	conn, err := Dial("tcp", "ldap.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
 	}
