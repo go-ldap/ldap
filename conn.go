@@ -231,7 +231,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 		ber.PrintPacket(packet)
 	}
 
-	if resultCode, message := getLDAPResultCode(packet); resultCode == LDAPResultSuccess {
+	if resultCode, message, _ := getLDAPResultCode(packet); resultCode == LDAPResultSuccess {
 		conn := tls.Client(l.conn, config)
 
 		if err := conn.Handshake(); err != nil {

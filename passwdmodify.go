@@ -124,9 +124,9 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	}
 
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
-		resultCode, resultDescription := getLDAPResultCode(packet)
+		resultCode, resultDescription, matchedDN := getLDAPResultCode(packet)
 		if resultCode != 0 {
-			return nil, NewError(resultCode, errors.New(resultDescription))
+			return nil, NewErrorWithDN(resultCode, errors.New(resultDescription), matchedDN)
 		}
 	} else {
 		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("unexpected Response: %d", packet.Children[1].Tag))
