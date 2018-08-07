@@ -192,7 +192,7 @@ func TestEscapeAttrValue(t *testing.T) {
 		{" o=A ", "\\ o\\=A\\ ", true},
 	}
 	for i, tc := range testcases {
-		a := ldap.EscapeAttrValue(tc.A)
+		a := EscapeAttrValue(tc.A)
 		if tc.B != a {
 			t.Errorf("%d: when escaping string '%s', got '%s' expected and '%s'", i, tc.A, a, tc.B)
 			continue
@@ -241,7 +241,7 @@ func TestDNString(t *testing.T) {
 	}
 
 	for i, tc := range testcases {
-		a, err := ldap.ParseDN(tc.A)
+		a, err := ParseDN(tc.A)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
