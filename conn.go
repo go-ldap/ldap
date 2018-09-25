@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,6 +25,13 @@ const (
 	MessageFinish = 3
 	// MessageTimeout indicates the client-specified timeout for a particular message ID has been reached
 	MessageTimeout = 4
+)
+
+const (
+	// DefaultLdapPort default ldap port for pure TCP connection
+	DefaultLdapPort = "389"
+	// DefaultLdapsPort default ldap port for SSL connection
+	DefaultLdapsPort = "636"
 )
 
 // PacketResponse contains the packet or error encountered reading a response
@@ -124,6 +132,42 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	conn := NewConn(c, true)
 	conn.Start()
 	return conn, nil
+}
+
+// DialURL connects to the given ldap URL vie TCP using tls.Dial or net.Dial if ldaps://
+// or ldap:// specified as protocol. On success a new Conn for the connection
+// is returned.
+func DialURL(addr string) (*Conn, error) {
+
+	lurl, err := url.Parse(addr)
+	if err != nil {
+		return nil, NewError(ErrorNetwork, err)
+	}
+
+	host, port, err := net.SplitHostPort(lurl.Host)
+	if err != nil {
+		// we asume that error is due to missing port
+		host = lurl.Host
+		port = ""
+	}
+
+	switch lurl.Scheme {
+	case "ldap":
+		if port == "" {
+			port = DefaultLdapPort
+		}
+		return Dial("tcp", net.JoinHostPort(host, port))
+	case "ldaps":
+		if port == "" {
+			port = DefaultLdapsPort
+		}
+		tlsConf := &tls.Config{
+			ServerName: host,
+		}
+		return DialTLS("tcp", net.JoinHostPort(host, port), tlsConf)
+	}
+
+	return nil, NewError(ErrorNetwork, fmt.Errorf("Unknown scheme '%s'", lurl.Scheme))
 }
 
 // NewConn returns a new Conn using conn for network I/O.
