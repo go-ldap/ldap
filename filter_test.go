@@ -196,7 +196,7 @@ func TestFilter(t *testing.T) {
 	for _, i := range testFilters {
 		filter, err := CompileFilter(i.filterStr)
 		switch {
-		case  err != nil:
+		case err != nil:
 			if i.expectedErr == "" || !strings.Contains(err.Error(), i.expectedErr) {
 				t.Errorf("Problem compiling '%s' - '%v' (expected error to contain '%v')", i.filterStr, err, i.expectedErr)
 			}

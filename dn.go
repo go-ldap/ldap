@@ -90,7 +90,7 @@ func ParseDN(str string) (*DN, error) {
 
 	for i := 0; i < len(str); i++ {
 		char := str[i]
-		switch  {
+		switch {
 		case escaping:
 			unescapedTrailingSpaces = 0
 			escaping = false
