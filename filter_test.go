@@ -195,13 +195,14 @@ func TestFilter(t *testing.T) {
 	// Test Compiler and Decompiler
 	for _, i := range testFilters {
 		filter, err := CompileFilter(i.filterStr)
-		if err != nil {
+		switch {
+		case err != nil:
 			if i.expectedErr == "" || !strings.Contains(err.Error(), i.expectedErr) {
 				t.Errorf("Problem compiling '%s' - '%v' (expected error to contain '%v')", i.filterStr, err, i.expectedErr)
 			}
-		} else if filter.Tag != ber.Tag(i.expectedType) {
+		case filter.Tag != ber.Tag(i.expectedType):
 			t.Errorf("%q Expected %q got %q", i.filterStr, FilterMap[uint64(i.expectedType)], FilterMap[uint64(filter.Tag)])
-		} else {
+		default:
 			o, err := DecompileFilter(filter)
 			if err != nil {
 				t.Errorf("Problem compiling %s - %s", i.filterStr, err.Error())
