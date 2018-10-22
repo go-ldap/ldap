@@ -37,7 +37,7 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 
 	ava := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "AttributeValueAssertion")
 	ava.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attribute, "AttributeDesc"))
-	ava.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagOctetString, value, "AssertionValue"))
+	ava.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, value, "AssertionValue"))
 	request.AppendChild(ava)
 	packet.AppendChild(request)
 
@@ -69,11 +69,13 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 
 	if packet.Children[1].Tag == ApplicationCompareResponse {
 		resultCode, resultDescription := getLDAPResultCode(packet)
-		if resultCode == LDAPResultCompareTrue {
+
+		switch {
+		case resultCode == LDAPResultCompareTrue:
 			return true, nil
-		} else if resultCode == LDAPResultCompareFalse {
+		case resultCode == LDAPResultCompareFalse:
 			return false, nil
-		} else {
+		default:
 			return false, NewError(resultCode, errors.New(resultDescription))
 		}
 	}
