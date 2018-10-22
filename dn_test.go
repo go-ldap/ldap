@@ -1,56 +1,54 @@
-package ldap_test
+package ldap
 
 import (
 	"reflect"
 	"testing"
-
-	"gopkg.in/ldap.v2"
 )
 
 func TestSuccessfulDNParsing(t *testing.T) {
-	testcases := map[string]ldap.DN{
-		"": ldap.DN{[]*ldap.RelativeDN{}},
-		"cn=Jim\\2C \\22Hasse Hö\\22 Hansson!,dc=dummy,dc=com": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"cn", "Jim, \"Hasse Hö\" Hansson!"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"dc", "dummy"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"dc", "com"}}}}},
-		"UID=jsmith,DC=example,DC=net": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"UID", "jsmith"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "example"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "net"}}}}},
-		"OU=Sales+CN=J. Smith,DC=example,DC=net": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{
-				&ldap.AttributeTypeAndValue{"OU", "Sales"},
-				&ldap.AttributeTypeAndValue{"CN", "J. Smith"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "example"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "net"}}}}},
-		"1.3.6.1.4.1.1466.0=#04024869": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}}}},
-		"1.3.6.1.4.1.1466.0=#04024869,DC=net": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"DC", "net"}}}}},
-		"CN=Lu\\C4\\8Di\\C4\\87": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"CN", "Lučić"}}}}},
-		"  CN  =  Lu\\C4\\8Di\\C4\\87  ": ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"CN", "Lučić"}}}}},
-		`   A   =   1   ,   B   =   2   `: ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"A", "1"}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"B", "2"}}}}},
-		`   A   =   1   +   B   =   2   `: ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{
-				&ldap.AttributeTypeAndValue{"A", "1"},
-				&ldap.AttributeTypeAndValue{"B", "2"}}}}},
-		`   \ \ A\ \    =   \ \ 1\ \    ,   \ \ B\ \    =   \ \ 2\ \    `: ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"  A  ", "  1  "}}},
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{&ldap.AttributeTypeAndValue{"  B  ", "  2  "}}}}},
-		`   \ \ A\ \    =   \ \ 1\ \    +   \ \ B\ \    =   \ \ 2\ \    `: ldap.DN{[]*ldap.RelativeDN{
-			&ldap.RelativeDN{[]*ldap.AttributeTypeAndValue{
-				&ldap.AttributeTypeAndValue{"  A  ", "  1  "},
-				&ldap.AttributeTypeAndValue{"  B  ", "  2  "}}}}},
+	testcases := map[string]DN{
+		"": DN{[]*RelativeDN{}},
+		"cn=Jim\\2C \\22Hasse Hö\\22 Hansson!,dc=dummy,dc=com": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"cn", "Jim, \"Hasse Hö\" Hansson!"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"dc", "dummy"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"dc", "com"}}}}},
+		"UID=jsmith,DC=example,DC=net": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"UID", "jsmith"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "example"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
+		"OU=Sales+CN=J. Smith,DC=example,DC=net": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{
+				&AttributeTypeAndValue{"OU", "Sales"},
+				&AttributeTypeAndValue{"CN", "J. Smith"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "example"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
+		"1.3.6.1.4.1.1466.0=#04024869": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}}}},
+		"1.3.6.1.4.1.1466.0=#04024869,DC=net": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
+		"CN=Lu\\C4\\8Di\\C4\\87": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"CN", "Lučić"}}}}},
+		"  CN  =  Lu\\C4\\8Di\\C4\\87  ": DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"CN", "Lučić"}}}}},
+		`   A   =   1   ,   B   =   2   `: DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"A", "1"}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"B", "2"}}}}},
+		`   A   =   1   +   B   =   2   `: DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{
+				&AttributeTypeAndValue{"A", "1"},
+				&AttributeTypeAndValue{"B", "2"}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    ,   \ \ B\ \    =   \ \ 2\ \    `: DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"  A  ", "  1  "}}},
+			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"  B  ", "  2  "}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    +   \ \ B\ \    =   \ \ 2\ \    `: DN{[]*RelativeDN{
+			&RelativeDN{[]*AttributeTypeAndValue{
+				&AttributeTypeAndValue{"  A  ", "  1  "},
+				&AttributeTypeAndValue{"  B  ", "  2  "}}}}},
 	}
 
 	for test, answer := range testcases {
-		dn, err := ldap.ParseDN(test)
+		dn, err := ParseDN(test)
 		if err != nil {
 			t.Errorf(err.Error())
 			continue
@@ -76,16 +74,16 @@ func TestSuccessfulDNParsing(t *testing.T) {
 func TestErrorDNParsing(t *testing.T) {
 	testcases := map[string]string{
 		"*":                       "DN ended with incomplete type, value pair",
-		"cn=Jim\\0Test":           "Failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
-		"cn=Jim\\0":               "Got corrupted escaped character",
+		"cn=Jim\\0Test":           "failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
+		"cn=Jim\\0":               "got corrupted escaped character",
 		"DC=example,=net":         "DN ended with incomplete type, value pair",
-		"1=#0402486":              "Failed to decode BER encoding: encoding/hex: odd length hex string",
+		"1=#0402486":              "failed to decode BER encoding: encoding/hex: odd length hex string",
 		"test,DC=example,DC=com":  "incomplete type, value pair",
 		"=test,DC=example,DC=com": "incomplete type, value pair",
 	}
 
 	for test, answer := range testcases {
-		_, err := ldap.ParseDN(test)
+		_, err := ParseDN(test)
 		if err == nil {
 			t.Errorf("Expected %s to fail parsing but succeeded\n", test)
 		} else if err.Error() != answer {
@@ -152,12 +150,12 @@ func TestDNEqual(t *testing.T) {
 	}
 
 	for i, tc := range testcases {
-		a, err := ldap.ParseDN(tc.A)
+		a, err := ParseDN(tc.A)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
 		}
-		b, err := ldap.ParseDN(tc.B)
+		b, err := ParseDN(tc.B)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
@@ -193,12 +191,12 @@ func TestDNAncestor(t *testing.T) {
 	}
 
 	for i, tc := range testcases {
-		a, err := ldap.ParseDN(tc.A)
+		a, err := ParseDN(tc.A)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
 		}
-		b, err := ldap.ParseDN(tc.B)
+		b, err := ParseDN(tc.B)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue
