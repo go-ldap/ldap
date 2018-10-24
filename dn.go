@@ -215,16 +215,16 @@ func (d *DN) AncestorOf(other *DN) bool {
 
 // String returns string representation of the RDN Object with required
 // escaping of spaces and formatting applied
-func (rdn RelativeDN) String() string {
+func (r RelativeDN) String() string {
 	var buffer bytes.Buffer
-	for j := range rdn.Attributes {
+	for j := range r.Attributes {
 		if j > 0 {
 			buffer.WriteString("+")
 		}
-		buffer.WriteString(rdn.Attributes[j].Type)
+		buffer.WriteString(r.Attributes[j].Type)
 		buffer.WriteString("=")
 		//Escape the value before building DN string
-		val := EscapeAttrValue(rdn.Attributes[j].Value)
+		val := EscapeAttrValue(r.Attributes[j].Value)
 		buffer.WriteString(val)
 	}
 	return buffer.String()
