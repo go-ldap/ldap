@@ -213,6 +213,23 @@ func (d *DN) AncestorOf(other *DN) bool {
 	return true
 }
 
+// String returns string representation of the RDN Object with required
+// escaping of spaces and formatting applied
+func (rdn RelativeDN) String() string {
+	var buffer bytes.Buffer
+	for j := range rdn.Attributes {
+		if j > 0 {
+			buffer.WriteString("+")
+		}
+		buffer.WriteString(rdn.Attributes[j].Type)
+		buffer.WriteString("=")
+		//Escape the value before building DN string
+		val := EscapeAttrValue(rdn.Attributes[j].Value)
+		buffer.WriteString(val)
+	}
+	return buffer.String()
+}
+
 // String returns string representation of the DN Object with required
 // escaping of spaces and formatting applied
 func (d DN) String() string {
@@ -222,16 +239,7 @@ func (d DN) String() string {
 		if i > 0 {
 			buffer.WriteString(",")
 		}
-		for j := range d.RDNs[i].Attributes {
-			if j > 0 {
-				buffer.WriteString("+")
-			}
-			buffer.WriteString(d.RDNs[i].Attributes[j].Type)
-			buffer.WriteString("=")
-			//Escape the value before building DN string
-			val := EscapeAttrValue(d.RDNs[i].Attributes[j].Value)
-			buffer.WriteString(val)
-		}
+		buffer.WriteString(d.RDNs[i].String())
 	}
 	return buffer.String()
 }
