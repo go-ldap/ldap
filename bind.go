@@ -99,9 +99,9 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 		}
 	}
 
-	resultCode, resultDescription := getLDAPResultCode(packet)
+	resultCode, resultDescription, matchedDN := getLDAPResultCode(packet)
 	if resultCode != 0 {
-		return result, NewError(resultCode, errors.New(resultDescription))
+		return result, NewErrorWithDN(resultCode, errors.New(resultDescription), matchedDN)
 	}
 
 	return result, nil
