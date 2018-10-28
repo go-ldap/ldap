@@ -176,33 +176,39 @@ var LDAPResultCodeMap = map[uint16]string{
 	ErrorEmptyPassword:      "Empty password not allowed by the client",
 }
 
-func getLDAPResultCode(packet *ber.Packet) (code uint16, description string) {
-	if packet == nil {
-		return ErrorUnexpectedResponse, "Empty packet"
-	} else if len(packet.Children) >= 2 {
-		response := packet.Children[1]
-		if response == nil {
-			return ErrorUnexpectedResponse, "Empty response in packet"
-		}
-		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-			// Children[1].Children[2] is the diagnosticMessage which is guaranteed to exist as seen here: https://tools.ietf.org/html/rfc4511#section-4.1.9
-			return uint16(response.Children[0].Value.(int64)), response.Children[2].Value.(string)
-		}
-	}
-
-	return ErrorNetwork, "Invalid packet format"
-}
-
 // Error holds LDAP error information
 type Error struct {
 	// Err is the underlying error
 	Err error
 	// ResultCode is the LDAP error code
 	ResultCode uint16
+	// MatchedDN is the matchedDN returned if any
+	MatchedDN string
 }
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("LDAP Result Code %d %q: %s", e.ResultCode, LDAPResultCodeMap[e.ResultCode], e.Err.Error())
+}
+
+func GetLDAPError(packet *ber.Packet) error {
+	if packet == nil {
+		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
+	} else if len(packet.Children) >= 2 {
+		response := packet.Children[1]
+		if response == nil {
+			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty response in packet")}
+		}
+		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
+			resultCode := uint16(response.Children[0].Value.(int64))
+			if resultCode == 0 { // No error
+				return nil
+			}
+			return &Error{ResultCode: resultCode, MatchedDN: response.Children[1].Value.(string),
+				Err: fmt.Errorf(response.Children[2].Value.(string))}
+		}
+	}
+
+	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid packet format")}
 }
 
 // NewError creates an LDAP error with the given code and underlying error

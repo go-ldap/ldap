@@ -68,15 +68,15 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 	}
 
 	if packet.Children[1].Tag == ApplicationCompareResponse {
-		resultCode, resultDescription := getLDAPResultCode(packet)
+		err := GetLDAPError(packet)
 
 		switch {
-		case resultCode == LDAPResultCompareTrue:
+		case IsErrorWithCode(err, LDAPResultCompareTrue):
 			return true, nil
-		case resultCode == LDAPResultCompareFalse:
+		case IsErrorWithCode(err, LDAPResultCompareFalse):
 			return false, nil
 		default:
-			return false, NewError(resultCode, errors.New(resultDescription))
+			return false, err
 		}
 	}
 	return false, fmt.Errorf("unexpected Response: %d", packet.Children[1].Tag)

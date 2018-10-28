@@ -13,9 +13,9 @@ import (
 // TestNilPacket tests that nil packets don't cause a panic.
 func TestNilPacket(t *testing.T) {
 	// Test for nil packet
-	code, _, _ := getLDAPResultCode(nil)
-	if code != ErrorUnexpectedResponse {
-		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", code)
+	err := GetLDAPError(nil)
+	if !IsErrorWithCode(err, ErrorUnexpectedResponse) {
+		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", err)
 	}
 
 	// Test for nil result
@@ -24,10 +24,10 @@ func TestNilPacket(t *testing.T) {
 		nil, // Can't be nil
 	}
 	pack := &ber.Packet{Children: kids}
-	code, _, _ = getLDAPResultCode(pack)
+	err = GetLDAPError(pack)
 
-	if code != ErrorUnexpectedResponse {
-		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", code)
+	if !IsErrorWithCode(err, ErrorUnexpectedResponse) {
+		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", err)
 	}
 }
 

@@ -91,9 +91,9 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 	}
 
 	if packet.Children[1].Tag == ApplicationModifyDNResponse {
-		resultCode, resultDescription, matchedDN := getLDAPResultCode(packet)
-		if resultCode != 0 {
-			return NewErrorWithDN(resultCode, errors.New(resultDescription), matchedDN)
+		err := GetLDAPError(packet)
+		if err != nil {
+			return err
 		}
 	} else {
 		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)

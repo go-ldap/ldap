@@ -275,7 +275,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 		ber.PrintPacket(packet)
 	}
 
-	if resultCode, message, _ := getLDAPResultCode(packet); resultCode == LDAPResultSuccess {
+	if err := GetLDAPError(packet); err == nil {
 		conn := tls.Client(l.conn, config)
 
 		if err := conn.Handshake(); err != nil {
@@ -286,7 +286,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 		l.isTLS = true
 		l.conn = conn
 	} else {
-		return NewError(resultCode, fmt.Errorf("ldap: cannot StartTLS (%s)", message))
+		return err
 	}
 	go l.reader()
 
