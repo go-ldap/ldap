@@ -126,16 +126,16 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	}
 
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
-		resultCode, resultDescription := getLDAPResultCode(packet)
-		if resultCode != 0 {
-			if resultCode == LDAPResultReferral {
+		err := GetLDAPError(packet)
+		if err != nil {
+			if IsErrorWithCode(err, LDAPResultReferral) {
 				for _, child := range packet.Children[1].Children {
 					if child.Tag == 3 {
 						result.Referral = child.Children[0].Value.(string)
 					}
 				}
 			}
-			return result, NewError(resultCode, errors.New(resultDescription))
+			return result, err
 		}
 	} else {
 		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("unexpected Response: %d", packet.Children[1].Tag))
