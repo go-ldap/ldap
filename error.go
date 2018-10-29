@@ -190,6 +190,9 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("LDAP Result Code %d %q: %s", e.ResultCode, LDAPResultCodeMap[e.ResultCode], e.Err.Error())
 }
 
+// GetLDAPError creates an Error out of a BER packet representing a LDAPResult
+// The return is an error object. It can be casted to a Error structure.
+// This function returns nil if resultCode in the LDAPResult sequence is success(0).
 func GetLDAPError(packet *ber.Packet) error {
 	if packet == nil {
 		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
