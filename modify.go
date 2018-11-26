@@ -79,6 +79,8 @@ type ModifyRequest struct {
 	DN string
 	// Changes contain the attributes to modify
 	Changes []Change
+	// Controls hold optional controls to send with the request
+	Controls []Control
 }
 
 // Add appends the given attribute to the list of changes to be made
@@ -114,9 +116,11 @@ func (m ModifyRequest) encode() *ber.Packet {
 // NewModifyRequest creates a modify request for the given DN
 func NewModifyRequest(
 	dn string,
+	controls []Control,
 ) *ModifyRequest {
 	return &ModifyRequest{
-		DN: dn,
+		DN:       dn,
+		Controls: controls,
 	}
 }
 
@@ -125,6 +129,9 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 	packet.AppendChild(modifyRequest.encode())
+	if len(modifyRequest.Controls) > 0 {
+		packet.AppendChild(encodeControls(modifyRequest.Controls))
+	}
 
 	l.Debug.PrintPacket(packet)
 
@@ -153,9 +160,9 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 	}
 
 	if packet.Children[1].Tag == ApplicationModifyResponse {
-		resultCode, resultDescription := getLDAPResultCode(packet)
-		if resultCode != 0 {
-			return NewError(resultCode, errors.New(resultDescription))
+		err := GetLDAPError(packet)
+		if err != nil {
+			return err
 		}
 	} else {
 		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)

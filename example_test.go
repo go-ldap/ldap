@@ -1,17 +1,15 @@
-package ldap_test
+package ldap
 
 import (
 	"crypto/tls"
 	"fmt"
 	"log"
-
-	"gopkg.in/ldap.v2"
 )
 
 // ExampleConn_Bind demonstrates how to bind a connection to an ldap user
 // allowing access to restricted attributes that user has access to
 func ExampleConn_Bind() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -25,15 +23,15 @@ func ExampleConn_Bind() {
 
 // ExampleConn_Search demonstrates how to use the search interface
 func ExampleConn_Search() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer l.Close()
 
-	searchRequest := ldap.NewSearchRequest(
+	searchRequest := NewSearchRequest(
 		"dc=example,dc=com", // The base dn to search
-		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
 		"(&(objectClass=organizationalPerson))", // The filter to apply
 		[]string{"dn", "cn"},                    // A list attributes to retrieve
 		nil,
@@ -51,7 +49,7 @@ func ExampleConn_Search() {
 
 // ExampleStartTLS demonstrates how to start a TLS connection
 func ExampleConn_StartTLS() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +66,7 @@ func ExampleConn_StartTLS() {
 
 // ExampleConn_Compare demonstrates how to compare an attribute with a value
 func ExampleConn_Compare() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,7 +81,7 @@ func ExampleConn_Compare() {
 }
 
 func ExampleConn_PasswordModify_admin() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -94,7 +92,7 @@ func ExampleConn_PasswordModify_admin() {
 		log.Fatal(err)
 	}
 
-	passwordModifyRequest := ldap.NewPasswordModifyRequest("cn=user,dc=example,dc=com", "", "NewPassword")
+	passwordModifyRequest := NewPasswordModifyRequest("cn=user,dc=example,dc=com", "", "NewPassword")
 	_, err = l.PasswordModify(passwordModifyRequest)
 
 	if err != nil {
@@ -103,7 +101,7 @@ func ExampleConn_PasswordModify_admin() {
 }
 
 func ExampleConn_PasswordModify_generatedPassword() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,7 +112,7 @@ func ExampleConn_PasswordModify_generatedPassword() {
 		log.Fatal(err)
 	}
 
-	passwordModifyRequest := ldap.NewPasswordModifyRequest("", "OldPassword", "")
+	passwordModifyRequest := NewPasswordModifyRequest("", "OldPassword", "")
 	passwordModifyResponse, err := l.PasswordModify(passwordModifyRequest)
 	if err != nil {
 		log.Fatalf("Password could not be changed: %s", err.Error())
@@ -125,7 +123,7 @@ func ExampleConn_PasswordModify_generatedPassword() {
 }
 
 func ExampleConn_PasswordModify_setNewPassword() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -136,7 +134,7 @@ func ExampleConn_PasswordModify_setNewPassword() {
 		log.Fatal(err)
 	}
 
-	passwordModifyRequest := ldap.NewPasswordModifyRequest("", "OldPassword", "NewPassword")
+	passwordModifyRequest := NewPasswordModifyRequest("", "OldPassword", "NewPassword")
 	_, err = l.PasswordModify(passwordModifyRequest)
 
 	if err != nil {
@@ -145,14 +143,14 @@ func ExampleConn_PasswordModify_setNewPassword() {
 }
 
 func ExampleConn_Modify() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer l.Close()
 
 	// Add a description, and replace the mail attributes
-	modify := ldap.NewModifyRequest("cn=user,dc=example,dc=com")
+	modify := NewModifyRequest("cn=user,dc=example,dc=com", nil)
 	modify.Add("description", []string{"An example user"})
 	modify.Replace("mail", []string{"user@example.org"})
 
@@ -171,7 +169,7 @@ func Example_userAuthentication() {
 	bindusername := "readonly"
 	bindpassword := "password"
 
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -190,9 +188,9 @@ func Example_userAuthentication() {
 	}
 
 	// Search for the given username
-	searchRequest := ldap.NewSearchRequest(
+	searchRequest := NewSearchRequest(
 		"dc=example,dc=com",
-		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
 		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", username),
 		[]string{"dn"},
 		nil,
@@ -223,22 +221,22 @@ func Example_userAuthentication() {
 }
 
 func Example_beherappolicy() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer l.Close()
 
-	controls := []ldap.Control{}
-	controls = append(controls, ldap.NewControlBeheraPasswordPolicy())
-	bindRequest := ldap.NewSimpleBindRequest("cn=admin,dc=example,dc=com", "password", controls)
+	controls := []Control{}
+	controls = append(controls, NewControlBeheraPasswordPolicy())
+	bindRequest := NewSimpleBindRequest("cn=admin,dc=example,dc=com", "password", controls)
 
 	r, err := l.SimpleBind(bindRequest)
-	ppolicyControl := ldap.FindControl(r.Controls, ldap.ControlTypeBeheraPasswordPolicy)
+	ppolicyControl := FindControl(r.Controls, ControlTypeBeheraPasswordPolicy)
 
-	var ppolicy *ldap.ControlBeheraPasswordPolicy
+	var ppolicy *ControlBeheraPasswordPolicy
 	if ppolicyControl != nil {
-		ppolicy = ppolicyControl.(*ldap.ControlBeheraPasswordPolicy)
+		ppolicy = ppolicyControl.(*ControlBeheraPasswordPolicy)
 	} else {
 		log.Printf("ppolicyControl response not available.\n")
 	}
@@ -262,32 +260,32 @@ func Example_beherappolicy() {
 }
 
 func Example_vchuppolicy() {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer l.Close()
 	l.Debug = true
 
-	bindRequest := ldap.NewSimpleBindRequest("cn=admin,dc=example,dc=com", "password", nil)
+	bindRequest := NewSimpleBindRequest("cn=admin,dc=example,dc=com", "password", nil)
 
 	r, err := l.SimpleBind(bindRequest)
 
-	passwordMustChangeControl := ldap.FindControl(r.Controls, ldap.ControlTypeVChuPasswordMustChange)
-	var passwordMustChange *ldap.ControlVChuPasswordMustChange
+	passwordMustChangeControl := FindControl(r.Controls, ControlTypeVChuPasswordMustChange)
+	var passwordMustChange *ControlVChuPasswordMustChange
 	if passwordMustChangeControl != nil {
-		passwordMustChange = passwordMustChangeControl.(*ldap.ControlVChuPasswordMustChange)
+		passwordMustChange = passwordMustChangeControl.(*ControlVChuPasswordMustChange)
 	}
 
 	if passwordMustChange != nil && passwordMustChange.MustChange {
 		log.Printf("Password Must be changed.\n")
 	}
 
-	passwordWarningControl := ldap.FindControl(r.Controls, ldap.ControlTypeVChuPasswordWarning)
+	passwordWarningControl := FindControl(r.Controls, ControlTypeVChuPasswordWarning)
 
-	var passwordWarning *ldap.ControlVChuPasswordWarning
+	var passwordWarning *ControlVChuPasswordWarning
 	if passwordWarningControl != nil {
-		passwordWarning = passwordWarningControl.(*ldap.ControlVChuPasswordWarning)
+		passwordWarning = passwordWarningControl.(*ControlVChuPasswordWarning)
 	} else {
 		log.Printf("ppolicyControl response not available.\n")
 	}
@@ -301,5 +299,44 @@ func Example_vchuppolicy() {
 			}
 		}
 		log.Print(logStr)
+	}
+}
+
+// This example demonstrates how to use ControlPaging to manually execute a
+// paginated search request instead of using SearchWithPaging.
+func ExampleControlPaging_manualPaging() {
+	conn, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	var pageSize uint32 = 32
+	searchBase := "dc=example,dc=com"
+	filter := "(objectClass=group)"
+	pagingControl := NewControlPaging(pageSize)
+	attributes := []string{}
+	controls := []Control{pagingControl}
+
+	for {
+		request := NewSearchRequest(searchBase, ScopeWholeSubtree, DerefAlways, 0, 0, false, filter, attributes, controls)
+		response, err := conn.Search(request)
+		if err != nil {
+			log.Fatalf("Failed to execute search request: %s", err.Error())
+		}
+
+		// [do something with the response entries]
+
+		// In order to prepare the next request, we check if the response
+		// contains another ControlPaging object and a not-empty cookie and
+		// copy that cookie into our pagingControl object:
+		updatedControl := FindControl(response.Controls, ControlTypePaging)
+		if ctrl, ok := updatedControl.(*ControlPaging); ctrl != nil && ok && len(ctrl.Cookie) != 0 {
+			pagingControl.SetCookie(ctrl.Cookie)
+			continue
+		}
+		// If no new paging information is available or the cookie is empty, we
+		// are done with the pagination.
+		break
 	}
 }
