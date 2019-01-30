@@ -56,6 +56,30 @@ func TestStartTLS(t *testing.T) {
 	fmt.Printf("TestStartTLS: finished...\n")
 }
 
+func TestTLSConnectionState(t *testing.T) {
+	fmt.Printf("TestTLSConnectionState: starting...\n")
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+
+	cs, ok := l.TLSConnectionState()
+	if !ok {
+		t.Errorf("TLSConnectionState returned ok == false; want true")
+	}
+	if cs.Version == 0 || !cs.HandshakeComplete {
+		t.Errorf("ConnectionState = %#v; expected Version != 0 and HandshakeComplete = true", cs)
+	}
+
+	fmt.Printf("TestTLSConnectionState: finished...\n")
+}
+
 func TestSearch(t *testing.T) {
 	fmt.Printf("TestSearch: starting...\n")
 	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
