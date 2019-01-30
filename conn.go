@@ -295,6 +295,17 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 	return nil
 }
 
+// TLSConnectionState returns the client's TLS connection state.
+// The return values are their zero values if StartTLS did
+// not succeed.
+func (l *Conn) TLSConnectionState() (state tls.ConnectionState, ok bool) {
+	tc, ok := l.conn.(*tls.Conn)
+	if !ok {
+		return
+	}
+	return tc.ConnectionState(), true
+}
+
 func (l *Conn) sendMessage(packet *ber.Packet) (*messageContext, error) {
 	return l.sendMessageWithFlags(packet, 0)
 }
