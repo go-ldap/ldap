@@ -11,8 +11,20 @@ else
 	RACE_FLAG := -race -cpu 1,2,4
 endif
 
-# Only run `go tool vet` on Go 1.5 and newer
-ifneq (,$(findstring :go1.5:,$(GO_RELEASE_TAGS)))
+# Run `go vet` on Go 1.12 and newer. For Go 1.5-1.11, use `go tool vet`
+ifneq (,$(findstring :go1.12:,$(GO_RELEASE_TAGS)))
+	GO_VET := go vet \
+		-atomic \
+		-bool \
+		-copylocks \
+		-nilfunc \
+		-printf \
+		-rangeloops \
+		-unreachable \
+		-unsafeptr \
+		-unusedresult \
+		.
+else ifneq (,$(findstring :go1.5:,$(GO_RELEASE_TAGS)))
 	GO_VET := go tool vet \
 		-atomic \
 		-bool \
