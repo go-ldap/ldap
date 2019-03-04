@@ -1,10 +1,11 @@
 .PHONY: default install build test quicktest fmt vet lint 
 
-GO_VERSION := $(shell go version | cut -d' ' -f3 | cut -d. -f2)
+# List of all release tags "supported" by our current Go version
+# E.g. ":go1.1:go1.2:go1.3:go1.4:go1.5:go1.6:go1.7:go1.8:go1.9:go1.10:go1.11:go1.12:"
+GO_RELEASE_TAGS := $(shell go list -f ':{{join (context.ReleaseTags) ":"}}:' runtime)
 
 # Only use the `-race` flag on newer versions of Go (version 1.3 and newer)
-IS_OLD_GO := $(shell test $(GO_VERSION) -le 2 && echo true)
-ifeq ($(IS_OLD_GO),true)
+ifeq (,$(findstring :go1.3:,$(GO_RELEASE_TAGS)))
 	RACE_FLAG :=
 else
 	RACE_FLAG := -race -cpu 1,2,4
