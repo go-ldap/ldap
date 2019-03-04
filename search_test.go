@@ -24,7 +24,7 @@ func TestNewEntry(t *testing.T) {
 		}
 		testEntry := NewEntry(dn, attributes)
 		if !reflect.DeepEqual(executedEntry, testEntry) {
-			t.Fatalf("subsequent calls to NewEntry did not yield the same result:\n\texpected:\n\t%s\n\tgot:\n\t%s\n", executedEntry, testEntry)
+			t.Fatalf("subsequent calls to NewEntry did not yield the same result:\n\texpected:\n\t%v\n\tgot:\n\t%v\n", executedEntry, testEntry)
 		}
 		iteration = iteration + 1
 	}
