@@ -11,6 +11,24 @@ else
 	RACE_FLAG := -race -cpu 1,2,4
 endif
 
+# Only run `go tool vet` on Go 1.5 and newer
+ifneq (,$(findstring :go1.5:,$(GO_RELEASE_TAGS)))
+	GO_VET := go tool vet \
+		-atomic \
+		-bool \
+		-copylocks \
+		-nilfunc \
+		-printf \
+		-shadow \
+		-rangeloops \
+		-unreachable \
+		-unsafeptr \
+		-unusedresult \
+		.
+else
+	GO_VET := @echo "go vet skipped -- not supported on this version of Go"
+endif
+
 default: fmt vet lint build quicktest
 
 install:
@@ -35,25 +53,8 @@ fmt:
 		exit 1; \
 	fi
 
-# Only run on go1.5+
 vet:
-	@go tool -n vet >/dev/null 2>&1; \
-		if [ $$? -eq 0 ]; then \
-			echo "go vet" ; \
-			go tool vet \
-				-atomic \
-				-bool \
-				-copylocks \
-				-nilfunc \
-				-printf \
-				-shadow \
-				-rangeloops \
-				-unreachable \
-				-unsafeptr \
-				-unusedresult \
-				. ; \
-		fi ;
-
+	$(GO_VET)
 
 # https://github.com/golang/lint
 # go get github.com/golang/lint/golint
