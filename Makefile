@@ -2,7 +2,7 @@
 
 GO_VERSION := $(shell go version | cut -d' ' -f3 | cut -d. -f2)
 
-# Only use the `-race` flag on newer versions of Go
+# Only use the `-race` flag on newer versions of Go (version 1.3 and newer)
 IS_OLD_GO := $(shell test $(GO_VERSION) -le 2 && echo true)
 ifeq ($(IS_OLD_GO),true)
 	RACE_FLAG :=
