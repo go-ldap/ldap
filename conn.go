@@ -115,7 +115,13 @@ var DefaultTimeout = 60 * time.Second
 // Dial connects to the given address on the given network using net.Dial
 // and then returns a new Conn for the connection.
 func Dial(network, addr string) (*Conn, error) {
-	c, err := net.DialTimeout(network, addr, DefaultTimeout)
+	return DialTimeout(network, addr, DefaultTimeout)
+}
+
+// DialTimeout connects to the given address on the given network
+// with the given timeout using net.Dial and then returns a new Conn for the connection.
+func DialTimeout(network, addr string, timeout time.Duration) (*Conn, error) {
+	c, err := net.DialTimeout(network, addr, timeout)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
@@ -127,7 +133,13 @@ func Dial(network, addr string) (*Conn, error) {
 // DialTLS connects to the given address on the given network using tls.Dial
 // and then returns a new Conn for the connection.
 func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
-	c, err := tls.DialWithDialer(&net.Dialer{Timeout: DefaultTimeout}, network, addr, config)
+	return DialTLSTimeout(network, addr, config, DefaultTimeout)
+}
+
+// DialTLSTimeout connects to the given address on the given network
+// with the given timeout using tls.Dial and then returns a new Conn for the connection.
+func DialTLSTimeout(network, addr string, config *tls.Config, timeout time.Duration) (*Conn, error) {
+	c, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, network, addr, config)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
