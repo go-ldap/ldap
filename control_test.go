@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"gopkg.in/asn1-ber.v1"
+	ber "gopkg.in/asn1-ber.v1"
 )
 
 func TestControlPaging(t *testing.T) {
@@ -95,9 +95,9 @@ func TestDescribeControlMicrosoftShowDeleted(t *testing.T) {
 
 func TestDescribeControlString(t *testing.T) {
 	runAddControlDescriptions(t, NewControlString("x", true, "y"), "Control Type ()", "Criticality", "Control Value")
-	runAddControlDescriptions(t, NewControlString("x", true, ""), "Control Type ()", "Criticality", "Control Value")
+	runAddControlDescriptions(t, NewControlString("x", true, ""), "Control Type ()", "Criticality")
 	runAddControlDescriptions(t, NewControlString("x", false, "y"), "Control Type ()", "Control Value")
-	runAddControlDescriptions(t, NewControlString("x", false, ""), "Control Type ()", "Control Value")
+	runAddControlDescriptions(t, NewControlString("x", false, ""), "Control Type ()")
 }
 
 func runAddControlDescriptions(t *testing.T, originalControl Control, childDescriptions ...string) {
