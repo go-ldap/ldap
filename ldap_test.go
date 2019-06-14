@@ -56,6 +56,30 @@ func TestStartTLS(t *testing.T) {
 	fmt.Printf("TestStartTLS: finished...\n")
 }
 
+func TestTLSConnectionState(t *testing.T) {
+	fmt.Printf("TestTLSConnectionState: starting...\n")
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+
+	cs, ok := l.TLSConnectionState()
+	if !ok {
+		t.Errorf("TLSConnectionState returned ok == false; want true")
+	}
+	if cs.Version == 0 || !cs.HandshakeComplete {
+		t.Errorf("ConnectionState = %#v; expected Version != 0 and HandshakeComplete = true", cs)
+	}
+
+	fmt.Printf("TestTLSConnectionState: finished...\n")
+}
+
 func TestSearch(t *testing.T) {
 	fmt.Printf("TestSearch: starting...\n")
 	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
@@ -270,4 +294,33 @@ func TestCompare(t *testing.T) {
 	}
 
 	fmt.Printf("TestCompare: -> %v\n", sr)
+}
+
+func TestMatchDNError(t *testing.T) {
+	fmt.Printf("TestMatchDNError: starting..\n")
+
+	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer l.Close()
+
+	wrongBase := "ou=roups,dc=umich,dc=edu"
+
+	searchRequest := NewSearchRequest(
+		wrongBase,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[0],
+		attributes,
+		nil)
+
+	_, err = l.Search(searchRequest)
+
+	if err == nil {
+		t.Errorf("Expected Error, got nil")
+		return
+	}
+
+	fmt.Printf("TestMatchDNError: err: %s\n", err.Error())
+
 }
