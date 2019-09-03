@@ -34,9 +34,10 @@ import (
 
 // Change operation choices
 const (
-	AddAttribute     = 0
-	DeleteAttribute  = 1
-	ReplaceAttribute = 2
+	AddAttribute       = 0
+	DeleteAttribute    = 1
+	ReplaceAttribute   = 2
+	IncrementAttribute = 3 // (https://tools.ietf.org/html/rfc4525)
 )
 
 // PartialAttribute for a ModifyRequest as defined in https://tools.ietf.org/html/rfc4511
@@ -96,6 +97,11 @@ func (m *ModifyRequest) Delete(attrType string, attrVals []string) {
 // Replace appends the given attribute to the list of changes to be made
 func (m *ModifyRequest) Replace(attrType string, attrVals []string) {
 	m.appendChange(ReplaceAttribute, attrType, attrVals)
+}
+
+// Increment appends the given attribute to the list of changes to be made
+func (m *ModifyRequest) Increment(attrType string, attrVal string) {
+	m.appendChange(IncrementAttribute, attrType, []string{attrVal})
 }
 
 func (m *ModifyRequest) appendChange(operation uint, attrType string, attrVals []string) {
