@@ -26,6 +26,7 @@
 package ldap
 
 import (
+	"errors"
 	"log"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -45,6 +46,12 @@ type PartialAttribute struct {
 	Type string
 	// Vals are the values of the partial attribute
 	Vals []string
+}
+
+// ModifyResult holds the server's response to a modify request
+type ModifyResult struct {
+	// Controls are the returned controls
+	Controls []Control
 }
 
 func (p *PartialAttribute) encode() *ber.Packet {
@@ -154,4 +161,63 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
 	}
 	return nil
+}
+
+// ModifyWithResult performs the ModifyRequest and returns the result
+func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, error) {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
+	packet.AppendChild(modifyRequest.encode())
+	if len(modifyRequest.Controls) > 0 {
+		packet.AppendChild(encodeControls(modifyRequest.Controls))
+	}
+
+	l.Debug.PrintPacket(packet)
+
+	msgCtx, err := l.sendMessage(packet)
+	if err != nil {
+		return nil, err
+	}
+	defer l.finishMessage(msgCtx)
+
+	result := &ModifyResult{
+		Controls: make([]Control, 0),
+	}
+
+	l.Debug.Printf("%d: waiting for response", msgCtx.id)
+	packetResponse, ok := <-msgCtx.responses
+	if !ok {
+		return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+	}
+	packet, err = packetResponse.ReadPacket()
+	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+	if err != nil {
+		return nil, err
+	}
+
+	if l.Debug {
+		if err := addLDAPDescriptions(packet); err != nil {
+			return nil, err
+		}
+		ber.PrintPacket(packet)
+	}
+
+	switch packet.Children[1].Tag {
+	case ApplicationModifyResponse:
+		err := GetLDAPError(packet)
+		if err != nil {
+			return nil, err
+		}
+		if len(packet.Children) == 3 {
+			for _, child := range packet.Children[2].Children {
+				decodedChild, err := DecodeControl(child)
+				if err != nil {
+					return nil, errors.New("failed to decode child control: " + err.Error())
+				}
+				result.Controls = append(result.Controls, decodedChild)
+			}
+		}
+	}
+	l.Debug.Printf("%d: returning", msgCtx.id)
+	return result, nil
 }
