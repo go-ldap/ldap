@@ -194,7 +194,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 
 	msgCtx, err := l.sendMessage(packet)
 	if err != nil {
-		return nil, fmt.Errorf("send message: %w", err)
+		return nil, fmt.Errorf("send message: %s", err)
 	}
 	defer l.finishMessage(msgCtx)
 
@@ -205,7 +205,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 	packet, err = packetResponse.ReadPacket()
 	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 	if err != nil {
-		return nil, fmt.Errorf("read packet: %w", err)
+		return nil, fmt.Errorf("read packet: %s", err)
 	}
 
 	if l.Debug {
@@ -239,7 +239,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 			data, _ := ioutil.ReadAll(child.Data)
 			params, err = parseParams(string(data))
 			if err != nil {
-				return result, fmt.Errorf("parsing digest-challenge: %w", err)
+				return result, fmt.Errorf("parsing digest-challenge: %s", err)
 			}
 		}
 	}
@@ -265,7 +265,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		packet.AppendChild(request)
 		msgCtx, err := l.sendMessage(packet)
 		if err != nil {
-			return nil, fmt.Errorf("send message: %w", err)
+			return nil, fmt.Errorf("send message: %s", err)
 		}
 		defer l.finishMessage(msgCtx)
 		packetResponse, ok := <-msgCtx.responses
@@ -275,7 +275,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		packet, err = packetResponse.ReadPacket()
 		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 		if err != nil {
-			return nil, fmt.Errorf("read packet: %w", err)
+			return nil, fmt.Errorf("read packet: %s", err)
 		}
 	}
 
