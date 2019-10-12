@@ -8,6 +8,8 @@ import (
 // Filter represents an LDAP filter.
 type Filter fmt.Stringer
 
+type LiteralFilter string
+
 // BinaryFilter represents LDAP filters with two operands.
 type BinaryFilter struct {
 	// Left-hand side and Right-hand side arguments.
@@ -68,6 +70,12 @@ type ExtensibleMatchFilter struct {
 
 // Factory Functions
 
+// Creates an LDAP filter from a literal string.
+func Literal(filter string) *LiteralFilter {
+	lit := LiteralFilter(filter)
+	return &lit
+}
+
 // Creates an LDAP Equals Filter, where the left-hand side is an LDAP attribute
 // and the right-hand side is a value. This function escapes both sides using EscapeFilter.
 func Equal(attribute, value string) *BinaryFilter {
@@ -99,7 +107,7 @@ func Not(op Filter) *NotFilter {
 
 // Creates an LDAP substring filter.
 // All string arguments are escaped using EscapeFilter.
-func Substrings(attribute, subInitial string, subAny []string, subFinal string) *SubstringsFilter {
+func Substring(attribute, subInitial string, subAny []string, subFinal string) *SubstringsFilter {
 	for i, value := range subAny {
 		subAny[i] = EscapeFilter(value)
 	}
@@ -177,6 +185,10 @@ func (or *OrFilter) Or(op Filter) *OrFilter {
 // TODO ExtensibleMatch and SubStrings builders
 
 // String Functions
+
+func (literal *LiteralFilter) String() string {
+	return string(*literal)
+}
 
 func (and *AndFilter) String() string {
 	return encodeOperandList(and.Operands, "&")

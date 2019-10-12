@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -37,19 +38,19 @@ var cases = []struct {
 		encoded: "(!(cn=test))",
 	},
 	{
-		filter:  Substrings("cn", "", []string{}, "test"),
+		filter:  Substring("cn", "", []string{}, "test"),
 		encoded: "(cn=*test)",
 	},
 	{
-		filter:  Substrings("cn", "", []string{"test", "test"}, ""),
+		filter:  Substring("cn", "", []string{"test", "test"}, ""),
 		encoded: "(cn=*test*test*)",
 	},
 	{
-		filter:  Substrings("cn", "test", []string{}, "test"),
+		filter:  Substring("cn", "test", []string{}, "test"),
 		encoded: "(cn=test*test)",
 	},
 	{
-		filter:  Substrings("cn", "test", []string{"test", "test"}, "test"),
+		filter:  Substring("cn", "test", []string{"test", "test"}, "test"),
 		encoded: "(cn=test*test*test*test)",
 	},
 	{
@@ -85,7 +86,7 @@ var cases = []struct {
 		encoded: "(c\\29n=te\\29st)",
 	},
 	{
-		filter:  Substrings("c)n", "))", []string{"tes)t", "tes)t"}, "test)"),
+		filter:  Substring("c)n", "))", []string{"tes)t", "tes)t"}, "test)"),
 		encoded: "(c\\29n=\\29\\29*tes\\29t*tes\\29t*test\\29)",
 	},
 	{
@@ -116,4 +117,26 @@ func TestFilters(t *testing.T) {
 			t.Errorf("Expected %s but got %s", cas.encoded, cas.filter.String())
 		}
 	}
+}
+
+func ExampleAnd() {
+	fmt.Println(And(Equal("cn", "jdoe")).
+		And(Equal("sn", "Doe")).
+		And(Equal("mail", "jdoe@acme.com")))
+	// Output: (&(cn=jdoe)(sn=Doe)(mail=jdoe@acme.com))
+}
+
+func ExampleOr() {
+	fmt.Println(Or(Equal("cn", "jdoe")).
+		Or(Equal("sn", "Doe")).
+		Or(Equal("mail", "jdoe@acme.com")))
+	// Output: (|(cn=jdoe)(sn=Doe)(mail=jdoe@acme.com))
+}
+
+func ExampleSubstring() {
+	fmt.Println(Substring("displayName", "John", []string{"A"}, "Doe"))
+	// Output: (displayName=John*A*Doe)
+
+	fmt.Println(Substring("displayName", "", []string{}, "Doe"))
+	// Output: (displayName=*Doe)
 }
