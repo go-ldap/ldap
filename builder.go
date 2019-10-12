@@ -182,7 +182,7 @@ func (or *OrFilter) Or(op Filter) *OrFilter {
 	return or
 }
 
-// TODO ExtensibleMatch and SubStrings builders
+// We could add ExtensibleMatch and SubStrings builders
 
 // String Functions
 

@@ -135,8 +135,16 @@ func ExampleOr() {
 
 func ExampleSubstring() {
 	fmt.Println(Substring("displayName", "John", []string{"A"}, "Doe"))
-	// Output: (displayName=John*A*Doe)
-
 	fmt.Println(Substring("displayName", "", []string{}, "Doe"))
-	// Output: (displayName=*Doe)
+	// Output:
+	// (displayName=John*A*Doe)
+	// (displayName=*Doe)
+}
+
+func ExampleExtensibleMatch() {
+	fmt.Println(ExtensibleMatch("cn", true, "sampleRule", "value"))
+	fmt.Println(ExtensibleMatch("", false, "sampleRule", "value"))
+	// Output:
+	// (cn:dn:sampleRule:=value)
+	// (:sampleRule:=value)
 }
