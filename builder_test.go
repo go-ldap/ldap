@@ -80,6 +80,34 @@ var cases = []struct {
 		filter:  ExtensibleMatch("", true, "", "test"),
 		encoded: "(:dn:=test)",
 	},
+	{
+		filter:  Equal("c)n", "te)st"),
+		encoded: "(c\\29n=te\\29st)",
+	},
+	{
+		filter:  Substrings("c)n", "))", []string{"tes)t", "tes)t"}, "test)"),
+		encoded: "(c\\29n=\\29\\29*tes\\29t*tes\\29t*test\\29)",
+	},
+	{
+		filter:  GreaterOrEqual("c(n", "test("),
+		encoded: "(c\\28n>=test\\28)",
+	},
+	{
+		filter:  LessOrEqual("c(n", "test("),
+		encoded: "(c\\28n<=test\\28)",
+	},
+	{
+		filter:  ApproximateMatch("c(n", "test("),
+		encoded: "(c\\28n~=test\\28)",
+	},
+	{
+		filter:  Present("c(n"),
+		encoded: "(c\\28n=*)",
+	},
+	{
+		filter:  ExtensibleMatch("c(n", true, "test(", "tes)t"),
+		encoded: "(c\\28n:dn:test\\28:=tes\\29t)",
+	},
 }
 
 func TestFilters(t *testing.T) {
@@ -88,13 +116,4 @@ func TestFilters(t *testing.T) {
 			t.Errorf("Expected %s but got %s", cas.encoded, cas.filter.String())
 		}
 	}
-}
-
-var escapeCases = []struct {
-	filter  Filter
-	encoded string
-}{}
-
-func TestEscape(t *testing.T) {
-
 }
