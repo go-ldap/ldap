@@ -8,34 +8,34 @@ import (
 type Filter fmt.Stringer
 
 type BinaryFilter struct {
-	lhs, rhs string
-	operator string
+	Lhs, Rhs string
+	Operator string
 }
 
 type AndFilter struct {
-	operands []Filter
+	Operands []Filter
 }
 
 type OrFilter struct {
-	operands []Filter
+	Operands []Filter
 }
 
 type NotFilter struct {
-	operand Filter
+	Operand Filter
 }
 
 type SubstringsFilter struct {
-	lhs, subInitial, subFinal string
-	subAny                    []string
+	Lhs, SubInitial, SubFinal string
+	SubAny                    []string
 }
 
 type PresentFilter struct {
-	lhs string
+	Lhs string
 }
 
 type ExtensibleMatchFilter struct {
-	attribute, matchingRule, rhs string
-	dn                           bool
+	Attribute, MatchingRule, rhs string
+	Dn                           bool
 }
 
 // Factory Functions
@@ -44,26 +44,26 @@ type ExtensibleMatchFilter struct {
 // and the right-hand side is a value. This function escapes the right-hand side.
 func Equal(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      EscapeFilter(lhs),
-		rhs:      EscapeFilter(rhs),
-		operator: "=",
+		Lhs:      EscapeFilter(lhs),
+		Rhs:      EscapeFilter(rhs),
+		Operator: "=",
 	}
 }
 
 func And(op Filter) *AndFilter {
 	return &AndFilter{
-		operands: []Filter{op},
+		Operands: []Filter{op},
 	}
 }
 
 func Or(op Filter) *OrFilter {
 	return &OrFilter{
-		operands: []Filter{op},
+		Operands: []Filter{op},
 	}
 }
 
 func Not(op Filter) *NotFilter {
-	return &NotFilter{operand: op}
+	return &NotFilter{Operand: op}
 }
 
 func Substrings(lhs, subInitial string, subAny []string, subFinal string) *SubstringsFilter {
@@ -71,48 +71,48 @@ func Substrings(lhs, subInitial string, subAny []string, subFinal string) *Subst
 		subAny[i] = EscapeFilter(value)
 	}
 	return &SubstringsFilter{
-		lhs:        EscapeFilter(lhs),
-		subInitial: EscapeFilter(subInitial),
-		subAny:     subAny,
-		subFinal:   EscapeFilter(subFinal),
+		Lhs:        EscapeFilter(lhs),
+		SubInitial: EscapeFilter(subInitial),
+		SubAny:     subAny,
+		SubFinal:   EscapeFilter(subFinal),
 	}
 }
 
 func GreaterOrEqual(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      EscapeFilter(lhs),
-		rhs:      EscapeFilter(rhs),
-		operator: ">=",
+		Lhs:      EscapeFilter(lhs),
+		Rhs:      EscapeFilter(rhs),
+		Operator: ">=",
 	}
 }
 
 func LessOrEqual(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      EscapeFilter(lhs),
-		rhs:      EscapeFilter(rhs),
-		operator: "<=",
+		Lhs:      EscapeFilter(lhs),
+		Rhs:      EscapeFilter(rhs),
+		Operator: "<=",
 	}
 }
 
 func ApproximateMatch(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      EscapeFilter(lhs),
-		rhs:      EscapeFilter(rhs),
-		operator: "~=",
+		Lhs:      EscapeFilter(lhs),
+		Rhs:      EscapeFilter(rhs),
+		Operator: "~=",
 	}
 }
 
 func Present(lhs string) *PresentFilter {
 	return &PresentFilter{
-		lhs: EscapeFilter(lhs),
+		Lhs: EscapeFilter(lhs),
 	}
 }
 
 func ExtensibleMatch(attribute string, dn bool, matchingRule string, rhs string) *ExtensibleMatchFilter {
 	return &ExtensibleMatchFilter{
-		attribute:    EscapeFilter(attribute),
-		matchingRule: EscapeFilter(matchingRule),
-		dn:           dn,
+		Attribute:    EscapeFilter(attribute),
+		MatchingRule: EscapeFilter(matchingRule),
+		Dn:           dn,
 		rhs:          EscapeFilter(rhs),
 	}
 }
@@ -120,12 +120,12 @@ func ExtensibleMatch(attribute string, dn bool, matchingRule string, rhs string)
 // Builder Functions
 
 func (and *AndFilter) And(op Filter) *AndFilter {
-	and.operands = append(and.operands, op)
+	and.Operands = append(and.Operands, op)
 	return and
 }
 
 func (or *OrFilter) Or(op Filter) *OrFilter {
-	or.operands = append(or.operands, op)
+	or.Operands = append(or.Operands, op)
 	return or
 }
 
@@ -134,54 +134,54 @@ func (or *OrFilter) Or(op Filter) *OrFilter {
 // String Functions
 
 func (and *AndFilter) String() string {
-	return encodeOperandList(and.operands, "&")
+	return encodeOperandList(and.Operands, "&")
 }
 
 func (or *OrFilter) String() string {
-	return encodeOperandList(or.operands, "|")
+	return encodeOperandList(or.Operands, "|")
 }
 
 func (not *NotFilter) String() string {
-	return "(!" + not.operand.String() + ")"
+	return "(!" + not.Operand.String() + ")"
 }
 
 func (bf *BinaryFilter) String() string {
-	return "(" + bf.lhs + bf.operator + bf.rhs + ")"
+	return "(" + bf.Lhs + bf.Operator + bf.Rhs + ")"
 }
 
 func (ssf *SubstringsFilter) String() string {
 	var builder strings.Builder
 	builder.WriteString("(")
-	builder.WriteString(ssf.lhs)
+	builder.WriteString(ssf.Lhs)
 	builder.WriteString("=")
-	builder.WriteString(ssf.subInitial)
+	builder.WriteString(ssf.SubInitial)
 	builder.WriteString("*")
-	for _, value := range ssf.subAny {
+	for _, value := range ssf.SubAny {
 		builder.WriteString(value)
 		builder.WriteString("*")
 	}
-	builder.WriteString(ssf.subFinal)
+	builder.WriteString(ssf.SubFinal)
 	builder.WriteString(")")
 	return builder.String()
 }
 
 func (pf *PresentFilter) String() string {
-	return "(" + pf.lhs + "=*)"
+	return "(" + pf.Lhs + "=*)"
 }
 
 func (em *ExtensibleMatchFilter) String() string {
 	var builder strings.Builder
 	builder.WriteString("(")
 
-	builder.WriteString(em.attribute)
+	builder.WriteString(em.Attribute)
 
-	if em.dn {
+	if em.Dn {
 		builder.WriteString(":dn")
 	}
 
-	if em.matchingRule != "" {
+	if em.MatchingRule != "" {
 		builder.WriteString(":")
-		builder.WriteString(em.matchingRule)
+		builder.WriteString(em.MatchingRule)
 	}
 
 	builder.WriteString(":=")
