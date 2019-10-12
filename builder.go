@@ -1,12 +1,11 @@
 package ldap
 
 import (
+	"fmt"
 	"strings"
 )
 
-type Filter interface {
-	Encode() string
-}
+type Filter fmt.Stringer
 
 type BinaryFilter struct {
 	lhs, rhs string
@@ -26,7 +25,8 @@ type NotFilter struct {
 }
 
 type SubstringsFilter struct {
-	lhs, rhs string
+	lhs, subInitial, subFinal string
+	subAny                    []string
 }
 
 type PresentFilter struct {
@@ -44,7 +44,7 @@ type ExtensibleMatchFilter struct {
 // and the right-hand side is a value. This function escapes the right-hand side.
 func Equal(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      lhs,
+		lhs:      EscapeFilter(lhs),
 		rhs:      EscapeFilter(rhs),
 		operator: "=",
 	}
@@ -66,16 +66,21 @@ func Not(op Filter) *NotFilter {
 	return &NotFilter{operand: op}
 }
 
-func Substrings(lhs, rhs string) *SubstringsFilter {
+func Substrings(lhs, subInitial string, subAny []string, subFinal string) *SubstringsFilter {
+	for i, value := range subAny {
+		subAny[i] = EscapeFilter(value)
+	}
 	return &SubstringsFilter{
-		lhs: lhs,
-		rhs: EscapeFilter(rhs),
+		lhs:        EscapeFilter(lhs),
+		subInitial: EscapeFilter(subInitial),
+		subAny:     subAny,
+		subFinal:   EscapeFilter(subFinal),
 	}
 }
 
 func GreaterOrEqual(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      lhs,
+		lhs:      EscapeFilter(lhs),
 		rhs:      EscapeFilter(rhs),
 		operator: ">=",
 	}
@@ -83,7 +88,7 @@ func GreaterOrEqual(lhs, rhs string) *BinaryFilter {
 
 func LessOrEqual(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      lhs,
+		lhs:      EscapeFilter(lhs),
 		rhs:      EscapeFilter(rhs),
 		operator: "<=",
 	}
@@ -91,7 +96,7 @@ func LessOrEqual(lhs, rhs string) *BinaryFilter {
 
 func ApproximateMatch(lhs, rhs string) *BinaryFilter {
 	return &BinaryFilter{
-		lhs:      lhs,
+		lhs:      EscapeFilter(lhs),
 		rhs:      EscapeFilter(rhs),
 		operator: "~=",
 	}
@@ -99,16 +104,16 @@ func ApproximateMatch(lhs, rhs string) *BinaryFilter {
 
 func Present(lhs string) *PresentFilter {
 	return &PresentFilter{
-		lhs: lhs,
+		lhs: EscapeFilter(lhs),
 	}
 }
 
-func ExtensibleMatch(attribute, matchingRule string, dn bool, rhs string) *ExtensibleMatchFilter {
+func ExtensibleMatch(attribute string, dn bool, matchingRule string, rhs string) *ExtensibleMatchFilter {
 	return &ExtensibleMatchFilter{
-		attribute:    attribute,
-		matchingRule: matchingRule,
+		attribute:    EscapeFilter(attribute),
+		matchingRule: EscapeFilter(matchingRule),
 		dn:           dn,
-		rhs:          rhs,
+		rhs:          EscapeFilter(rhs),
 	}
 }
 
@@ -124,48 +129,47 @@ func (or *OrFilter) Or(op Filter) *OrFilter {
 	return or
 }
 
-// Encode Functions
+// TODO ExtensibleMatch and SubStrings builders
 
-func (and *AndFilter) Encode() string {
+// String Functions
+
+func (and *AndFilter) String() string {
 	return encodeOperandList(and.operands, "&")
 }
 
-func (or *OrFilter) Encode() string {
+func (or *OrFilter) String() string {
 	return encodeOperandList(or.operands, "|")
 }
 
-func (not *NotFilter) Encode() string {
-	return "(!" + not.operand.Encode() + ")"
+func (not *NotFilter) String() string {
+	return "(!" + not.operand.String() + ")"
 }
 
-func (bf *BinaryFilter) Encode() string {
+func (bf *BinaryFilter) String() string {
 	return "(" + bf.lhs + bf.operator + bf.rhs + ")"
 }
 
-func (not *SubstringsFilter) Encode() string {
-	trimmed := strings.Trim(not.rhs, " ")
+func (ssf *SubstringsFilter) String() string {
 	var builder strings.Builder
 	builder.WriteString("(")
-	builder.WriteString(not.lhs)
+	builder.WriteString(ssf.lhs)
 	builder.WriteString("=")
-	if strings.HasPrefix(trimmed, "*") {
+	builder.WriteString(ssf.subInitial)
+	builder.WriteString("*")
+	for _, value := range ssf.subAny {
+		builder.WriteString(value)
 		builder.WriteString("*")
 	}
-	for i, tok := range strings.Split(trimmed, "*") {
-		builder.WriteString(EscapeFilter(tok))
-		if i < len(trimmed)-1 || strings.HasSuffix(trimmed, "*") {
-			builder.WriteString("*")
-		}
-	}
+	builder.WriteString(ssf.subFinal)
 	builder.WriteString(")")
 	return builder.String()
 }
 
-func (pf *PresentFilter) Encode() string {
+func (pf *PresentFilter) String() string {
 	return "(" + pf.lhs + "=*)"
 }
 
-func (em *ExtensibleMatchFilter) Encode() string {
+func (em *ExtensibleMatchFilter) String() string {
 	var builder strings.Builder
 	builder.WriteString("(")
 
@@ -190,7 +194,7 @@ func encodeOperandList(ops []Filter, operator string) string {
 	var builder strings.Builder
 	builder.WriteString("(" + operator)
 	for _, op := range ops {
-		builder.WriteString(op.Encode())
+		builder.WriteString(op.String())
 	}
 	builder.WriteString(")")
 	return builder.String()
