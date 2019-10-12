@@ -32,8 +32,8 @@ func ExampleConn_Search() {
 	searchRequest := NewSearchRequest(
 		"dc=example,dc=com", // The base dn to search
 		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
-		"(&(objectClass=organizationalPerson))", // The filter to apply
-		[]string{"dn", "cn"},                    // A list attributes to retrieve
+		Equal("objectClass", "organizationalPerson").String(), // The filter to apply
+		[]string{"dn", "cn"}, // A list attributes to retrieve
 		nil,
 	)
 
@@ -313,13 +313,13 @@ func ExampleControlPaging_manualPaging() {
 
 	var pageSize uint32 = 32
 	searchBase := "dc=example,dc=com"
-	filter := "(objectClass=group)"
+	filter := Equal("objectClass", "group")
 	pagingControl := NewControlPaging(pageSize)
 	attributes := []string{}
 	controls := []Control{pagingControl}
 
 	for {
-		request := NewSearchRequest(searchBase, ScopeWholeSubtree, DerefAlways, 0, 0, false, filter, attributes, controls)
+		request := NewSearchRequest(searchBase, ScopeWholeSubtree, DerefAlways, 0, 0, false, filter.String(), attributes, controls)
 		response, err := conn.Search(request)
 		if err != nil {
 			log.Fatalf("Failed to execute search request: %s", err.Error())
