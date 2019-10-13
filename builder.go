@@ -2,7 +2,6 @@ package ldap
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Filter represents an LDAP filter.
@@ -207,19 +206,19 @@ func (bf *BinaryFilter) String() string {
 }
 
 func (ssf *SubstringsFilter) String() string {
-	var builder strings.Builder
-	builder.WriteString("(")
-	builder.WriteString(ssf.Attribute)
-	builder.WriteString("=")
-	builder.WriteString(ssf.SubInitial)
-	builder.WriteString("*")
+	var builder string
+	builder += "("
+	builder += ssf.Attribute
+	builder += "="
+	builder += ssf.SubInitial
+	builder += "*"
 	for _, value := range ssf.SubAny {
-		builder.WriteString(value)
-		builder.WriteString("*")
+		builder += value
+		builder += "*"
 	}
-	builder.WriteString(ssf.SubFinal)
-	builder.WriteString(")")
-	return builder.String()
+	builder += ssf.SubFinal
+	builder += ")"
+	return builder
 }
 
 func (pf *PresenceFilter) String() string {
@@ -227,32 +226,32 @@ func (pf *PresenceFilter) String() string {
 }
 
 func (em *ExtensibleMatchFilter) String() string {
-	var builder strings.Builder
-	builder.WriteString("(")
+	var builder string
+	builder += "("
 
-	builder.WriteString(em.Attribute)
+	builder += em.Attribute
 
 	if em.Dn {
-		builder.WriteString(":dn")
+		builder += ":dn"
 	}
 
 	if em.MatchingRule != "" {
-		builder.WriteString(":")
-		builder.WriteString(em.MatchingRule)
+		builder += ":"
+		builder += em.MatchingRule
 	}
 
-	builder.WriteString(":=")
-	builder.WriteString(em.Value)
-	builder.WriteString(")")
-	return builder.String()
+	builder += ":="
+	builder += em.Value
+	builder += ")"
+	return builder
 }
 
 func encodeOperandList(ops []Filter, operator string) string {
-	var builder strings.Builder
-	builder.WriteString("(" + operator)
+	var builder string
+	builder += "(" + operator
 	for _, op := range ops {
-		builder.WriteString(op.String())
+		builder += op.String()
 	}
-	builder.WriteString(")")
-	return builder.String()
+	builder += ")"
+	return builder
 }
