@@ -33,7 +33,7 @@ func ExampleConn_Search() {
 		"dc=example,dc=com", // The base dn to search
 		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
 		Equal("objectClass", "organizationalPerson").String(), // The filter to apply
-		[]string{"dn", "cn"}, // A list attributes to retrieve
+		[]string{"dn", "cn"},                                  // A list attributes to retrieve
 		nil,
 	)
 
