@@ -7,6 +7,7 @@ import (
 // Filter represents an LDAP filter.
 type Filter fmt.Stringer
 
+// LiteralFilter represents an unescaped literal LDAP filter string.
 type LiteralFilter string
 
 // BinaryFilter represents LDAP filters with two operands.
@@ -69,13 +70,13 @@ type ExtensibleMatchFilter struct {
 
 // Factory Functions
 
-// Creates an LDAP filter from a literal string.
+// Literal creates an LDAP filter from a literal string.
 func Literal(filter string) *LiteralFilter {
 	lit := LiteralFilter(filter)
 	return &lit
 }
 
-// Creates an LDAP Equals Filter, where the left-hand side is an LDAP attribute
+// Equal creates an LDAP Equals Filter, where the left-hand side is an LDAP attribute
 // and the right-hand side is a value. This function escapes both sides using EscapeFilter.
 func Equal(attribute, value string) *BinaryFilter {
 	return &BinaryFilter{
@@ -85,26 +86,26 @@ func Equal(attribute, value string) *BinaryFilter {
 	}
 }
 
-// Creates an LDAP AND filter, using the provided Filter as a clause.
+// And creates an LDAP AND filter, using the provided Filter as a clause.
 func And(op Filter) *AndFilter {
 	return &AndFilter{
 		Operands: []Filter{op},
 	}
 }
 
-// Creates an LDAP OR filter, using the provided Filter as a clause.
+// Or creates an LDAP OR filter, using the provided Filter as a clause.
 func Or(op Filter) *OrFilter {
 	return &OrFilter{
 		Operands: []Filter{op},
 	}
 }
 
-// Creates an LDAP NOT filter, using the provided Filter as the clause to be negated.
+// Not creates an LDAP NOT filter, using the provided Filter as the clause to be negated.
 func Not(op Filter) *NotFilter {
 	return &NotFilter{Operand: op}
 }
 
-// Creates an LDAP substring filter.
+// Substring creates an LDAP substring filter.
 // All string arguments are escaped using EscapeFilter.
 func Substring(attribute, subInitial string, subAny []string, subFinal string) *SubstringsFilter {
 	for i, value := range subAny {
@@ -118,7 +119,7 @@ func Substring(attribute, subInitial string, subAny []string, subFinal string) *
 	}
 }
 
-// Creates an LDAP greater-or-equal filter.
+// GreaterOrEqual creates an LDAP greater-or-equal filter.
 // All string arguments are escaped using EscapeFilter.
 func GreaterOrEqual(attribute, value string) *BinaryFilter {
 	return &BinaryFilter{
@@ -128,7 +129,7 @@ func GreaterOrEqual(attribute, value string) *BinaryFilter {
 	}
 }
 
-// Creates an LDAP less-or-equal filter.
+// LessOrEqual creates an LDAP less-or-equal filter.
 // All string arguments are escaped using EscapeFilter.
 func LessOrEqual(attribute, value string) *BinaryFilter {
 	return &BinaryFilter{
@@ -138,7 +139,7 @@ func LessOrEqual(attribute, value string) *BinaryFilter {
 	}
 }
 
-// Creates an LDAP approximate match filter.
+// ApproximateMatch creates an LDAP approximate match filter.
 // All string arguments are escaped using EscapeFilter.
 func ApproximateMatch(attribute, value string) *BinaryFilter {
 	return &BinaryFilter{
@@ -148,7 +149,7 @@ func ApproximateMatch(attribute, value string) *BinaryFilter {
 	}
 }
 
-// Creates an LDAP presence filter.
+// Present creates an LDAP presence filter.
 // All string arguments are escaped using EscapeFilter.
 func Present(attribute string) *PresenceFilter {
 	return &PresenceFilter{
@@ -156,7 +157,7 @@ func Present(attribute string) *PresenceFilter {
 	}
 }
 
-// Creates an LDAP extensible match filter.
+// ExtensibleMatch creates an LDAP extensible match filter.
 // All string arguments are escaped using EscapeFilter.
 func ExtensibleMatch(attribute string, dn bool, matchingRule string, value string) *ExtensibleMatchFilter {
 	return &ExtensibleMatchFilter{
@@ -169,13 +170,13 @@ func ExtensibleMatch(attribute string, dn bool, matchingRule string, value strin
 
 // Builder Functions
 
-// Adds the provided Filter as a clause to this And filter.
+// And adds the provided Filter as a clause to this And filter.
 func (and *AndFilter) And(op Filter) *AndFilter {
 	and.Operands = append(and.Operands, op)
 	return and
 }
 
-// Adds the provided Filter as a clause to this Or filter.
+// Or adds the provided Filter as a clause to this Or filter.
 func (or *OrFilter) Or(op Filter) *OrFilter {
 	or.Operands = append(or.Operands, op)
 	return or
