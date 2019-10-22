@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/asn1-ber.v1"
+	ber "gopkg.in/asn1-ber.v1"
 )
 
 const (
@@ -140,7 +140,6 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 // or ldap:// specified as protocol. On success a new Conn for the connection
 // is returned.
 func DialURL(addr string) (*Conn, error) {
-
 	lurl, err := url.Parse(addr)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
@@ -154,6 +153,11 @@ func DialURL(addr string) (*Conn, error) {
 	}
 
 	switch lurl.Scheme {
+	case "ldapi":
+		if lurl.Path == "" || lurl.Path == "/" {
+			lurl.Path = "/var/run/slapd/ldapi"
+		}
+		return Dial("unix", lurl.Path)
 	case "ldap":
 		if port == "" {
 			port = DefaultLdapPort
@@ -490,11 +494,13 @@ func (l *Conn) reader() {
 			// A read error is expected here if we are closing the connection...
 			if !l.IsClosing() {
 				l.closeErr.Store(fmt.Errorf("unable to read LDAP response packet: %s", err))
-				l.Debug.Printf("reader error: %s", err.Error())
+				l.Debug.Printf("reader error: %s", err)
 			}
 			return
 		}
-		addLDAPDescriptions(packet)
+		if err := addLDAPDescriptions(packet); err != nil {
+			l.Debug.Printf("descriptions error: %s", err)
+		}
 		if len(packet.Children) == 0 {
 			l.Debug.Printf("Received bad ldap packet")
 			continue
