@@ -191,9 +191,9 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 
 // Start initializes goroutines to read responses and process messages
 func (l *Conn) Start() {
+	l.wgClose.Add(1)
 	go l.reader()
 	go l.processMessages()
-	l.wgClose.Add(1)
 }
 
 // IsClosing returns whether or not we're currently closing.
