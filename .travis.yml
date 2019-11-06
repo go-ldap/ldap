@@ -19,7 +19,7 @@ matrix:
     fast_finish: true
     allow_failures:
         - go: tip
-go_import_path: gopkg.in/ldap.v3
+go_import_path: github.com/go-ldap/ldap
 install:
     - go get github.com/go-asn1-ber/asn1-ber
     - go get code.google.com/p/go.tools/cmd/cover || go get golang.org/x/tools/cmd/cover
