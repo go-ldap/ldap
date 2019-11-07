@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/asn1-ber.v1"
+	"github.com/go-asn1-ber/asn1-ber"
 )
 
 // TestNilPacket tests that nil packets don't cause a panic.
