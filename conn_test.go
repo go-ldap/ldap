@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/asn1-ber.v1"
+	"github.com/go-asn1-ber/asn1-ber"
 )
 
 func TestUnresponsiveConnection(t *testing.T) {
