@@ -278,7 +278,7 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 			l.Close()
 			return err
 		}
-		ber.PrintPacket(packet)
+		l.Debug.PrintPacket(packet)
 	}
 
 	if err := GetLDAPError(packet); err == nil {
@@ -451,7 +451,7 @@ func (l *Conn) processMessages() {
 					msgCtx.sendResponse(&PacketResponse{message.Packet, nil})
 				} else {
 					log.Printf("Received unexpected message %d, %v", message.MessageID, l.IsClosing())
-					ber.PrintPacket(message.Packet)
+					l.Debug.PrintPacket(message.Packet)
 				}
 			case MessageTimeout:
 				// Handle the timeout by closing the channel
