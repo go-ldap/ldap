@@ -2,14 +2,13 @@ package ldap
 
 import (
 	"crypto/tls"
-	"fmt"
 	"testing"
 )
 
-var ldapServer = "ldap.itd.umich.edu"
-var ldapPort = uint16(389)
-var ldapTLSPort = uint16(636)
-var baseDN = "dc=umich,dc=edu"
+const ldapServer = "ldap://ldap.itd.umich.edu:389"
+const ldapsServer = "ldaps://ldap.itd.umich.edu:636"
+const baseDN = "dc=umich,dc=edu"
+
 var filter = []string{
 	"(cn=cis-fac)",
 	"(&(owner=*)(cn=cis-fac))",
@@ -19,54 +18,43 @@ var attributes = []string{
 	"cn",
 	"description"}
 
-func TestDial(t *testing.T) {
-	fmt.Printf("TestDial: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+func TestUnsecureDialURL(t *testing.T) {
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 	defer l.Close()
-	fmt.Printf("TestDial: finished...\n")
 }
 
-func TestDialTLS(t *testing.T) {
-	fmt.Printf("TestDialTLS: starting...\n")
-	l, err := DialTLS("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapTLSPort), &tls.Config{InsecureSkipVerify: true})
+func TestSecureDialURL(t *testing.T) {
+	l, err := DialURL(ldapsServer, DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 	defer l.Close()
-	fmt.Printf("TestDialTLS: finished...\n")
 }
 
 func TestStartTLS(t *testing.T) {
-	fmt.Printf("TestStartTLS: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
+	defer l.Close()
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
-	fmt.Printf("TestStartTLS: finished...\n")
 }
 
 func TestTLSConnectionState(t *testing.T) {
-	fmt.Printf("TestTLSConnectionState: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
+	defer l.Close()
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
 	cs, ok := l.TLSConnectionState()
@@ -76,16 +64,12 @@ func TestTLSConnectionState(t *testing.T) {
 	if cs.Version == 0 || !cs.HandshakeComplete {
 		t.Errorf("ConnectionState = %#v; expected Version != 0 and HandshakeComplete = true", cs)
 	}
-
-	fmt.Printf("TestTLSConnectionState: finished...\n")
 }
 
 func TestSearch(t *testing.T) {
-	fmt.Printf("TestSearch: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 	defer l.Close()
 
@@ -98,19 +82,15 @@ func TestSearch(t *testing.T) {
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
-
-	fmt.Printf("TestSearch: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
+	t.Logf("TestSearch: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 }
 
 func TestSearchStartTLS(t *testing.T) {
-	fmt.Printf("TestSearchStartTLS: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 	defer l.Close()
 
@@ -123,41 +103,35 @@ func TestSearchStartTLS(t *testing.T) {
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
-	fmt.Printf("TestSearchStartTLS: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
+	t.Logf("TestSearchStartTLS: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 
-	fmt.Printf("TestSearchStartTLS: upgrading with startTLS\n")
+	t.Log("TestSearchStartTLS: upgrading with startTLS")
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
 	sr, err = l.Search(searchRequest)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
-	fmt.Printf("TestSearchStartTLS: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
+	t.Logf("TestSearchStartTLS: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 }
 
 func TestSearchWithPaging(t *testing.T) {
-	fmt.Printf("TestSearchWithPaging: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 	defer l.Close()
 
 	err = l.UnauthenticatedBind("")
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
 	searchRequest := NewSearchRequest(
@@ -168,11 +142,10 @@ func TestSearchWithPaging(t *testing.T) {
 		nil)
 	sr, err := l.SearchWithPaging(searchRequest, 5)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
-	fmt.Printf("TestSearchWithPaging: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
+	t.Logf("TestSearchWithPaging: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 
 	searchRequest = NewSearchRequest(
 		baseDN,
@@ -182,11 +155,10 @@ func TestSearchWithPaging(t *testing.T) {
 		[]Control{NewControlPaging(5)})
 	sr, err = l.SearchWithPaging(searchRequest, 5)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
-	fmt.Printf("TestSearchWithPaging: %s -> num of entries = %d\n", searchRequest.Filter, len(sr.Entries))
+	t.Logf("TestSearchWithPaging: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 
 	searchRequest = NewSearchRequest(
 		baseDN,
@@ -196,8 +168,7 @@ func TestSearchWithPaging(t *testing.T) {
 		[]Control{NewControlPaging(500)})
 	sr, err = l.SearchWithPaging(searchRequest, 5)
 	if err == nil {
-		t.Errorf("expected an error when paging size in control in search request doesn't match size given in call, got none")
-		return
+		t.Fatal("expected an error when paging size in control in search request doesn't match size given in call, got none")
 	}
 }
 
@@ -210,7 +181,7 @@ func searchGoroutine(t *testing.T, l *Conn, results chan *SearchResult, i int) {
 		nil)
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 		results <- nil
 		return
 	}
@@ -218,30 +189,26 @@ func searchGoroutine(t *testing.T, l *Conn, results chan *SearchResult, i int) {
 }
 
 func testMultiGoroutineSearch(t *testing.T, TLS bool, startTLS bool) {
-	fmt.Printf("TestMultiGoroutineSearch: starting...\n")
 	var l *Conn
 	var err error
 	if TLS {
-		l, err = DialTLS("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapTLSPort), &tls.Config{InsecureSkipVerify: true})
+		l, err = DialURL(ldapsServer, DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 		if err != nil {
-			t.Errorf(err.Error())
-			return
+			t.Fatal(err)
 		}
 		defer l.Close()
 	} else {
-		l, err = Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+		l, err = DialURL(ldapServer)
 		if err != nil {
-			t.Errorf(err.Error())
-			return
+			t.Fatal(err)
 		}
+		defer l.Close()
 		if startTLS {
-			fmt.Printf("TestMultiGoroutineSearch: using StartTLS...\n")
+			t.Log("TestMultiGoroutineSearch: using StartTLS...")
 			err := l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 			if err != nil {
-				t.Errorf(err.Error())
-				return
+				t.Fatal(err)
 			}
-
 		}
 	}
 
@@ -255,7 +222,7 @@ func testMultiGoroutineSearch(t *testing.T, TLS bool, startTLS bool) {
 		if sr == nil {
 			t.Errorf("Did not receive results from goroutine for %q", filter[i])
 		} else {
-			fmt.Printf("TestMultiGoroutineSearch(%d): %s -> num of entries = %d\n", i, filter[i], len(sr.Entries))
+			t.Logf("TestMultiGoroutineSearch(%d): %s -> num of entries = %d", i, filter[i], len(sr.Entries))
 		}
 	}
 }
@@ -276,36 +243,32 @@ func TestEscapeFilter(t *testing.T) {
 }
 
 func TestCompare(t *testing.T) {
-	fmt.Printf("TestCompare: starting...\n")
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Fatal(err.Error())
+		t.Fatal(err)
 	}
 	defer l.Close()
 
-	dn := "cn=math mich,ou=User Groups,ou=Groups,dc=umich,dc=edu"
-	attribute := "cn"
-	value := "math mich"
+	const dn = "cn=math mich,ou=User Groups,ou=Groups,dc=umich,dc=edu"
+	const attribute = "cn"
+	const value = "math mich"
 
 	sr, err := l.Compare(dn, attribute, value)
 	if err != nil {
-		t.Errorf(err.Error())
-		return
+		t.Fatal(err)
 	}
 
-	fmt.Printf("TestCompare: -> %v\n", sr)
+	t.Log("Compare result:", sr)
 }
 
 func TestMatchDNError(t *testing.T) {
-	fmt.Printf("TestMatchDNError: starting..\n")
-
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
+	l, err := DialURL(ldapServer)
 	if err != nil {
-		t.Fatal(err.Error())
+		t.Fatal(err)
 	}
 	defer l.Close()
 
-	wrongBase := "ou=roups,dc=umich,dc=edu"
+	const wrongBase = "ou=roups,dc=umich,dc=edu"
 
 	searchRequest := NewSearchRequest(
 		wrongBase,
@@ -315,12 +278,9 @@ func TestMatchDNError(t *testing.T) {
 		nil)
 
 	_, err = l.Search(searchRequest)
-
 	if err == nil {
-		t.Errorf("Expected Error, got nil")
-		return
+		t.Fatal("Expected Error, got nil")
 	}
 
-	fmt.Printf("TestMatchDNError: err: %s\n", err.Error())
-
+	t.Log("TestMatchDNError:", err)
 }
