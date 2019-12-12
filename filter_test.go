@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-asn1-ber/asn1-ber"
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 type compileTest struct {
@@ -209,6 +209,44 @@ func TestFilter(t *testing.T) {
 			} else if i.expectedFilter != o {
 				t.Errorf("%q expected, got %q", i.expectedFilter, o)
 			}
+		}
+	}
+}
+
+func TestEscapedStringToEncodedBytes(t *testing.T) {
+
+	for _, testInfo := range []struct {
+		Src string
+		Err string
+	}{
+		{
+			Src: "a\u0100\x80",
+			Err: `LDAP Result Code 201 "Filter Compile Error": ldap: error reading rune at position 3`,
+		},
+		{
+			Src: `start\d`,
+			Err: `LDAP Result Code 201 "Filter Compile Error": ldap: missing characters for escape in filter`,
+		},
+		{
+			Src: `\`,
+			Err: `LDAP Result Code 201 "Filter Compile Error": ldap: invalid characters for escape in filter: EOF`,
+		},
+		{
+			Src: `start\--end`,
+			Err: `LDAP Result Code 201 "Filter Compile Error": ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+002D '-'`,
+		},
+		{
+			Src: `start\d0\hh`,
+			Err: `LDAP Result Code 201 "Filter Compile Error": ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+0068 'h'`,
+		},
+	} {
+
+		res, err := escapedStringToEncodedBytes([]byte(testInfo.Src))
+		if err == nil || err.Error() != testInfo.Err {
+			t.Fatal(testInfo.Src, "=> ", err, "!=", testInfo.Err)
+		}
+		if res != "" {
+			t.Fatal(testInfo.Src, "=> ", "invalid result", res)
 		}
 	}
 }
