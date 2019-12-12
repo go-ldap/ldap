@@ -99,7 +99,7 @@ func DecompileFilter(packet *ber.Packet) (_ string, err error) {
 		}
 	}()
 
-	buf := strings.Builder{}
+	buf := bytes.NewBuffer(nil)
 	buf.WriteByte('(')
 	childStr := ""
 
