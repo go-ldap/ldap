@@ -383,7 +383,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			}
 
 			// Add the value (only required child)
-			encodedString, encodeErr := escapedStringToEncodedBytes(condition.Bytes())
+			encodedString, encodeErr := decodeEscapedSymbols(condition.Bytes())
 			if encodeErr != nil {
 				return packet, newPos, encodeErr
 			}
@@ -415,7 +415,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 				default:
 					tag = FilterSubstringsAny
 				}
-				encodedString, encodeErr := escapedStringToEncodedBytes(part)
+				encodedString, encodeErr := decodeEscapedSymbols(part)
 				if encodeErr != nil {
 					return packet, newPos, encodeErr
 				}
@@ -423,7 +423,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			}
 			packet.AppendChild(seq)
 		default:
-			encodedString, encodeErr := escapedStringToEncodedBytes(condition.Bytes())
+			encodedString, encodeErr := decodeEscapedSymbols(condition.Bytes())
 			if encodeErr != nil {
 				return packet, newPos, encodeErr
 			}
@@ -437,12 +437,12 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 }
 
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport
-func escapedStringToEncodedBytes(escapedString []byte) (string, error) {
+func decodeEscapedSymbols(src []byte) (string, error) {
 
 	var (
 		buffer bytes.Buffer
 		offset int
-		reader = bytes.NewReader(escapedString)
+		reader = bytes.NewReader(src)
 	)
 
 	for {

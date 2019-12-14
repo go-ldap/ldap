@@ -213,7 +213,7 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func TestEscapedStringToEncodedBytes(t *testing.T) {
+func TestDecodeEscapedSymbols(t *testing.T) {
 
 	for _, testInfo := range []struct {
 		Src string
@@ -241,7 +241,7 @@ func TestEscapedStringToEncodedBytes(t *testing.T) {
 		},
 	} {
 
-		res, err := escapedStringToEncodedBytes([]byte(testInfo.Src))
+		res, err := decodeEscapedSymbols([]byte(testInfo.Src))
 		if err == nil || err.Error() != testInfo.Err {
 			t.Fatal(testInfo.Src, "=> ", err, "!=", testInfo.Err)
 		}
