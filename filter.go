@@ -440,9 +440,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 func decodeEscapedSymbols(src []byte) (string, error) {
 
 	var (
-		buffer bytes.Buffer
-		offset int
-		reader = bytes.NewReader(src)
+		buffer  bytes.Buffer
+		offset  int
+		reader  = bytes.NewReader(src)
+		byteHex []byte
+		byteVal []byte
 	)
 
 	for {
@@ -459,20 +461,23 @@ func decodeEscapedSymbols(src []byte) (string, error) {
 			// http://tools.ietf.org/search/rfc4515
 			// \ (%x5C) is not a valid character unless it is followed by two HEX characters due to not
 			// being a member of UTF1SUBSET.
-			hexData := make([]byte, 2)
-			if _, err := io.ReadFull(reader, hexData); err != nil {
+			if byteHex == nil {
+				byteHex = make([]byte, 2)
+				byteVal = make([]byte, 1)
+			}
+
+			if _, err := io.ReadFull(reader, byteHex); err != nil {
 				if err == io.ErrUnexpectedEOF {
 					return "", NewError(ErrorFilterCompile, errors.New("ldap: missing characters for escape in filter"))
 				}
 				return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid characters for escape in filter: %v", err))
 			}
 
-			hexValue := make([]byte, 1)
-			if _, err := hexpac.Decode(hexValue, hexData); err != nil {
+			if _, err := hexpac.Decode(byteVal, byteHex); err != nil {
 				return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid characters for escape in filter: %v", err))
 			}
 
-			buffer.Write(hexValue)
+			buffer.Write(byteVal)
 		} else {
 			buffer.WriteRune(runeVal)
 		}
