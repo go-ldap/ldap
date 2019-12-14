@@ -1,28 +1,3 @@
-// File contains Modify functionality
-//
-// https://tools.ietf.org/html/rfc4511
-//
-// ModifyRequest ::= [APPLICATION 6] SEQUENCE {
-//      object          LDAPDN,
-//      changes         SEQUENCE OF change SEQUENCE {
-//           operation       ENUMERATED {
-//                add     (0),
-//                delete  (1),
-//                replace (2),
-//                ...  },
-//           modification    PartialAttribute } }
-//
-// PartialAttribute ::= SEQUENCE {
-//      type       AttributeDescription,
-//      vals       SET OF value AttributeValue }
-//
-// AttributeDescription ::= LDAPString
-//                         -- Constrained to <attributedescription>
-//                         -- [RFC4512]
-//
-// AttributeValue ::= OCTET STRING
-//
-
 package ldap
 
 import (

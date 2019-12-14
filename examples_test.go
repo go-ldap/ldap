@@ -6,10 +6,10 @@ import (
 	"log"
 )
 
-// ExampleConn_Bind demonstrates how to bind a connection to an ldap user
+// This example demonstrates how to bind a connection to an ldap user
 // allowing access to restricted attributes that user has access to
 func ExampleConn_Bind() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -21,9 +21,9 @@ func ExampleConn_Bind() {
 	}
 }
 
-// ExampleConn_Search demonstrates how to use the search interface
+// This example demonstrates how to use the search interface
 func ExampleConn_Search() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,9 +47,9 @@ func ExampleConn_Search() {
 	}
 }
 
-// ExampleStartTLS demonstrates how to start a TLS connection
+// This example demonstrates how to start a TLS connection
 func ExampleConn_StartTLS() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,9 +64,9 @@ func ExampleConn_StartTLS() {
 	// Operations via l are now encrypted
 }
 
-// ExampleConn_Compare demonstrates how to compare an attribute with a value
+// This example demonstrates how to compare an attribute with a value
 func ExampleConn_Compare() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func ExampleConn_Compare() {
 }
 
 func ExampleConn_PasswordModify_admin() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func ExampleConn_PasswordModify_admin() {
 }
 
 func ExampleConn_PasswordModify_generatedPassword() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func ExampleConn_PasswordModify_generatedPassword() {
 }
 
 func ExampleConn_PasswordModify_setNewPassword() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func ExampleConn_PasswordModify_setNewPassword() {
 }
 
 func ExampleConn_Modify() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func ExampleConn_Modify() {
 	}
 }
 
-// Example User Authentication shows how a typical application can verify a login attempt
+// This example shows how a typical application can verify a login attempt
 func Example_userAuthentication() {
 	// The username and password we want to check
 	username := "someuser"
@@ -169,7 +169,7 @@ func Example_userAuthentication() {
 	bindusername := "readonly"
 	bindpassword := "password"
 
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func Example_userAuthentication() {
 }
 
 func Example_beherappolicy() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func Example_beherappolicy() {
 }
 
 func Example_vchuppolicy() {
-	l, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func Example_vchuppolicy() {
 // This example demonstrates how to use ControlPaging to manually execute a
 // paginated search request instead of using SearchWithPaging.
 func ExampleControlPaging_manualPaging() {
-	conn, err := Dial("tcp", fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	conn, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}

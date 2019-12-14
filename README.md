@@ -3,6 +3,11 @@
 
 # Basic LDAP v3 functionality for the GO programming language.
 
+The library implements the following specifications:
+ - https://tools.ietf.org/html/rfc4511 for basic operations
+ - https://tools.ietf.org/html/rfc3062 for password modify operation
+ - https://tools.ietf.org/html/rfc4514 for distinguished names parsing
+
 ## Features:
 
  - Connecting to LDAP server (non-TLS, TLS, STARTTLS)
@@ -14,11 +19,6 @@
  - Add Requests / Responses
  - Delete Requests / Responses
  - Modify DN Requests / Responses
-
-## Examples:
-
- - search
- - modify
 
 ## Go Modules:
 
