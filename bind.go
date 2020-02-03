@@ -140,6 +140,7 @@ func (l *Conn) UnauthenticatedBind(username string) error {
 	return err
 }
 
+// DigestMD5BindRequest represents a digest-md5 bind operation
 type DigestMD5BindRequest struct {
 	Host string
 	// Username is the name of the Directory object that the client wishes to bind as
@@ -161,10 +162,12 @@ func (bindRequest *DigestMD5BindRequest) encode() *ber.Packet {
 	return request
 }
 
+// DigestMD5BindResult contains the response from the server
 type DigestMD5BindResult struct {
 	Controls []Control
 }
 
+// MD5Bind performs a digest-md5 bind with the given host, username and password.
 func (l *Conn) MD5Bind(host, username, password string) error {
 	req := &DigestMD5BindRequest{
 		Host:     host,
@@ -175,6 +178,7 @@ func (l *Conn) MD5Bind(host, username, password string) error {
 	return err
 }
 
+// DigestMD5Bind performs the digest-md5 bind operation defined in the given request
 func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*DigestMD5BindResult, error) {
 	if digestMD5BindRequest.Password == "" {
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
@@ -263,7 +267,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		auth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, resp, "Credentials"))
 		request.AppendChild(auth)
 		packet.AppendChild(request)
-		msgCtx, err := l.sendMessage(packet)
+		msgCtx, err = l.sendMessage(packet)
 		if err != nil {
 			return nil, fmt.Errorf("send message: %s", err)
 		}
