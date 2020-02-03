@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"strings"
 
-	ber "gopkg.in/asn1-ber.v1"
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -41,13 +41,18 @@ func NewSimpleBindRequest(username string, password string, controls []Control) 
 	}
 }
 
-func (bindRequest *SimpleBindRequest) encode() *ber.Packet {
-	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
-	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
-	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, bindRequest.Username, "User Name"))
-	request.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, bindRequest.Password, "Password"))
+func (req *SimpleBindRequest) appendTo(envelope *ber.Packet) error {
+	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+	pkt.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
+	pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, req.Username, "User Name"))
+	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, req.Password, "Password"))
 
-	return request
+	envelope.AppendChild(pkt)
+	if len(req.Controls) > 0 {
+		envelope.AppendChild(encodeControls(req.Controls))
+	}
+
+	return nil
 }
 
 // SimpleBind performs the simple bind operation defined in the given request
@@ -56,39 +61,15 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
-	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
-	encodedBindRequest := simpleBindRequest.encode()
-	packet.AppendChild(encodedBindRequest)
-	if len(simpleBindRequest.Controls) > 0 {
-		packet.AppendChild(encodeControls(simpleBindRequest.Controls))
-	}
-
-	if l.Debug {
-		ber.PrintPacket(packet)
-	}
-
-	msgCtx, err := l.sendMessage(packet)
+	msgCtx, err := l.doRequest(simpleBindRequest)
 	if err != nil {
 		return nil, err
 	}
 	defer l.finishMessage(msgCtx)
 
-	packetResponse, ok := <-msgCtx.responses
-	if !ok {
-		return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
-	}
-	packet, err = packetResponse.ReadPacket()
-	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+	packet, err := l.readPacket(msgCtx)
 	if err != nil {
 		return nil, err
-	}
-
-	if l.Debug {
-		if err = addLDAPDescriptions(packet); err != nil {
-			return nil, err
-		}
-		ber.PrintPacket(packet)
 	}
 
 	result := &SimpleBindResult{
@@ -151,7 +132,7 @@ type DigestMD5BindRequest struct {
 	Controls []Control
 }
 
-func (bindRequest *DigestMD5BindRequest) encode() *ber.Packet {
+func (req *DigestMD5BindRequest) appendTo(envelope *ber.Packet) error {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
 	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
@@ -159,7 +140,11 @@ func (bindRequest *DigestMD5BindRequest) encode() *ber.Packet {
 	auth := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, "", "authentication")
 	auth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "DIGEST-MD5", "SASL Mech"))
 	request.AppendChild(auth)
-	return request
+	envelope.AppendChild(request)
+	if len(req.Controls) > 0 {
+		envelope.AppendChild(encodeControls(req.Controls))
+	}
+	return nil
 }
 
 // DigestMD5BindResult contains the response from the server
@@ -184,34 +169,17 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
-	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
-	encodedBindRequest := digestMD5BindRequest.encode()
-	packet.AppendChild(encodedBindRequest)
-	if len(digestMD5BindRequest.Controls) > 0 {
-		packet.AppendChild(encodeControls(digestMD5BindRequest.Controls))
-	}
-
-	if l.Debug {
-		ber.PrintPacket(packet)
-	}
-
-	msgCtx, err := l.sendMessage(packet)
+	msgCtx, err := l.doRequest(digestMD5BindRequest)
 	if err != nil {
-		return nil, fmt.Errorf("send message: %s", err)
+		return nil, err
 	}
 	defer l.finishMessage(msgCtx)
 
-	packetResponse, ok := <-msgCtx.responses
-	if !ok {
-		return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
-	}
-	packet, err = packetResponse.ReadPacket()
-	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+	packet, err := l.readPacket(msgCtx)
 	if err != nil {
-		return nil, fmt.Errorf("read packet: %s", err)
+		return nil, err
 	}
-
+	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 	if l.Debug {
 		if err = addLDAPDescriptions(packet); err != nil {
 			return nil, err
@@ -223,7 +191,6 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		Controls: make([]Control, 0),
 	}
 	var params map[string]string
-
 	if len(packet.Children) == 2 {
 		if len(packet.Children[1].Children) == 4 {
 			child := packet.Children[1].Children[0]
@@ -383,4 +350,40 @@ func randomBytes(len int) []byte {
 		b[i] = byte(rand.Intn(256))
 	}
 	return b
+}
+
+var externalBindRequest = requestFunc(func(envelope *ber.Packet) error {
+	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+	pkt.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
+	pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
+
+	saslAuth := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, "", "authentication")
+	saslAuth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "EXTERNAL", "SASL Mech"))
+	saslAuth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "SASL Cred"))
+
+	pkt.AppendChild(saslAuth)
+
+	envelope.AppendChild(pkt)
+
+	return nil
+})
+
+// ExternalBind performs SASL/EXTERNAL authentication.
+//
+// Use ldap.DialURL("ldapi://") to connect to the Unix socket before ExternalBind.
+//
+// See https://tools.ietf.org/html/rfc4422#appendix-A
+func (l *Conn) ExternalBind() error {
+	msgCtx, err := l.doRequest(externalBindRequest)
+	if err != nil {
+		return err
+	}
+	defer l.finishMessage(msgCtx)
+
+	packet, err := l.readPacket(msgCtx)
+	if err != nil {
+		return err
+	}
+
+	return GetLDAPError(packet)
 }
