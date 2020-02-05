@@ -1,4 +1,4 @@
-module github.com/microo8/ldap
+module github.com/go-ldap/ldap
 
 go 1.13
 
