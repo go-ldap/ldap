@@ -1,4 +1,4 @@
-module github.com/pointlander/ldap
+module github.com/go-ldap/ldap
 
 go 1.13
 
