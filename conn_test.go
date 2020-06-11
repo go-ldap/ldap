@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-asn1-ber/asn1-ber"
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 func TestUnresponsiveConnection(t *testing.T) {
