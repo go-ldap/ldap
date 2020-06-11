@@ -29,3 +29,22 @@ func TestNewEntry(t *testing.T) {
 		iteration = iteration + 1
 	}
 }
+
+func TestGetAttributeValue(t *testing.T) {
+	dn := "testDN"
+	attributes := map[string][]string{
+		"Alpha":   {"value"},
+		"bEta":    {"value"},
+		"gaMma":   {"value"},
+		"delTa":   {"value"},
+		"epsiLon": {"value"},
+	}
+	entry := NewEntry(dn, attributes)
+	if entry.GetAttributeValue("Alpha") != "value" {
+		t.Errorf("failed to get attribute in original case")
+	}
+
+	if entry.GetEqualFoldAttributeValue("alpha") != "value" {
+		t.Errorf("failed to get attribute in changed case")
+	}
+}
