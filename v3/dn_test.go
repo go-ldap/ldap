@@ -7,44 +7,44 @@ import (
 
 func TestSuccessfulDNParsing(t *testing.T) {
 	testcases := map[string]DN{
-		"": DN{[]*RelativeDN{}},
-		"cn=Jim\\2C \\22Hasse Hö\\22 Hansson!,dc=dummy,dc=com": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"cn", "Jim, \"Hasse Hö\" Hansson!"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"dc", "dummy"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"dc", "com"}}}}},
-		"UID=jsmith,DC=example,DC=net": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"UID", "jsmith"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "example"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
-		"OU=Sales+CN=J. Smith,DC=example,DC=net": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{
-				&AttributeTypeAndValue{"OU", "Sales"},
-				&AttributeTypeAndValue{"CN", "J. Smith"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "example"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
-		"1.3.6.1.4.1.1466.0=#04024869": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}}}},
-		"1.3.6.1.4.1.1466.0=#04024869,DC=net": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"1.3.6.1.4.1.1466.0", "Hi"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"DC", "net"}}}}},
-		"CN=Lu\\C4\\8Di\\C4\\87": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"CN", "Lučić"}}}}},
-		"  CN  =  Lu\\C4\\8Di\\C4\\87  ": DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"CN", "Lučić"}}}}},
-		`   A   =   1   ,   B   =   2   `: DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"A", "1"}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"B", "2"}}}}},
-		`   A   =   1   +   B   =   2   `: DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{
-				&AttributeTypeAndValue{"A", "1"},
-				&AttributeTypeAndValue{"B", "2"}}}}},
-		`   \ \ A\ \    =   \ \ 1\ \    ,   \ \ B\ \    =   \ \ 2\ \    `: DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"  A  ", "  1  "}}},
-			&RelativeDN{[]*AttributeTypeAndValue{&AttributeTypeAndValue{"  B  ", "  2  "}}}}},
-		`   \ \ A\ \    =   \ \ 1\ \    +   \ \ B\ \    =   \ \ 2\ \    `: DN{[]*RelativeDN{
-			&RelativeDN{[]*AttributeTypeAndValue{
-				&AttributeTypeAndValue{"  A  ", "  1  "},
-				&AttributeTypeAndValue{"  B  ", "  2  "}}}}},
+		"": {[]*RelativeDN{}},
+		"cn=Jim\\2C \\22Hasse Hö\\22 Hansson!,dc=dummy,dc=com": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "Jim, \"Hasse Hö\" Hansson!"}}},
+			{[]*AttributeTypeAndValue{{"dc", "dummy"}}},
+			{[]*AttributeTypeAndValue{{"dc", "com"}}}}},
+		"UID=jsmith,DC=example,DC=net": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"UID", "jsmith"}}},
+			{[]*AttributeTypeAndValue{{"DC", "example"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}}}},
+		"OU=Sales+CN=J. Smith,DC=example,DC=net": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{
+				{"OU", "Sales"},
+				{"CN", "J. Smith"}}},
+			{[]*AttributeTypeAndValue{{"DC", "example"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}}}},
+		"1.3.6.1.4.1.1466.0=#04024869": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", "Hi"}}}}},
+		"1.3.6.1.4.1.1466.0=#04024869,DC=net": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", "Hi"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}}}},
+		"CN=Lu\\C4\\8Di\\C4\\87": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"CN", "Lučić"}}}}},
+		"  CN  =  Lu\\C4\\8Di\\C4\\87  ": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"CN", "Lučić"}}}}},
+		`   A   =   1   ,   B   =   2   `: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"A", "1"}}},
+			{[]*AttributeTypeAndValue{{"B", "2"}}}}},
+		`   A   =   1   +   B   =   2   `: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{
+				{"A", "1"},
+				{"B", "2"}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    ,   \ \ B\ \    =   \ \ 2\ \    `: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"  A  ", "  1  "}}},
+			{[]*AttributeTypeAndValue{{"  B  ", "  2  "}}}}},
+		`   \ \ A\ \    =   \ \ 1\ \    +   \ \ B\ \    =   \ \ 2\ \    `: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{
+				{"  A  ", "  1  "},
+				{"  B  ", "  2  "}}}}},
 	}
 
 	for test, answer := range testcases {
