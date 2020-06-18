@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
+	"github.com/Azure/go-ntlmssp"
+
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -386,4 +388,133 @@ func (l *Conn) ExternalBind() error {
 	}
 
 	return GetLDAPError(packet)
+}
+
+// NTLMBind performs an NTLMSSP bind leveraging https://github.com/Azure/go-ntlmssp
+
+// NTLMBindRequest represents an NTLMSSP bind operation
+type NTLMBindRequest struct {
+	// Domain is the AD Domain to authenticate too. If not specified, it will be grabbed from the NTLMSSP Challenge
+	Domain   string
+	// Username is the name of the Directory object that the client wishes to bind as
+	Username string
+	// Password is the credentials to bind with
+	Password string
+	// Controls are optional controls to send with the bind request
+	Controls []Control
+}
+
+func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) error {
+	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
+	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
+
+	// generate an NTLMSSP Negotiation message for the  specified domain (it can be blank)
+	negMessage, err := ntlmssp.NewNegotiateMessage(req.Domain, "")
+	if err != nil {
+		return fmt.Errorf("err creating negmessage: %s", err)
+	}
+
+	// append the generated NTLMSSP message as a TagEnumerated BER value
+	auth := ber.Encode(ber.ClassContext, ber.TypePrimitive, ber.TagEnumerated, negMessage, "authentication")
+	request.AppendChild(auth)
+	envelope.AppendChild(request)
+	if len(req.Controls) > 0 {
+		envelope.AppendChild(encodeControls(req.Controls))
+	}
+	return nil
+}
+
+// NTLMBindResult contains the response from the server
+type NTLMBindResult struct {
+	Controls []Control
+}
+
+// NTLMBind performs an NTLMSSP Bind with the given domain, username and password
+func (l *Conn) NTLMBind(domain, username, password string) error {
+	req := &NTLMBindRequest{
+		Domain:   domain,
+		Username: username,
+		Password: password,
+	}
+	_, err := l.NTLMChallengeBind(req)
+	return err
+}
+
+// NTLMChallengeBind performs the NTLMSSP bind operation defined in the given request
+func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindResult, error) {
+	if ntlmBindRequest.Password == "" {
+		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
+	}
+
+	msgCtx, err := l.doRequest(ntlmBindRequest)
+	if err != nil {
+		return nil, err
+	}
+	defer l.finishMessage(msgCtx)
+	packet, err := l.readPacket(msgCtx)
+	if err != nil {
+		return nil, err
+	}
+	l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+	if l.Debug {
+		if err = addLDAPDescriptions(packet); err != nil {
+			return nil, err
+		}
+		ber.PrintPacket(packet)
+	}
+	result := &NTLMBindResult{
+		Controls: make([]Control, 0),
+	}
+	var ntlmsspChallenge []byte
+
+	// now find the NTLM Response Message
+	if len(packet.Children) == 2 {
+		if len(packet.Children[1].Children) == 3 {
+			child := packet.Children[1].Children[1]
+			ntlmsspChallenge = child.ByteValue
+			// Check to make sure we got the right message. It will always start with NTLMSSP
+			if !bytes.Equal(ntlmsspChallenge[:7], []byte("NTLMSSP")) {
+				return result, GetLDAPError(packet)
+			}
+			l.Debug.Printf("%d: found ntlmssp challenge", msgCtx.id)
+		}
+	}
+	if ntlmsspChallenge != nil {
+		// generate a response message to the challenge with the given Username/Password
+		responseMessage, err := ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password)
+		if err != nil {
+			return result, fmt.Errorf("parsing ntlm-challenge: %s", err)
+		}
+		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
+
+		request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+		request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
+		request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
+
+		// append the challenge response message as a TagEmbeddedPDV BER value
+		auth := ber.Encode(ber.ClassContext, ber.TypePrimitive, ber.TagEmbeddedPDV, responseMessage, "authentication")
+
+		request.AppendChild(auth)
+		packet.AppendChild(request)
+		msgCtx, err = l.sendMessage(packet)
+		if err != nil {
+			return nil, fmt.Errorf("send message: %s", err)
+		}
+		defer l.finishMessage(msgCtx)
+		packetResponse, ok := <-msgCtx.responses
+		if !ok {
+			return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+		}
+		packet, err = packetResponse.ReadPacket()
+		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+		if err != nil {
+			return nil, fmt.Errorf("read packet: %s", err)
+		}
+
+	}
+
+	err = GetLDAPError(packet)
+	return result, err
 }
