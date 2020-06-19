@@ -400,6 +400,8 @@ type NTLMBindRequest struct {
 	Username string
 	// Password is the credentials to bind with
 	Password string
+	// Hash is the hex NTLM hash to bind with. Password or hash must be provided
+	Hash string
 	// Controls are optional controls to send with the bind request
 	Controls []Control
 }
@@ -441,9 +443,20 @@ func (l *Conn) NTLMBind(domain, username, password string) error {
 	return err
 }
 
+// NTLMBindWithHash performs an NTLM Bind with an NTLM hash instead of plaintext password (pass-the-hash)
+func (l *Conn) NTLMBindWithHash(domain, username, hash string) error {
+	req := &NTLMBindRequest{
+		Domain:   domain,
+		Username: username,
+		Hash:     hash,
+	}
+	_, err := l.NTLMChallengeBind(req)
+	return err
+}
+
 // NTLMChallengeBind performs the NTLMSSP bind operation defined in the given request
 func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindResult, error) {
-	if ntlmBindRequest.Password == "" {
+	if ntlmBindRequest.Password == "" && ntlmBindRequest.Hash == "" {
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
@@ -481,8 +494,16 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		}
 	}
 	if ntlmsspChallenge != nil {
-		// generate a response message to the challenge with the given Username/Password
-		responseMessage, err := ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password)
+		var err error
+		var responseMessage []byte
+		// generate a response message to the challenge with the given Username/Password if password is provided
+		if ntlmBindRequest.Password != "" {
+			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password)
+		} else if ntlmBindRequest.Hash != "" {
+			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
+		} else {
+			err = fmt.Errorf("need a password or hash to generate reply")
+		}
 		if err != nil {
 			return result, fmt.Errorf("parsing ntlm-challenge: %s", err)
 		}
