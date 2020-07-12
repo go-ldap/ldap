@@ -227,8 +227,8 @@ func NewError(resultCode uint16, err error) error {
 	return &Error{ResultCode: resultCode, Err: err}
 }
 
-// IsErrorWithCode returns true if the given error is an LDAP error with the given result code
-func IsErrorWithCode(err error, desiredResultCode uint16) bool {
+// IsErrorAnyOf returns true if the given error is an LDAP error with any one of the given result codes
+func IsErrorAnyOf(err error, codes ...uint16) bool {
 	if err == nil {
 		return false
 	}
@@ -238,5 +238,15 @@ func IsErrorWithCode(err error, desiredResultCode uint16) bool {
 		return false
 	}
 
-	return serverError.ResultCode == desiredResultCode
+	for _, code := range codes {
+		if serverError.ResultCode == code {
+			return true
+		}
+	}
+
+	return false
+}
+// IsErrorWithCode returns true if the given error is an LDAP error with the given result code
+func IsErrorWithCode(err error, desiredResultCode uint16) bool {
+	return IsErrorAnyOf(err, desiredResultCode)
 }

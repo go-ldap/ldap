@@ -371,7 +371,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 	for {
 		packet, err := l.readPacket(msgCtx)
 		if err != nil {
-			return nil, err
+			return result, err
 		}
 
 		switch packet.Children[1].Tag {
@@ -391,13 +391,13 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 		case 5:
 			err := GetLDAPError(packet)
 			if err != nil {
-				return nil, err
+				return result, err
 			}
 			if len(packet.Children) == 3 {
 				for _, child := range packet.Children[2].Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
-						return nil, fmt.Errorf("failed to decode child control: %s", err)
+						return result, fmt.Errorf("failed to decode child control: %w", err)
 					}
 					result.Controls = append(result.Controls, decodedChild)
 				}
