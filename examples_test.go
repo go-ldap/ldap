@@ -2,7 +2,9 @@ package ldap
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"log"
 )
 
@@ -341,12 +343,12 @@ func ExampleControlPaging_manualPaging() {
 	}
 }
 
+// This example demonstrates how to use EXTERNAL SASL with TLS client certificates.
 func ExampleClientCertificate() {
-	var ldapServer = "ldap://server.example.com"
 	var ldapCert = "/path/to/cert.pem"
 	var ldapKey = "/path/to/key.pem"
 	var ldapCAchain = "/path/to/ca_chain.pem"
-	
+
 	// Load client cert and key
 	cert, err := tls.LoadX509KeyPair(ldapCert, ldapKey)
 	if err != nil {
@@ -370,7 +372,7 @@ func ExampleClientCertificate() {
 	tlsConfig.BuildNameToCertificate()
 
 	// connect to ldap server
-	l, err := ldap.DialURL(ldapServer)
+	l, err := ldap.DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
