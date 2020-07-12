@@ -340,3 +340,53 @@ func ExampleControlPaging_manualPaging() {
 		break
 	}
 }
+
+func ExampleClientCertificate() {
+	var ldapServer = "ldap://server.example.com"
+	var ldapCert = "/path/to/cert.pem"
+	var ldapKey = "/path/to/key.pem"
+	var ldapCAchain = "/path/to/ca_chain.pem"
+	
+	// Load client cert and key
+	cert, err := tls.LoadX509KeyPair(ldapCert, ldapKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Load CA chain
+	caCert, err := ioutil.ReadFile(ldapCAchain)
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// Setup TLS with ldap client cert
+	tlsConfig := &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: true,
+	}
+	tlsConfig.BuildNameToCertificate()
+
+	// connect to ldap server
+	l, err := ldap.DialURL(ldapServer)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	// reconnect using tls
+	err = l.StartTLS(tlsConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// sasl external bind
+	err = l.ExternalBind()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Conduct ldap queries
+}
