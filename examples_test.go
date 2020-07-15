@@ -10,7 +10,7 @@ import (
 
 // This example demonstrates how to bind a connection to an ldap user
 // allowing access to restricted attributes that user has access to
-func ExampleConn_ExternalBind() {
+func ExampleConn_Bind() {
 	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
@@ -344,7 +344,7 @@ func ExampleControlPaging_manualPaging() {
 }
 
 // This example demonstrates how to use EXTERNAL SASL with TLS client certificates.
-func ExampleClientCertificate() {
+func ExampleConn_ExternalBind() {
 	var ldapCert = "/path/to/cert.pem"
 	var ldapKey = "/path/to/key.pem"
 	var ldapCAchain = "/path/to/ca_chain.pem"
