@@ -372,7 +372,7 @@ func ExampleClientCertificate() {
 	tlsConfig.BuildNameToCertificate()
 
 	// connect to ldap server
-	l, err := ldap.DialURL("ldap://ldap.example.com:389")
+	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
 	}
