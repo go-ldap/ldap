@@ -212,9 +212,9 @@ func GetLDAPError(packet *ber.Packet) error {
 			}
 			return &Error{
 				ResultCode: resultCode,
-				MatchedDN: response.Children[1].Value.(string),
-				Err: fmt.Errorf("%s", response.Children[2].Value.(string)),
-				Packet: packet,
+				MatchedDN:  response.Children[1].Value.(string),
+				Err:        fmt.Errorf("%s", response.Children[2].Value.(string)),
+				Packet:     packet,
 			}
 		}
 	}
@@ -246,6 +246,7 @@ func IsErrorAnyOf(err error, codes ...uint16) bool {
 
 	return false
 }
+
 // IsErrorWithCode returns true if the given error is an LDAP error with the given result code
 func IsErrorWithCode(err error, desiredResultCode uint16) bool {
 	return IsErrorAnyOf(err, desiredResultCode)
