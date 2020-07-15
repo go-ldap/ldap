@@ -369,7 +369,6 @@ func ExampleConn_ExternalBind() {
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: true,
 	}
-	tlsConfig.BuildNameToCertificate()
 
 	// connect to ldap server
 	l, err := DialURL("ldap://ldap.example.com:389")

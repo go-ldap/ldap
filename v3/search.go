@@ -397,7 +397,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				for _, child := range packet.Children[2].Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
-						return result, fmt.Errorf("failed to decode child control: %w", err)
+						return result, fmt.Errorf("failed to decode child control: %s", err)
 					}
 					result.Controls = append(result.Controls, decodedChild)
 				}
