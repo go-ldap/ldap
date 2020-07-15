@@ -10,9 +10,8 @@ import (
 	"math/rand"
 	"strings"
 
-	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/Azure/go-ntlmssp"
-
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -395,7 +394,7 @@ func (l *Conn) ExternalBind() error {
 // NTLMBindRequest represents an NTLMSSP bind operation
 type NTLMBindRequest struct {
 	// Domain is the AD Domain to authenticate too. If not specified, it will be grabbed from the NTLMSSP Challenge
-	Domain   string
+	Domain string
 	// Username is the name of the Directory object that the client wishes to bind as
 	Username string
 	// Password is the credentials to bind with
