@@ -10,7 +10,7 @@ import (
 
 // This example demonstrates how to bind a connection to an ldap user
 // allowing access to restricted attributes that user has access to
-func ExampleConn_Bind() {
+func ExampleConn_ExternalBind() {
 	l, err := DialURL("ldap://ldap.example.com:389")
 	if err != nil {
 		log.Fatal(err)
