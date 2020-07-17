@@ -154,7 +154,10 @@ func TestDecodeControl(t *testing.T) {
 			want: &ControlBeheraPasswordPolicy{Expire: -1, Grace: -1, Error: 8, ErrorString: "New password is in list of old passwords"}, wantErr: false},
 	}
 	for i := range tests {
-		addControlDescriptions(tests[i].args.packet)
+		err := addControlDescriptions(tests[i].args.packet)
+		if err != nil {
+			t.Fatal(err)
+		}
 		tests[i].args.packet = tests[i].args.packet.Children[0]
 	}
 
