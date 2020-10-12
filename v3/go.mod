@@ -1,4 +1,4 @@
-module github.com/go-ldap/ldap/v3
+module github.com/ZDuygu/ldap/v3
 
 go 1.13
 
