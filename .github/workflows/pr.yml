@@ -42,8 +42,6 @@ jobs:
           '1.9',
           '1.8',
           '1.7',
-          '1.6',
-          '1.5',
         ]
     name: Go ${{ matrix.go }}.x PR Validate (Legacy)
     env:
