@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"errors"
 	"fmt"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -175,6 +176,11 @@ var LDAPResultCodeMap = map[uint16]string{
 	ErrorUnexpectedResponse: "Unexpected Response",
 	ErrorEmptyPassword:      "Empty password not allowed by the client",
 }
+
+var (
+	ErrUnexpectedResponse = errors.New("unexpected response")
+	ErrUnexpectedMessage  = errors.New("unexpected message")
+)
 
 // Error holds LDAP error information
 type Error struct {

@@ -1,8 +1,7 @@
 package ldap
 
 import (
-	"log"
-
+	"fmt"
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -80,12 +79,8 @@ func (l *Conn) Add(addRequest *AddRequest) error {
 	}
 
 	if packet.Children[1].Tag == ApplicationAddResponse {
-		err := GetLDAPError(packet)
-		if err != nil {
-			return err
-		}
+		return GetLDAPError(packet)
 	} else {
-		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
+		return fmt.Errorf("%w: %d", ErrUnexpectedResponse, packet.Children[1].Tag)
 	}
-	return nil
 }
