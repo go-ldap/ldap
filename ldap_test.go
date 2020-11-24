@@ -26,6 +26,7 @@ func TestDial(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	defer l.Close()
 	fmt.Printf("TestDial: finished...\n")
 }
@@ -37,6 +38,7 @@ func TestDialTLS(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	defer l.Close()
 	fmt.Printf("TestDialTLS: finished...\n")
 }
@@ -48,6 +50,7 @@ func TestStartTLS(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		t.Errorf(err.Error())
@@ -63,6 +66,7 @@ func TestTLSConnectionState(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		t.Errorf(err.Error())
@@ -87,6 +91,7 @@ func TestSearch(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	defer l.Close()
 
 	searchRequest := NewSearchRequest(
@@ -112,6 +117,7 @@ func TestSearchStartTLS(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	defer l.Close()
 
 	searchRequest := NewSearchRequest(
@@ -152,6 +158,7 @@ func TestSearchWithPaging(t *testing.T) {
 		t.Errorf(err.Error())
 		return
 	}
+	l.Start()
 	defer l.Close()
 
 	err = l.UnauthenticatedBind("")
@@ -227,6 +234,7 @@ func testMultiGoroutineSearch(t *testing.T, TLS bool, startTLS bool) {
 			t.Errorf(err.Error())
 			return
 		}
+		l.Start()
 		defer l.Close()
 	} else {
 		l, err = Dial("tcp", fmt.Sprintf("%s:%d", ldapServer, ldapPort))
@@ -234,6 +242,7 @@ func testMultiGoroutineSearch(t *testing.T, TLS bool, startTLS bool) {
 			t.Errorf(err.Error())
 			return
 		}
+		l.Start()
 		if startTLS {
 			fmt.Printf("TestMultiGoroutineSearch: using StartTLS...\n")
 			err := l.StartTLS(&tls.Config{InsecureSkipVerify: true})
@@ -281,6 +290,7 @@ func TestCompare(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	l.Start()
 	defer l.Close()
 
 	dn := "cn=math mich,ou=User Groups,ou=Groups,dc=umich,dc=edu"
@@ -303,6 +313,7 @@ func TestMatchDNError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	l.Start()
 	defer l.Close()
 
 	wrongBase := "ou=roups,dc=umich,dc=edu"

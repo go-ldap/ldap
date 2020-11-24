@@ -334,3 +334,25 @@ func (c *packetTranslatorConn) SetReadDeadline(t time.Time) error {
 func (c *packetTranslatorConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
+
+func TestRaceDebugConn(t *testing.T) {
+	// The do-nothing server that accepts requests and does nothing
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+
+	c, err := Dial(ts.Listener.Addr().Network(), ts.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("error connecting to localhost tcp: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c.conn.Write([]byte(`random stuff`))
+	}()
+	c.Debug = true
+
+	wg.Wait()
+}
