@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -532,12 +533,13 @@ func (l *Conn) reader() {
 		}
 	}()
 
+	bufConn := bufio.NewReader(l.conn)
 	for {
 		if cleanstop {
 			l.Debug.Printf("reader clean stopping (without closing the connection)")
 			return
 		}
-		packet, err := ber.ReadPacket(l.conn)
+		packet, err := ber.ReadPacket(bufConn)
 		if err != nil {
 			// A read error is expected here if we are closing the connection...
 			if !l.IsClosing() {
