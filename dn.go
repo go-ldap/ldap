@@ -84,7 +84,7 @@ func ParseDN(str string) (*DN, error) {
 			if len(str) > i+1 && str[i+1] == '#' {
 				i += 2
 				index := strings.IndexAny(str[i:], ",+")
-				data := str
+				var data string
 				if index > 0 {
 					data = str[i : i+index]
 				} else {
