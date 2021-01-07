@@ -23,15 +23,19 @@ const (
 	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
 	// ControlTypeMicrosoftShowDeleted - https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
 	ControlTypeMicrosoftShowDeleted = "1.2.840.113556.1.4.417"
+
+	// ControlTypeMicrosoftServerExtendedDnOid - LDAP_SERVER_EXTENDED_DN_OID https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftServerExtendedDnOid = "1.2.840.113556.1.4.529"
 )
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
-	ControlTypePaging:                "Paging",
-	ControlTypeBeheraPasswordPolicy:  "Password Policy - Behera Draft",
-	ControlTypeManageDsaIT:           "Manage DSA IT",
-	ControlTypeMicrosoftNotification: "Change Notification - Microsoft",
-	ControlTypeMicrosoftShowDeleted:  "Show Deleted Objects - Microsoft",
+	ControlTypePaging:                       "Paging",
+	ControlTypeBeheraPasswordPolicy:         "Password Policy - Behera Draft",
+	ControlTypeManageDsaIT:                  "Manage DSA IT",
+	ControlTypeMicrosoftNotification:        "Change Notification - Microsoft",
+	ControlTypeMicrosoftShowDeleted:         "Show Deleted Objects - Microsoft",
+	ControlTypeMicrosoftServerExtendedDnOid: "Show Extended Format DNs (LDAP_SERVER_EXTENDED_DN_OID) - Microsoft",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -449,6 +453,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftNotification(), nil
 	case ControlTypeMicrosoftShowDeleted:
 		return NewControlMicrosoftShowDeleted(), nil
+	case ControlTypeMicrosoftServerExtendedDnOid:
+		c := &ControlMicrosoftServerExtendedDnOid{}
+		return c, nil
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
