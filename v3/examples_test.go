@@ -193,7 +193,7 @@ func Example_userAuthentication() {
 	searchRequest := NewSearchRequest(
 		"dc=example,dc=com",
 		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", username),
+		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", EscapeFilter(username)),
 		[]string{"dn"},
 		nil,
 	)
