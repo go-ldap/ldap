@@ -53,7 +53,7 @@ func TestUnresponsiveConnection(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
-	if err.Error() != "ldap: connection timed out" {
+	if !IsErrorWithCode(err, ErrorNetwork) || err.(*Error).Err.Error() != "ldap: connection timed out" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
