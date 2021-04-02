@@ -408,3 +408,92 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 		}
 	}
 }
+
+// SearchWithChannel performs a search request and returns all search results via the given
+// channel as soon as they are received. This means you get all results until an error
+// happens (or the search successfully finished), e.g. for size / time limited requests all
+// are recieved via the channel until the limit is reached.
+func (l *Conn) SearchWithChannel(searchRequest *SearchRequest, ch chan *SearchResult) error {
+	if ch == nil {
+		return NewError(ErrorUsage, errors.New("ldap: SearchWithChannel got nil channel"))
+	}
+	defer close(ch)
+
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
+	// encode search request
+	err := searchRequest.appendTo(packet)
+	if err != nil {
+		return err
+	}
+
+	l.Debug.PrintPacket(packet)
+
+	msgCtx, err := l.sendMessage(packet)
+	if err != nil {
+		return err
+	}
+	defer l.finishMessage(msgCtx)
+
+	foundSearchResultDone := false
+	for !foundSearchResultDone {
+		l.Debug.Printf("%d: waiting for response", msgCtx.id)
+		packetResponse, ok := <-msgCtx.responses
+		if !ok {
+			return NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+		}
+		packet, err = packetResponse.ReadPacket()
+		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+		if err != nil {
+			return err
+		}
+
+		if l.Debug {
+			if err := addLDAPDescriptions(packet); err != nil {
+				return err
+			}
+			ber.PrintPacket(packet)
+		}
+
+		switch packet.Children[1].Tag {
+		case ApplicationSearchResultEntry:
+			entry := new(Entry)
+			entry.DN = packet.Children[1].Children[0].Value.(string)
+			for _, child := range packet.Children[1].Children[1].Children {
+				attr := new(EntryAttribute)
+				attr.Name = child.Children[0].Value.(string)
+				for _, value := range child.Children[1].Children {
+					attr.Values = append(attr.Values, value.Value.(string))
+					attr.ByteValues = append(attr.ByteValues, value.ByteValue)
+				}
+				entry.Attributes = append(entry.Attributes, attr)
+			}
+			ch <- &SearchResult{Entries: []*Entry{entry}}
+
+		case ApplicationSearchResultDone:
+			if err := GetLDAPError(packet); err != nil {
+				return err
+			}
+			if len(packet.Children) == 3 {
+				result := &SearchResult{}
+				for _, child := range packet.Children[2].Children {
+					decodedChild, err := DecodeControl(child)
+					if err != nil {
+						return fmt.Errorf("failed to decode child control: %s", err)
+					}
+					result.Controls = append(result.Controls, decodedChild)
+				}
+				ch <- result
+			}
+			foundSearchResultDone = true
+
+		case ApplicationSearchResultReference:
+			ref := packet.Children[1].Children[0].Value.(string)
+			ch <- &SearchResult{Referrals: []string{ref}}
+		}
+	}
+
+	l.Debug.Printf("%d: returning", msgCtx.id)
+	return nil
+
+}

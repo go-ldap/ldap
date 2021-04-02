@@ -89,6 +89,7 @@ const (
 	ErrorUnexpectedMessage  = 204
 	ErrorUnexpectedResponse = 205
 	ErrorEmptyPassword      = 206
+	ErrorUsage              = 207
 )
 
 // LDAPResultCodeMap contains string descriptions for LDAP error codes
