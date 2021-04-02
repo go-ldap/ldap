@@ -392,3 +392,25 @@ func ExampleConn_ExternalBind() {
 
 	// Conduct ldap queries
 }
+
+// ExampleWhoAmI demonstrates how to run a whoami request according to https://tools.ietf.org/html/rfc4532
+func ExampleWhoAmI() {
+	conn, err := DialURL("ldap.example.org:389")
+	if err != nil {
+		log.Fatalf("Failed to connect: %s\n", err)
+	}
+
+	_, err = conn.SimpleBind(&SimpleBindRequest{
+		Username: "uid=someone,ou=people,dc=example,dc=org",
+		Password: "MySecretPass",
+	})
+	if err != nil {
+		log.Fatalf("Failed to bind: %s\n", err)
+	}
+
+	res, err := conn.WhoAmI(nil)
+	if err != nil {
+		log.Fatalf("Failed to call WhoAmI(): %s\n", err)
+	}
+	fmt.Printf("I am: %s\n", res.AuthzID)
+}
