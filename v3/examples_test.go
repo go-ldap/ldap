@@ -393,8 +393,8 @@ func ExampleConn_ExternalBind() {
 	// Conduct ldap queries
 }
 
-// ExampleWhoAmI demonstrates how to run a whoami request according to https://tools.ietf.org/html/rfc4532
-func ExampleWhoAmI() {
+// ExampleConn_WhoAmI demonstrates how to run a whoami request according to https://tools.ietf.org/html/rfc4532
+func ExampleConn_WhoAmI() {
 	conn, err := DialURL("ldap.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
