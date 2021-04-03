@@ -162,7 +162,8 @@ func ExampleConn_Modify() {
 	}
 }
 
-// This example shows how a typical application can verify a login attempt
+// Example_userAuthentication shows how a typical application can verify a login attempt
+// Refer to https://github.com/go-ldap/ldap/issues/93 for issues revolving around unauthenticated binds, with zero length passwords
 func Example_userAuthentication() {
 	// The username and password we want to check
 	username := "someuser"
@@ -193,7 +194,7 @@ func Example_userAuthentication() {
 	searchRequest := NewSearchRequest(
 		"dc=example,dc=com",
 		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", username),
+		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", EscapeFilter(username)),
 		[]string{"dn"},
 		nil,
 	)
