@@ -28,6 +28,10 @@ func TestControlMicrosoftShowDeleted(t *testing.T) {
 	runControlTest(t, NewControlMicrosoftShowDeleted())
 }
 
+func TestControlMicrosoftServerLinkTTL(t *testing.T) {
+	runControlTest(t, NewControlMicrosoftServerLinkTTL())
+}
+
 func TestControlString(t *testing.T) {
 	runControlTest(t, NewControlString("x", true, "y"))
 	runControlTest(t, NewControlString("x", true, ""))
@@ -91,6 +95,10 @@ func TestDescribeControlMicrosoftNotification(t *testing.T) {
 
 func TestDescribeControlMicrosoftShowDeleted(t *testing.T) {
 	runAddControlDescriptions(t, NewControlMicrosoftShowDeleted(), "Control Type (Show Deleted Objects - Microsoft)")
+}
+
+func TestDescribeControlMicrosoftServerLinkTTL(t *testing.T) {
+	runAddControlDescriptions(t, NewControlMicrosoftServerLinkTTL(), "Control Type (Return TTL-DNs for link values with associated expiry times - Microsoft)")
 }
 
 func TestDescribeControlString(t *testing.T) {
