@@ -162,7 +162,8 @@ func ExampleConn_Modify() {
 	}
 }
 
-// This example shows how a typical application can verify a login attempt
+// Example_userAuthentication shows how a typical application can verify a login attempt
+// Refer to https://github.com/go-ldap/ldap/issues/93 for issues revolving around unauthenticated binds, with zero length passwords
 func Example_userAuthentication() {
 	// The username and password we want to check
 	username := "someuser"
@@ -193,7 +194,7 @@ func Example_userAuthentication() {
 	searchRequest := NewSearchRequest(
 		"dc=example,dc=com",
 		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", username),
+		fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", EscapeFilter(username)),
 		[]string{"dn"},
 		nil,
 	)
@@ -390,4 +391,26 @@ func ExampleConn_ExternalBind() {
 	}
 
 	// Conduct ldap queries
+}
+
+// ExampleConn_WhoAmI demonstrates how to run a whoami request according to https://tools.ietf.org/html/rfc4532
+func ExampleConn_WhoAmI() {
+	conn, err := DialURL("ldap.example.org:389")
+	if err != nil {
+		log.Fatalf("Failed to connect: %s\n", err)
+	}
+
+	_, err = conn.SimpleBind(&SimpleBindRequest{
+		Username: "uid=someone,ou=people,dc=example,dc=org",
+		Password: "MySecretPass",
+	})
+	if err != nil {
+		log.Fatalf("Failed to bind: %s\n", err)
+	}
+
+	res, err := conn.WhoAmI(nil)
+	if err != nil {
+		log.Fatalf("Failed to call WhoAmI(): %s\n", err)
+	}
+	fmt.Printf("I am: %s\n", res.AuthzID)
 }
