@@ -104,6 +104,15 @@ func TestFinishMessage(t *testing.T) {
 	conn.Close()
 }
 
+// See: https://github.com/go-ldap/ldap/issues/332
+func TestNilConnection(t *testing.T) {
+	var conn *Conn
+	_, err := conn.Search(&SearchRequest{})
+	if err != ErrNilConnection {
+		t.Fatalf("expected error to be ErrNilConnection, got %v", err)
+	}
+}
+
 func testSendRequest(t *testing.T, ptc *packetTranslatorConn, conn *Conn) (msgCtx *messageContext) {
 	var msgID int64
 	runWithTimeout(t, time.Second, func() {
