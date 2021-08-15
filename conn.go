@@ -130,6 +130,15 @@ func DialWithTLSConfig(tc *tls.Config) DialOpt {
 	}
 }
 
+// DialWithTLSDialer is a wrapper for DialWithTLSConfig with the option to
+// specify a net.Dialer to for example define a timeout or a custom resolver.
+func DialWithTLSDialer(tlsConfig *tls.Config, dialer *net.Dialer) DialOpt {
+	return func(dc *DialContext) {
+		dc.tc = tlsConfig
+		dc.d = dialer
+	}
+}
+
 // DialContext contains necessary parameters to dial the given ldap URL.
 type DialContext struct {
 	d  *net.Dialer
