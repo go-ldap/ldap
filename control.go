@@ -31,11 +31,11 @@ const (
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
-	ControlTypePaging:                "Paging",
-	ControlTypeBeheraPasswordPolicy:  "Password Policy - Behera Draft",
-	ControlTypeManageDsaIT:           "Manage DSA IT",
-	ControlTypeMicrosoftNotification: "Change Notification - Microsoft",
-	ControlTypeMicrosoftShowDeleted:  "Show Deleted Objects - Microsoft",
+	ControlTypePaging:                 "Paging",
+	ControlTypeBeheraPasswordPolicy:   "Password Policy - Behera Draft",
+	ControlTypeManageDsaIT:            "Manage DSA IT",
+	ControlTypeMicrosoftNotification:  "Change Notification - Microsoft",
+	ControlTypeMicrosoftShowDeleted:   "Show Deleted Objects - Microsoft",
 	ControlTypeMicrosoftServerLinkTTL: "Return TTL-DNs for link values with associated expiry times - Microsoft",
 }
 
