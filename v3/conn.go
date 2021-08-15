@@ -507,7 +507,7 @@ func (l *Conn) processMessages() {
 				// All reads will return immediately
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
 					l.Debug.Printf("Receiving message timeout for %d", message.MessageID)
-					msgCtx.sendResponse(&PacketResponse{message.Packet, errors.New("ldap: connection timed out")})
+					msgCtx.sendResponse(&PacketResponse{message.Packet, NewError(ErrorNetwork, errors.New("ldap: connection timed out"))})
 					delete(l.messageContexts, message.MessageID)
 					close(msgCtx.responses)
 				}

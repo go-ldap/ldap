@@ -53,7 +53,7 @@ func TestUnresponsiveConnection(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
-	if err.Error() != "ldap: connection timed out" {
+	if !IsErrorWithCode(err, ErrorNetwork) || err.(*Error).Err.Error() != "ldap: connection timed out" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -102,6 +102,15 @@ func TestFinishMessage(t *testing.T) {
 	// We cannot run Close() in a defer because t.FailNow() will run it and
 	// it will block if the processMessage Loop is in a deadlock.
 	conn.Close()
+}
+
+// See: https://github.com/go-ldap/ldap/issues/332
+func TestNilConnection(t *testing.T) {
+	var conn *Conn
+	_, err := conn.Search(&SearchRequest{})
+	if err != ErrNilConnection {
+		t.Fatalf("expected error to be ErrNilConnection, got %v", err)
+	}
 }
 
 func testSendRequest(t *testing.T, ptc *packetTranslatorConn, conn *Conn) (msgCtx *messageContext) {
