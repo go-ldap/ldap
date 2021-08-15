@@ -8,7 +8,7 @@ import (
 type unbindRequest struct{}
 
 func (unbindRequest) appendTo(envelope *ber.Packet) error {
-	envelope.AppendChild(ber.Encode(ber.ClassApplication, ber.TypePrimitive, ApplicationUnbindRequest, nil, "Unbind Request"))
+	envelope.AppendChild(ber.Encode(ber.ClassApplication, ber.TypePrimitive, ApplicationUnbindRequest, nil, ApplicationMap[ApplicationUnbindRequest]))
 	return nil
 }
 
