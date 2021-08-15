@@ -2,10 +2,11 @@ package ldap
 
 import (
 	"errors"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-var ErrConnUnbinded = NewError(ErrorNetwork, errors.New("ldap: connection is closed"))
+var ErrConnUnbound = NewError(ErrorNetwork, errors.New("ldap: connection is closed"))
 
 type unbindRequest struct{}
 
@@ -19,7 +20,7 @@ func (unbindRequest) appendTo(envelope *ber.Packet) error {
 // See https://datatracker.ietf.org/doc/html/rfc4511#section-4.3
 func (l *Conn) Unbind() error {
 	if l.IsClosing() {
-		return ErrConnUnbinded
+		return ErrConnUnbound
 	}
 
 	_, err := l.doRequest(unbindRequest{})
