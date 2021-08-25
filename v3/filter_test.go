@@ -290,3 +290,78 @@ func BenchmarkFilterDecompile(b *testing.B) {
 		DecompileFilter(filters[i%maxIdx])
 	}
 }
+
+func TestParseFilter(t *testing.T) {
+
+	for _, testInfo := range []struct {
+		src       string
+		expecting string
+		err       string
+	}{
+		{
+			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\+,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c\2b,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main (Example),OU=Groups,DC=example,DC=foo,DC=bar))`,
+			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \28Example\29,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main (Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			err: `ldap: unbalanced filter: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main (Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \28Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			err: `ldap: unbalanced filter: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \28Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \29Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			err: `ldap: invalid filter string: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \29Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main )Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			err: `ldap: invalid filter string: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main )Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+		},
+		{
+			src:       `(sn=Mill*)`,
+			expecting: `(sn=Mill*)`,
+		},
+		{
+			src:       `(sn=Mi*\ed\95\a8*r)`,
+			expecting: `(sn=Mi*\ed\95\a8*r)`,
+		},
+		{
+			src:       `(sn=Mi*함*r)`,
+			expecting: `(sn=Mi*\ed\95\a8*r)`,
+		},
+		{
+			src:       `\ed\95\a8\ec\88\98\eb\aa\a9\eb\a1\9d`,
+			expecting: `\ed\95\a8\ec\88\98\eb\aa\a9\eb\a1\9d`,
+		},
+		{
+			src: `(objectGUID=\a)`,
+			err: `ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+0029 ')'`,
+		},
+		{
+			src: `(objectGUID=\a\a)`,
+			err: `ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+005C '\'`,
+		},
+	} {
+
+		res, err := ParseFilter(testInfo.src)
+		if err != nil {
+			if err.Error() != testInfo.err {
+				t.Fatal(testInfo.src, "=> ", err, "!=", testInfo.err)
+			}
+		} else if testInfo.err != "" {
+			t.Fatal(testInfo.src, "=> ", err, "!=", testInfo.err)
+		}
+		if res != testInfo.expecting {
+			t.Fatal(testInfo.expecting, "=> ", "invalid result", res)
+		}
+	}
+}
