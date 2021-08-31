@@ -236,11 +236,31 @@ func TestMultiGoroutineSearch(t *testing.T) {
 }
 
 func TestEscapeFilter(t *testing.T) {
-	if got, want := EscapeFilter("a\x00b(c)d*e\\f"), `a\00b\28c\29d\2ae\5cf`; got != want {
-		t.Errorf("Got %s, expected %s", want, got)
-	}
-	if got, want := EscapeFilter("Lučić"), `Lu\c4\8di\c4\87`; got != want {
-		t.Errorf("Got %s, expected %s", want, got)
+	for _, testInfo := range []struct {
+		src       string
+		expecting string
+	}{
+		{
+			src:       "a\x00b(c)d*e\\f",
+			expecting: `a\00b\28c\29d\2ae\5cf`,
+		},
+		{
+			src:       "Lučić",
+			expecting: `Lu\c4\8di\c4\87`,
+		},
+		{
+			src:       `\\some-server\code`,
+			expecting: `\5c\5csome-server\5ccode`,
+		},
+		{
+			src:       `Mi*함*r`,
+			expecting: `Mi\2a\ed\95\a8\2ar`,
+		},
+	} {
+		got := EscapeFilter(testInfo.src)
+		if got != testInfo.expecting {
+			t.Errorf("Got %s, expected %s", got, testInfo.expecting)
+		}
 	}
 }
 
