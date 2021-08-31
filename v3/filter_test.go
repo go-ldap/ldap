@@ -213,6 +213,185 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+func TestCompileEscapeFilter(t *testing.T) {
+	var testEscapeFilters = []compileTest{
+		{
+			filterStr:      "(&(sn=Miller)(givenName=Bob))",
+			expectedFilter: "(&(sn=Miller)(givenName=Bob))",
+			expectedType:   FilterAnd,
+		},
+		{
+			filterStr:      "(|(sn=Miller)(givenName=Bob))",
+			expectedFilter: "(|(sn=Miller)(givenName=Bob))",
+			expectedType:   FilterOr,
+		},
+		{
+			filterStr:      "(!(sn=Miller))",
+			expectedFilter: "(!(sn=Miller))",
+			expectedType:   FilterNot,
+		},
+		{
+			filterStr:      "(sn=Miller)",
+			expectedFilter: "(sn=Miller)",
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=Mill*)",
+			expectedFilter: `(sn=Mill\2a)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=*Mill)",
+			expectedFilter: `(sn=\2aMill)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=*Mill*)",
+			expectedFilter: `(sn=\2aMill\2a)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=*i*le*)",
+			expectedFilter: `(sn=\2ai\2ale\2a)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=Mi*l*r)",
+			expectedFilter: `(sn=Mi\2al\2ar)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		// substring filters escape properly
+		{
+			filterStr:      `(sn=Mi*함*r)`,
+			expectedFilter: `(sn=Mi\2a\ed\95\a8\2ar)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=Mi*le*)",
+			expectedFilter: `(sn=Mi\2ale\2a)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn=*i*ler)",
+			expectedFilter: `(sn=\2ai\2aler)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn>=Miller)",
+			expectedFilter: "(sn>=Miller)",
+			expectedType:   FilterGreaterOrEqual,
+		},
+		{
+			filterStr:      "(sn<=Miller)",
+			expectedFilter: "(sn<=Miller)",
+			expectedType:   FilterLessOrEqual,
+		},
+		{
+			filterStr:      "(sn=*)",
+			expectedFilter: `(sn=\2a)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      "(sn~=Miller)",
+			expectedFilter: "(sn~=Miller)",
+			expectedType:   FilterApproxMatch,
+		},
+		{
+			filterStr:      `(objectGUID=абвгдеёжзийклмнопрстуфхцчшщъыьэюя)`,
+			expectedFilter: `(objectGUID=\d0\b0\d0\b1\d0\b2\d0\b3\d0\b4\d0\b5\d1\91\d0\b6\d0\b7\d0\b8\d0\b9\d0\ba\d0\bb\d0\bc\d0\bd\d0\be\d0\bf\d1\80\d1\81\d1\82\d1\83\d1\84\d1\85\d1\86\d1\87\d1\88\d1\89\d1\8a\d1\8b\d1\8c\d1\8d\d1\8e\d1\8f)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      `(objectGUID=함수목록)`,
+			expectedFilter: `(objectGUID=\ed\95\a8\ec\88\98\eb\aa\a9\eb\a1\9d)`,
+			expectedType:   FilterEqualityMatch,
+		},
+		{
+			filterStr:      `(objectGUID=`,
+			expectedFilter: ``,
+			expectedType:   0,
+			expectedErr:    "unexpected end of filter",
+		},
+		{
+			filterStr:      `(objectGUID=함수목록`,
+			expectedFilter: ``,
+			expectedType:   0,
+			expectedErr:    "unexpected end of filter",
+		},
+		{
+			filterStr:      `((cn=)`,
+			expectedFilter: ``,
+			expectedType:   0,
+			expectedErr:    "unexpected end of filter",
+		},
+		{
+			filterStr:      `(&(objectclass=inetorgperson)(cn=中文))`,
+			expectedFilter: `(&(objectclass=inetorgperson)(cn=\e4\b8\ad\e6\96\87))`,
+			expectedType:   0,
+		},
+		// attr extension
+		{
+			filterStr:      `(memberOf:=foo)`,
+			expectedFilter: `(memberOf:=foo)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		// attr+named matching rule extension
+		{
+			filterStr:      `(memberOf:test:=foo)`,
+			expectedFilter: `(memberOf:test:=foo)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		// attr+oid matching rule extension
+		{
+			filterStr:      `(cn:1.2.3.4.5:=Fred Flintstone)`,
+			expectedFilter: `(cn:1.2.3.4.5:=Fred Flintstone)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		// attr+dn+oid matching rule extension
+		{
+			filterStr:      `(sn:dn:2.4.6.8.10:=Barney Rubble)`,
+			expectedFilter: `(sn:dn:2.4.6.8.10:=Barney Rubble)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		// attr+dn extension
+		{
+			filterStr:      `(o:dn:=Ace Industry)`,
+			expectedFilter: `(o:dn:=Ace Industry)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		// dn extension
+		{
+			filterStr:      `(:dn:2.4.6.8.10:=Dino)`,
+			expectedFilter: `(:dn:2.4.6.8.10:=Dino)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+		{
+			filterStr:      `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
+			expectedFilter: `(memberOf:1.2.840.113556.1.4.1941:=CN=User1,OU=blah,DC=mydomain,DC=net)`,
+			expectedType:   FilterExtensibleMatch,
+		},
+	}
+	// Test Compiler and Decompiler
+	for _, i := range testEscapeFilters {
+		filter, err := CompileEscapeFilter(i.filterStr)
+		switch {
+		case err != nil:
+			if i.expectedErr == "" || !strings.Contains(err.Error(), i.expectedErr) {
+				t.Errorf("Problem compiling '%s' - '%v' (expected error to contain '%v')", i.filterStr, err, i.expectedErr)
+			}
+		case filter.Tag != ber.Tag(i.expectedType):
+			t.Errorf("%q Expected %q got %q", i.filterStr, FilterMap[uint64(i.expectedType)], FilterMap[uint64(filter.Tag)])
+		default:
+			o, err := DecompileFilter(filter)
+			if err != nil {
+				t.Errorf("Problem compiling %s - %s", i.filterStr, err.Error())
+			} else if i.expectedFilter != o {
+				t.Errorf("%q expected, got %q", i.expectedFilter, o)
+			}
+		}
+	}
+}
+
 func TestDecodeEscapedSymbols(t *testing.T) {
 
 	for _, testInfo := range []struct {
@@ -292,19 +471,18 @@ func BenchmarkFilterDecompile(b *testing.B) {
 }
 
 func TestParseFilter(t *testing.T) {
-
 	for _, testInfo := range []struct {
 		src       string
 		expecting string
 		err       string
 	}{
 		{
-			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\,OU=Groups,DC=example,DC=foo,DC=bar))`,
 			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c,OU=Groups,DC=example,DC=foo,DC=bar))`,
 		},
 		{
 			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\+,OU=Groups,DC=example,DC=foo,DC=bar))`,
-			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c\2b,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			expecting: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main\5c+,OU=Groups,DC=example,DC=foo,DC=bar))`,
 		},
 		{
 			src:       `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main (Example),OU=Groups,DC=example,DC=foo,DC=bar))`,
@@ -315,12 +493,8 @@ func TestParseFilter(t *testing.T) {
 			err: `ldap: unbalanced filter: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main (Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
 		},
 		{
-			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \28Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
-			err: `ldap: unbalanced filter: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \28Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
-		},
-		{
-			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \29Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
-			err: `ldap: invalid filter string: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main \29Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main )Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
+			err: `ldap: invalid filter string: (&(objectCategory=group)(objectClass=group)(memberOf=CN=Main )Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
 		},
 		{
 			src: `(&(objectCategory=group)(objectClass=group)(memberOf=CN=Main )Example,OU=Groups,DC=example,DC=foo,DC=bar))`,
@@ -328,27 +502,19 @@ func TestParseFilter(t *testing.T) {
 		},
 		{
 			src:       `(sn=Mill*)`,
-			expecting: `(sn=Mill*)`,
-		},
-		{
-			src:       `(sn=Mi*\ed\95\a8*r)`,
-			expecting: `(sn=Mi*\ed\95\a8*r)`,
+			expecting: `(sn=Mill\2a)`,
 		},
 		{
 			src:       `(sn=Mi*함*r)`,
-			expecting: `(sn=Mi*\ed\95\a8*r)`,
+			expecting: `(sn=Mi\2a\ed\95\a8\2ar)`,
 		},
 		{
-			src:       `\ed\95\a8\ec\88\98\eb\aa\a9\eb\a1\9d`,
-			expecting: `\ed\95\a8\ec\88\98\eb\aa\a9\eb\a1\9d`,
+			src:       `(objectGUID=\a)`,
+			expecting: `(objectGUID=\5ca)`,
 		},
 		{
-			src: `(objectGUID=\a)`,
-			err: `ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+0029 ')'`,
-		},
-		{
-			src: `(objectGUID=\a\a)`,
-			err: `ldap: invalid characters for escape in filter: encoding/hex: invalid byte: U+005C '\'`,
+			src:       `(objectGUID=\a\a)`,
+			expecting: `(objectGUID=\5ca\5ca)`,
 		},
 	} {
 

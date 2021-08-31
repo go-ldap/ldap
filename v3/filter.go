@@ -78,14 +78,20 @@ var MatchingRuleAssertionMap = map[uint64]string{
 
 var _SymbolAny = []byte{'*'}
 
+// CompileEscapeFilter will take a raw filter string, without any \xx hex input, and convert it into a BER-encoded packet
+// All filter values will be placed through EscapeFilter, which cannot handle \xx hex input, nor * wildcards (will be translated to literal *)
+func CompileEscapeFilter(filter string) (*ber.Packet, error) {
+	filter, err := ParseFilter(filter)
+	if err != nil {
+		return nil, NewError(ErrorFilterCompile, err)
+	}
+	return CompileFilter(filter)
+}
+
 // CompileFilter converts a string representation of a filter into a BER-encoded packet
 func CompileFilter(filter string) (*ber.Packet, error) {
 	if len(filter) == 0 || filter[0] != '(' {
 		return nil, NewError(ErrorFilterCompile, errors.New("ldap: filter does not start with an '('"))
-	}
-	filter, err := ParseFilter(filter)
-	if err != nil {
-		return nil, NewError(ErrorFilterCompile, err)
 	}
 	packet, pos, err := compileFilter(filter, 1)
 	if err != nil {
@@ -495,7 +501,7 @@ func decodeEscapedSymbols(src []byte) (string, error) {
 	}
 }
 
-// ParseFilter will take the filter string, and transform the DN into an ascii safe string
+// ParseFilter will take the filter string, and escape each value
 func ParseFilter(filter string) (parsedFilter string, err error) {
 	var startRecording bool
 	var value string
@@ -517,7 +523,7 @@ func ParseFilter(filter string) (parsedFilter string, err error) {
 				if err != nil {
 					err = nil
 					startRecording = false
-					parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, encodeToHex(value), string(val))
+					parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, EscapeFilter(value), string(val))
 					value = ""
 				} else {
 					value += string(val)
@@ -532,39 +538,6 @@ func ParseFilter(filter string) (parsedFilter string, err error) {
 			} else {
 				parsedFilter += string(val)
 			}
-		case `\`:
-			if startRecording {
-				// look ahead for hex parenthesis to check for unbalanced queries
-				if utf8.RuneCountInString(filter) > i+2 {
-					byteVal := make([]byte, 1)
-					if !isAlphaNumeric(string(filter[i+1])) {
-						value += string(val)
-						continue
-					}
-					if _, err = hexpac.Decode(byteVal, []byte(filter[i+1:i+3])); err != nil {
-						return "", fmt.Errorf("ldap: invalid characters for escape in filter: %v", err)
-					}
-					if strings.EqualFold(filter[i+1:i+3], hexpac.EncodeToString([]byte(`(`))) {
-						balance = append(balance, hexpac.EncodeToString([]byte(`(`)))
-					} else if strings.EqualFold(filter[i+1:i+3], hexpac.EncodeToString([]byte(`)`))) {
-						balance, err = checkBalance(hexpac.EncodeToString([]byte(`(`)), filter, balance)
-						if err != nil {
-							err = nil
-							startRecording = false
-							parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, encodeToHex(value), string(val))
-							value = ""
-						} else {
-							value += string(val)
-						}
-					} else {
-						value += string(val)
-					}
-				} else {
-					value += string(val)
-				}
-			} else {
-				parsedFilter += string(val)
-			}
 		case ",":
 			if !startRecording {
 				return "", fmt.Errorf("ldap: invalid filter string: %s", filter)
@@ -573,7 +546,7 @@ func ParseFilter(filter string) (parsedFilter string, err error) {
 				return "", fmt.Errorf("ldap: unbalanced filter: %s", filter)
 			}
 			startRecording = false
-			parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, encodeToHex(value), string(val))
+			parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, EscapeFilter(value), string(val))
 			value = ""
 		default:
 			currentRune, _ := utf8.DecodeRuneInString(string(val))
@@ -603,48 +576,4 @@ func checkBalance(checkElement string, filter string, balance []string) (newBala
 		newBalance = balance[:len(balance)-1]
 	}
 	return
-}
-
-// encodeToHex will take the input value, and turn non-alpha numeric characters into hex values
-func encodeToHex(filterValue string) (encodedValue string) {
-	var skip int
-	for i, val := range filterValue {
-		if skip != 0 {
-			skip--
-			continue
-		}
-		if string(val) == ` ` {
-			encodedValue += string(val)
-		} else if string(val) == `*` {
-			encodedValue += string(val)
-		} else if string(val) == `\` {
-			if len(filterValue) > i+2 {
-				if isAlphaNumeric(string(filterValue[i+1 : i+3])) {
-					encodedValue += fmt.Sprintf("\\%s", string(filterValue[i+1:i+3]))
-					skip = 2
-					continue
-				} else {
-					encodedValue += encodeHexValue(string(val))
-				}
-			} else {
-				encodedValue += encodeHexValue(string(val))
-			}
-		} else if isAlphaNumeric(string(val)) {
-			encodedValue += string(val)
-		} else {
-			encodedValue += encodeHexValue(string(val))
-		}
-	}
-	return
-}
-
-// encodeHexValue is a helper function that will take hex values longer than 2 characters, and add a \ delimiter
-func encodeHexValue(input string) (output string) {
-	output = hexpac.EncodeToString([]byte(string(input)))
-	if len(output) > 2 {
-		for i := 2; i < len(output); i += 3 {
-			output = fmt.Sprintf("%s\\%s", output[:i], output[i:])
-		}
-	}
-	return fmt.Sprintf("\\%s", output)
 }
