@@ -12,6 +12,10 @@ import (
 
 	"github.com/Azure/go-ntlmssp"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	gssapi "github.com/jcmturner/gokrb5/v8/client"
+	k5conf "github.com/jcmturner/gokrb5/v8/config"
+	k5creds "github.com/jcmturner/gokrb5/v8/credentials"
+	k5types "github.com/jcmturner/gokrb5/v8/types"
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -537,4 +541,145 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 
 	err = GetLDAPError(packet)
 	return result, err
+}
+
+// GSSAPI Bind using gokrb5
+type GSSAPIBindRequest struct {
+	// Service Principal Name to try to get a service ticket for. With LDAP in
+	// most cases this will be "ldap/<hostname>"
+	SPN string
+	// Authorization entity to authenticate as
+	AuthZID string
+	// KRB5 client as an abstraction over Credentials coming from a keytab,
+	// ccache or freshly acquired from the KDC
+	client *gssapi.Client
+	// Token
+	token []byte
+	// Are we on the last step
+	done bool
+	// Controls are optional controls to send with the bind request
+	Controls []Control
+}
+
+// GSSAPI Bind using your CCache with an empty AuthZID
+func (l *Conn) GSSAPICCBind(confpath, cpath, spn string) error {
+	return l.GSSAPICCBindZ(confpath, cpath, "", spn)
+}
+
+// GSSAPI Bind using your CCache with a set AuthZID
+func (l *Conn) GSSAPICCBindZ(confpath, cpath, authzid, spn string) error {
+	config, err := k5conf.Load(confpath)
+	if err != nil {
+		return err
+	}
+
+	ccache, err := k5creds.LoadCCache(cpath)
+	if err != nil {
+		return err
+	}
+
+	client, err := gssapi.NewFromCCache(ccache, config)
+	if err != nil {
+		return err
+	}
+
+	req := &GSSAPIBindRequest{
+		SPN:     spn,
+		AuthZID: authzid,
+		client:  client,
+	}
+	_, err = l.GSSAPIBind(req)
+	return err
+}
+
+type GSSAPIBindResult struct {
+	Subkey   k5types.EncryptionKey
+	Controls []Control
+}
+
+func (req *GSSAPIBindRequest) appendTo(envelope *ber.Packet) error {
+	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
+	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
+	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
+
+	auth := ber.Encode(ber.ClassContext, ber.TypeConstructed, 3, "", "authentication")
+	auth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "GSSAPI", "SASL Mech"))
+	auth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(req.token[:]), "Credentials"))
+	request.AppendChild(auth)
+	envelope.AppendChild(request)
+	if len(req.Controls) > 0 {
+		envelope.AppendChild(encodeControls(req.Controls))
+	}
+	return nil
+}
+
+// GSSAPIBind performs the GSSAPI bind operation with the credentials in the given Request
+func (l *Conn) GSSAPIBind(req *GSSAPIBindRequest) (*GSSAPIBindResult, error) {
+	result := &GSSAPIBindResult{
+		Controls: make([]Control, 0),
+	}
+
+	state, err := InitContext(req.client, req.SPN, req.AuthZID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.token, err = state.GSSAPIStep(make([]byte, 0))
+	if err != nil {
+		return nil, err
+	}
+
+	// Loop until we are done
+	done := false
+OUTER:
+	for !done {
+		var data []byte
+
+		msgCtx, err := l.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+		defer l.finishMessage(msgCtx)
+
+		packet, err := l.readPacket(msgCtx)
+		if err != nil {
+			return nil, err
+		}
+		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+		if l.Debug {
+			if err = addLDAPDescriptions(packet); err != nil {
+				return nil, err
+			}
+			ber.PrintPacket(packet)
+		}
+
+		if len(packet.Children) == 2 {
+			child := packet.Children[1].Children[0]
+			if child.Tag != ber.TagEnumerated {
+				return result, GetLDAPError(packet)
+			}
+			switch child.Value.(int64) {
+			case 0:
+				return result, nil
+			case 14:
+				break
+			default:
+				return nil, GetLDAPError(packet)
+			}
+
+			for _, child := range packet.Children[1].Children {
+				if child.ClassType == ber.ClassContext && child.Tag == 7 {
+					data, err = ioutil.ReadAll(child.Data)
+					req.token, err = state.GSSAPIStep(data)
+					if err != nil {
+						return nil, err
+					}
+					continue OUTER
+				}
+			}
+		}
+		return nil, fmt.Errorf("Server sent us a bad tag during bind")
+	}
+
+	return result, nil
 }
