@@ -94,6 +94,90 @@ func TestSearch(t *testing.T) {
 	t.Logf("TestSearch: %s -> num of entries = %d", searchRequest.Filter, len(sr.Entries))
 }
 
+func TestSearchAsync(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[0],
+		attributes,
+		nil)
+
+	var entries []*Entry
+	responses, err := l.SearchAsync(searchRequest, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for res := range responses {
+		if err := res.Err(); err != nil {
+			t.Error(err)
+			break
+		}
+		if res.Closed() {
+			break
+		}
+		switch res.Type {
+		case SearchAsyncResponseTypeEntry:
+			entries = append(entries, res.Entry)
+		case SearchAsyncResponseTypeReferral:
+			t.Logf("Received Referral: %s", res.Referral)
+		case SearchAsyncResponseTypeControl:
+			t.Logf("Received Control: %s", res.Control)
+		}
+	}
+	t.Logf("TestSearch: %s -> num of entries = %d", searchRequest.Filter, len(entries))
+}
+
+func TestSearchAsyncStop(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[0],
+		attributes,
+		nil)
+
+	var entries []*Entry
+	done := make(chan struct{})
+	responses, err := l.SearchAsync(searchRequest, done)
+	if err != nil {
+		t.Fatal(err)
+	}
+	close(done)
+	for res := range responses {
+		if err := res.Err(); err != nil {
+			t.Error(err)
+			break
+		}
+
+		if res.Closed() {
+			break
+		}
+		switch res.Type {
+		case SearchAsyncResponseTypeEntry:
+			entries = append(entries, res.Entry)
+		case SearchAsyncResponseTypeReferral:
+			t.Logf("Received Referral: %s", res.Referral)
+		case SearchAsyncResponseTypeControl:
+			t.Logf("Received Control: %s", res.Control)
+		}
+	}
+	if len(entries) > 1 {
+		t.Errorf("Expected 1 entry, got %d", len(entries))
+	}
+	t.Logf("TestSearch: %s -> num of entries = %d", searchRequest.Filter, len(entries))
+}
+
 func TestSearchStartTLS(t *testing.T) {
 	l, err := DialURL(ldapServer)
 	if err != nil {

@@ -31,5 +31,6 @@ type Client interface {
 	PasswordModify(*PasswordModifyRequest) (*PasswordModifyResult, error)
 
 	Search(*SearchRequest) (*SearchResult, error)
+	SearchAsync(searchRequest *SearchRequest, done chan struct{}) (<-chan *SearchAsyncResponse, error)
 	SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error)
 }
