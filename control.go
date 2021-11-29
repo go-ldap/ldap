@@ -23,6 +23,8 @@ const (
 
 	// ControlTypeMicrosoftNotification - https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
 	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
+	// ControlTypeSubtreeDelete - https://docs.microsoft.com/zh-cn/previous-versions/windows/desktop/ldap/ldap-server-tree-delete-oid
+	ControlTypeSubtreeDelete = "1.2.840.113556.1.4.805"
 	// ControlTypeMicrosoftShowDeleted - https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
 	ControlTypeMicrosoftShowDeleted = "1.2.840.113556.1.4.417"
 	// ControlTypeMicrosoftServerLinkTTL - https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/f4f523a8-abc0-4b3a-a471-6b2fef135481?redirectedfrom=MSDN
@@ -35,6 +37,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeBeheraPasswordPolicy:   "Password Policy - Behera Draft",
 	ControlTypeManageDsaIT:            "Manage DSA IT",
 	ControlTypeMicrosoftNotification:  "Change Notification - Microsoft",
+	ControlTypeSubtreeDelete: 		   "Subtree Delete",
 	ControlTypeMicrosoftShowDeleted:   "Show Deleted Objects - Microsoft",
 	ControlTypeMicrosoftServerLinkTTL: "Return TTL-DNs for link values with associated expiry times - Microsoft",
 }
@@ -281,6 +284,35 @@ func NewControlMicrosoftNotification() *ControlMicrosoftNotification {
 	return &ControlMicrosoftNotification{}
 }
 
+// ControlMicrosoftNotification implements the control described in https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
+type ControlSubtreeDelete struct{}
+
+// GetControlType returns the OID
+func (c *ControlSubtreeDelete) GetControlType() string {
+	return ControlTypeSubtreeDelete
+}
+
+// Encode returns the ber packet representation
+func (c *ControlSubtreeDelete) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeSubtreeDelete, "Control Type ("+ControlTypeMap[ControlTypeSubtreeDelete]+")"))
+
+	return packet
+}
+
+// String returns a human-readable description
+func (c *ControlSubtreeDelete) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)",
+		ControlTypeMap[ControlTypeSubtreeDelete],
+		ControlTypeSubtreeDelete)
+}
+
+// NewControlMicrosoftNotification returns a ControlMicrosoftNotification control
+func NewControlSubtreeDelete() *ControlSubtreeDelete {
+	return &ControlSubtreeDelete{}
+}
+
 // ControlMicrosoftShowDeleted implements the control described in https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
 type ControlMicrosoftShowDeleted struct{}
 
@@ -481,6 +513,8 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return c, nil
 	case ControlTypeMicrosoftNotification:
 		return NewControlMicrosoftNotification(), nil
+	case ControlTypeSubtreeDelete:
+		return NewControlSubtreeDelete(), nil
 	case ControlTypeMicrosoftShowDeleted:
 		return NewControlMicrosoftShowDeleted(), nil
 	case ControlTypeMicrosoftServerLinkTTL:
@@ -526,3 +560,4 @@ func encodeControls(controls []Control) *ber.Packet {
 	}
 	return packet
 }
+
