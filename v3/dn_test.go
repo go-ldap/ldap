@@ -45,6 +45,17 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{
 				{"  A  ", "  1  "},
 				{"  B  ", "  2  "}}}}},
+
+		`cn=john.doe;dc=example,dc=net`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "john.doe"}}},
+			{[]*AttributeTypeAndValue{{"dc", "example"}}},
+			{[]*AttributeTypeAndValue{{"dc", "net"}}}}},
+
+		// Escaped `;` should not be treated as RDN
+		`cn=john.doe\;weird name,dc=example,dc=net`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "john.doe;weird name"}}},
+			{[]*AttributeTypeAndValue{{"dc", "example"}}},
+			{[]*AttributeTypeAndValue{{"dc", "net"}}}}},
 	}
 
 	for test, answer := range testcases {
@@ -147,6 +158,8 @@ func TestDNEqual(t *testing.T) {
 			"cn=John  Doe, ou=People, dc=sun.com",
 			false,
 		},
+		// Test parsing of `;` for separating RDNs
+		{"cn=john;dc=example,dc=com", "cn=john,dc=example,dc=com", true}, // missing values matter
 	}
 
 	for i, tc := range testcases {
