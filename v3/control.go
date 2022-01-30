@@ -27,6 +27,9 @@ const (
 	ControlTypeMicrosoftShowDeleted = "1.2.840.113556.1.4.417"
 	// ControlTypeMicrosoftServerLinkTTL - https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/f4f523a8-abc0-4b3a-a471-6b2fef135481?redirectedfrom=MSDN
 	ControlTypeMicrosoftServerLinkTTL = "1.2.840.113556.1.4.2309"
+
+	// ControlTypeServerSideSorting - https://www.ietf.org/rfc/rfc2891.txt
+	ControlTypeServerSideSorting = "1.2.840.113556.1.4.474"
 )
 
 // ControlTypeMap maps controls to text descriptions
@@ -485,6 +488,22 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftShowDeleted(), nil
 	case ControlTypeMicrosoftServerLinkTTL:
 		return NewControlMicrosoftServerLinkTTL(), nil
+	case ControlTypeServerSideSorting:
+		pkt := ber.DecodePacket(value.Data.Bytes())
+		if pkt == nil || len(pkt.Children) == 0 {
+			return nil, fmt.Errorf("bad packet")
+		}
+
+		intRet, err := ber.ParseInt64(pkt.Children[0].Data.Bytes())
+		if err != nil {
+			return nil, err
+		}
+
+		ret := ControlServerSideSortingResult(intRet)
+		if err := ret.Valid(); err != nil {
+			return nil, err
+		}
+		return &ControlServerSideSortingResponse{Result: ret, Criticality: Criticality}, nil
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -525,4 +544,139 @@ func encodeControls(controls []Control) *ber.Packet {
 		packet.AppendChild(control.Encode())
 	}
 	return packet
+}
+
+func NewControlServerSideSortingRequest(fields []*ControlServerSideSortingSortKey) *ControlServerSideSortingRequest {
+	return &ControlServerSideSortingRequest{
+		SortKeyList: fields,
+	}
+}
+
+type ControlServerSideSortingResult int64
+
+func (c ControlServerSideSortingResult) Valid() error {
+	for _, validRet := range ControlServerSideSortingResults {
+		if c == validRet {
+			return nil
+		}
+	}
+	return fmt.Errorf("Unknown return code : %d", c)
+}
+
+const (
+	ControlServerSideSortingResultSuccess                  ControlServerSideSortingResult = 0
+	ControlServerSideSortingResultOperationsError          ControlServerSideSortingResult = 1
+	ControlServerSideSortingResultTimeLimitExceeded        ControlServerSideSortingResult = 2
+	ControlServerSideSortingResultStrongAuthRequired       ControlServerSideSortingResult = 8
+	ControlServerSideSortingResultAdminLimitExceeded       ControlServerSideSortingResult = 11
+	ControlServerSideSortingResultNoSuchAttribute          ControlServerSideSortingResult = 16
+	ControlServerSideSortingResultInappropriateMatching    ControlServerSideSortingResult = 18
+	ControlServerSideSortingResultInsufficientAccessRights ControlServerSideSortingResult = 50
+	ControlServerSideSortingResultBusy                     ControlServerSideSortingResult = 51
+	ControlServerSideSortingResultUnwillingToPerform       ControlServerSideSortingResult = 53
+	ControlServerSideSortingResultOther                    ControlServerSideSortingResult = 80
+)
+
+var ControlServerSideSortingResults = []ControlServerSideSortingResult{
+	ControlServerSideSortingResultSuccess,
+	ControlServerSideSortingResultOperationsError,
+	ControlServerSideSortingResultTimeLimitExceeded,
+	ControlServerSideSortingResultStrongAuthRequired,
+	ControlServerSideSortingResultAdminLimitExceeded,
+	ControlServerSideSortingResultNoSuchAttribute,
+	ControlServerSideSortingResultInappropriateMatching,
+	ControlServerSideSortingResultInsufficientAccessRights,
+	ControlServerSideSortingResultBusy,
+	ControlServerSideSortingResultUnwillingToPerform,
+	ControlServerSideSortingResultOther,
+}
+
+type ControlServerSideSortingResponse struct {
+	Criticality bool
+
+	Result ControlServerSideSortingResult
+	// Not populated for now. I can't get openldap to send me this value, so I think this is specific to other directory server
+	// AttributeType string
+}
+
+func (c *ControlServerSideSortingResponse) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q) Criticality:%t ResultCode:%+v",
+		"Server Side Sorting Result",
+		c.GetControlType(),
+		c.Criticality,
+		c.Result,
+	)
+}
+
+func (c *ControlServerSideSortingResponse) GetControlType() string {
+	return ControlTypeServerSideSorting
+}
+
+func (c *ControlServerSideSortingResponse) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortResult sequence")
+	sortResult := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(c.Result), "SortResult")
+
+	packet.AppendChild(sortResult)
+	return packet
+}
+
+type ControlServerSideSortingSortKey struct {
+	Reverse       bool
+	AttributeType string
+	MatchingRule  string
+}
+
+// ControlServerSideSortingRequest implements the server side sorting control described in rfc2891
+type ControlServerSideSortingRequest struct {
+	SortKeyList []*ControlServerSideSortingSortKey
+}
+
+// GetControlType returns the OID
+func (c *ControlServerSideSortingRequest) GetControlType() string {
+	return "1.2.840.113556.1.4.473"
+}
+
+// Encode returns the ber packet representation
+func (c *ControlServerSideSortingRequest) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	control := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.GetControlType(), "Control Type")
+
+	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value")
+	seqs := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKeyList")
+
+	for _, f := range c.SortKeyList {
+		seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+
+		seq.AppendChild(
+			ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, f.AttributeType, "attributeType"),
+		)
+		seq.AppendChild(
+			ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
+		)
+		if f.Reverse {
+			seq.AppendChild(
+				ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 1, f.Reverse, "reverseOrder"),
+			)
+		}
+
+		seqs.AppendChild(seq)
+	}
+
+	value.AppendChild(seqs)
+
+	packet.AppendChild(control)
+	packet.AppendChild(value)
+	return packet
+}
+
+// String returns a human-readable description
+func (c *ControlServerSideSortingRequest) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality:%t %+v",
+		"Server Side Sorting",
+		ControlTypePaging,
+		false,
+		c.SortKeyList,
+	)
 }
