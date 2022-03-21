@@ -264,3 +264,34 @@ func TestDNAncestor(t *testing.T) {
 		}
 	}
 }
+
+func TestAppendDN(t *testing.T) {
+	testcases := []struct {
+		baseDN   string
+		rootDN   string
+		expected string
+	}{
+		{
+			baseDN:   "ou=A",
+			rootDN:   "dc=ldap,dc=internal",
+			expected: "ou=A,dc=ldap,dc=internal",
+		},
+		{
+			baseDN:   "ou=A,dc=ldap,dc=internal",
+			rootDN:   "",
+			expected: "ou=A,dc=ldap,dc=internal",
+		},
+		{
+			baseDN:   "",
+			rootDN:   "dc=ldap,dc=internal",
+			expected: "dc=ldap,dc=internal",
+		},
+	}
+
+	for i, tc := range testcases {
+		result := appendDN(tc.baseDN, tc.rootDN)
+		if result != tc.expected {
+			t.Errorf("#%d, expected %s, getting: %s", i, tc.expected, result)
+		}
+	}
+}

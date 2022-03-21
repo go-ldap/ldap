@@ -268,3 +268,19 @@ func (r *RelativeDN) hasAllAttributesFold(attrs []*AttributeTypeAndValue) bool {
 func (a *AttributeTypeAndValue) EqualFold(other *AttributeTypeAndValue) bool {
 	return strings.EqualFold(a.Type, other.Type) && strings.EqualFold(a.Value, other.Value)
 }
+
+// appendDN is for concat the baseDN and rootDN
+// baseDN stand for user input dn in request
+// rootDN stand for dn used during discovery
+func appendDN(baseDN, rootDN string) string {
+	if rootDN != "" {
+		var baseDnBuilder strings.Builder
+		if baseDN != "" {
+			baseDnBuilder.WriteString(baseDN)
+			baseDnBuilder.WriteByte(',')
+		}
+		baseDnBuilder.WriteString(rootDN)
+		return baseDnBuilder.String()
+	}
+	return baseDN
+}

@@ -33,6 +33,13 @@ type AddRequest struct {
 	Controls []Control
 }
 
+func (req *AddRequest) appendBaseDN(dn string) appendDnRequest {
+	r2 := new(AddRequest)
+	*r2 = *req
+	r2.DN = appendDN(req.DN, dn)
+	return r2
+}
+
 func (req *AddRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationAddRequest, nil, "Add Request")
 	pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, req.DN, "DN"))

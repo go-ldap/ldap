@@ -25,6 +25,14 @@ var attributes = []string{
 	"description",
 }
 
+func TestDialURLViaDiscovery(t *testing.T) {
+	l, err := DialURL("ldap:///dc=umich,dc=edu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+}
+
 func TestUnsecureDialURL(t *testing.T) {
 	l, err := DialURL(ldapServer)
 	if err != nil {

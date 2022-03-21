@@ -17,6 +17,11 @@ type request interface {
 	appendTo(*ber.Packet) error
 }
 
+type appendDnRequest interface {
+	request
+	appendBaseDN(dn string) appendDnRequest
+}
+
 type requestFunc func(*ber.Packet) error
 
 func (f requestFunc) appendTo(p *ber.Packet) error {
@@ -30,6 +35,10 @@ func (l *Conn) doRequest(req request) (*messageContext, error) {
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
+
+	if areq, ok := req.(appendDnRequest); ok {
+		req = areq.appendBaseDN(l.rootDN)
+	}
 	if err := req.appendTo(packet); err != nil {
 		return nil, err
 	}

@@ -12,6 +12,13 @@ type DelRequest struct {
 	Controls []Control
 }
 
+func (req *DelRequest) appendBaseDN(dn string) appendDnRequest {
+	r2 := new(DelRequest)
+	*r2 = *req
+	r2.DN = appendDN(req.DN, dn)
+	return r2
+}
+
 func (req *DelRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypePrimitive, ApplicationDelRequest, req.DN, "Del Request")
 	pkt.Data.Write([]byte(req.DN))

@@ -82,6 +82,13 @@ func (req *ModifyRequest) appendChange(operation uint, attrType string, attrVals
 	req.Changes = append(req.Changes, Change{operation, PartialAttribute{Type: attrType, Vals: attrVals}})
 }
 
+func (req *ModifyRequest) appendBaseDN(dn string) appendDnRequest {
+	r2 := new(ModifyRequest)
+	*r2 = *req
+	r2.DN = appendDN(req.DN, dn)
+	return r2
+}
+
 func (req *ModifyRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationModifyRequest, nil, "Modify Request")
 	pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, req.DN, "DN"))

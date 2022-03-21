@@ -40,7 +40,7 @@ func NewModifyDNRequest(dn string, rdn string, delOld bool, newSup string) *Modi
 //
 // Refer NewModifyDNRequest for other parameters
 func NewModifyDNWithControlsRequest(dn string, rdn string, delOld bool,
-		newSup string, controls []Control) *ModifyDNRequest {
+	newSup string, controls []Control) *ModifyDNRequest {
 	return &ModifyDNRequest{
 		DN:           dn,
 		NewRDN:       rdn,
@@ -48,6 +48,13 @@ func NewModifyDNWithControlsRequest(dn string, rdn string, delOld bool,
 		NewSuperior:  newSup,
 		Controls:     controls,
 	}
+}
+
+func (req *ModifyDNRequest) appendBaseDN(dn string) appendDnRequest {
+	r2 := new(ModifyDNRequest)
+	*r2 = *req
+	r2.DN = appendDN(req.DN, dn)
+	return r2
 }
 
 func (req *ModifyDNRequest) appendTo(envelope *ber.Packet) error {

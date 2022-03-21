@@ -231,6 +231,13 @@ type SearchRequest struct {
 	Controls     []Control
 }
 
+func (req *SearchRequest) appendBaseDN(dn string) appendDnRequest {
+	r2 := new(SearchRequest)
+	*r2 = *req
+	r2.BaseDN = appendDN(req.BaseDN, dn)
+	return r2
+}
+
 func (req *SearchRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchRequest, nil, "Search Request")
 	pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, req.BaseDN, "Base DN"))
