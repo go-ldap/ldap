@@ -2,7 +2,6 @@ package ldap
 
 import (
 	"errors"
-	"log"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -127,7 +126,7 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 			return err
 		}
 	} else {
-		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
+		logger.Printf("Unexpected Response: %d", packet.Children[1].Tag)
 	}
 	return nil
 }

@@ -1,8 +1,6 @@
 package ldap
 
 import (
-	"log"
-
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -42,7 +40,7 @@ func NewModifyDNRequest(dn string, rdn string, delOld bool, newSup string) *Modi
 //
 // Refer NewModifyDNRequest for other parameters
 func NewModifyDNWithControlsRequest(dn string, rdn string, delOld bool,
-	newSup string, controls []Control) *ModifyDNRequest {
+		newSup string, controls []Control) *ModifyDNRequest {
 	return &ModifyDNRequest{
 		DN:           dn,
 		NewRDN:       rdn,
@@ -94,7 +92,7 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 			return err
 		}
 	} else {
-		log.Printf("Unexpected Response: %d", packet.Children[1].Tag)
+		logger.Printf("Unexpected Response: %d", packet.Children[1].Tag)
 	}
 	return nil
 }
