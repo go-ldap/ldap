@@ -83,7 +83,7 @@ var BeheraPasswordPolicyErrorMap = map[int8]string{
 	BeheraPasswordInHistory:           "New password is in list of old passwords",
 }
 
-var logger = log.Default()
+var logger = log.New(os.Stderr, "", log.LstdFlags)
 
 // Logger allows clients to override the default logger
 func Logger(l *log.Logger) {
