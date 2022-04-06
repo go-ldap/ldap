@@ -7,18 +7,23 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-const ldapServer = "ldap://ldap.itd.umich.edu:389"
-const ldapsServer = "ldaps://ldap.itd.umich.edu:636"
-const baseDN = "dc=umich,dc=edu"
+const (
+	ldapServer  = "ldap://ldap.itd.umich.edu:389"
+	ldapsServer = "ldaps://ldap.itd.umich.edu:636"
+	baseDN      = "dc=umich,dc=edu"
+)
 
 var filter = []string{
 	"(cn=cis-fac)",
 	"(&(owner=*)(cn=cis-fac))",
 	"(&(objectclass=rfc822mailgroup)(cn=*Computer*))",
-	"(&(objectclass=rfc822mailgroup)(cn=*Mathematics*))"}
+	"(&(objectclass=rfc822mailgroup)(cn=*Mathematics*))",
+}
+
 var attributes = []string{
 	"cn",
-	"description"}
+	"description",
+}
 
 func TestUnsecureDialURL(t *testing.T) {
 	l, err := DialURL(ldapServer)
@@ -168,7 +173,7 @@ func TestSearchWithPaging(t *testing.T) {
 		filter[2],
 		attributes,
 		[]Control{NewControlPaging(500)})
-	sr, err = l.SearchWithPaging(searchRequest, 5)
+	_, err = l.SearchWithPaging(searchRequest, 5)
 	if err == nil {
 		t.Fatal("expected an error when paging size in control in search request doesn't match size given in call, got none")
 	}

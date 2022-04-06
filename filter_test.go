@@ -214,7 +214,6 @@ func TestFilter(t *testing.T) {
 }
 
 func TestDecodeEscapedSymbols(t *testing.T) {
-
 	for _, testInfo := range []struct {
 		Src string
 		Err string
@@ -271,7 +270,7 @@ func BenchmarkFilterCompile(b *testing.B) {
 	maxIdx := len(filters)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		CompileFilter(filters[i%maxIdx])
+		_, _ = CompileFilter(filters[i%maxIdx])
 	}
 }
 
@@ -287,6 +286,6 @@ func BenchmarkFilterDecompile(b *testing.B) {
 	maxIdx := len(filters)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		DecompileFilter(filters[i%maxIdx])
+		_, _ = DecompileFilter(filters[i%maxIdx])
 	}
 }
