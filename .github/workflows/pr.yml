@@ -11,10 +11,11 @@ jobs:
     strategy:
       matrix:
         go: [
+          '1.18',
+          '1.17',
           '1.16',
           '1.15',
           '1.14',
-          '1.13',
         ]
         branch: [ '.', './v3' ]
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.branch }} (Modules)
@@ -35,40 +36,6 @@ jobs:
           go test -cover -race -cpu 1,2,4 .
           go build .
 
-  golegacy:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go: [
-          '1.10',
-          '1.9',
-          '1.8',
-          '1.7',
-        ]
-    name: Go ${{ matrix.go }}.x PR Validate (Legacy)
-    env:
-      GOPATH: /home/runner/go
-      LDAP_PACKAGE: github.com/go-ldap/ldap
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-          path: go/src/github.com/go-ldap/ldap
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Version
-        run: go version
-      - name: Build and Validate
-        run: |
-          go get -v -u ${LDAP_PACKAGE}/...
-          go vet ${LDAP_PACKAGE}
-          go test ${LDAP_PACKAGE}
-          go test -cover -race -cpu 1,2,4 ${LDAP_PACKAGE}
-          go build ${LDAP_PACKAGE}
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -77,6 +44,6 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.33
+          version: v1.45
           only-new-issues: true
 
