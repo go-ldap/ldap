@@ -49,7 +49,7 @@ func TestUnresponsiveConnection(t *testing.T) {
 	if !ok {
 		t.Fatalf("no PacketResponse in response channel")
 	}
-	packet, err = packetResponse.ReadPacket()
+	_, err = packetResponse.ReadPacket()
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
