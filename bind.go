@@ -445,7 +445,7 @@ func (l *Conn) NTLMBind(domain, username, password string) error {
 	return err
 }
 
-// UnauthenticatedBind performs an unauthenticated bind.
+// NTLMUnauthenticatedBind performs an unauthenticated bind.
 //
 // A username may be provided for trace (e.g. logging) purpose only, but it is normally not
 // authenticated or otherwise validated by the LDAP server.
