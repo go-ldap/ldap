@@ -399,6 +399,9 @@ type NTLMBindRequest struct {
 	Username string
 	// Password is the credentials to bind with
 	Password string
+	// AllowEmptyPassword sets whether the client allows binding with an empty password
+	// (normally used for unauthenticated bind).
+	AllowEmptyPassword bool
 	// Hash is the hex NTLM hash to bind with. Password or hash must be provided
 	Hash string
 	// Controls are optional controls to send with the bind request
@@ -442,6 +445,24 @@ func (l *Conn) NTLMBind(domain, username, password string) error {
 	return err
 }
 
+// NTLMUnauthenticatedBind performs an unauthenticated bind.
+//
+// A username may be provided for trace (e.g. logging) purpose only, but it is normally not
+// authenticated or otherwise validated by the LDAP server.
+//
+// See https://tools.ietf.org/html/rfc4513#section-5.1.2 .
+// See https://tools.ietf.org/html/rfc4513#section-6.3.1 .
+func (l *Conn) NTLMUnauthenticatedBind(domain, username string) error {
+	req := &NTLMBindRequest{
+		Domain:             domain,
+		Username:           username,
+		Password:           "",
+		AllowEmptyPassword: true,
+	}
+	_, err := l.NTLMChallengeBind(req)
+	return err
+}
+
 // NTLMBindWithHash performs an NTLM Bind with an NTLM hash instead of plaintext password (pass-the-hash)
 func (l *Conn) NTLMBindWithHash(domain, username, hash string) error {
 	req := &NTLMBindRequest{
@@ -455,7 +476,7 @@ func (l *Conn) NTLMBindWithHash(domain, username, hash string) error {
 
 // NTLMChallengeBind performs the NTLMSSP bind operation defined in the given request
 func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindResult, error) {
-	if ntlmBindRequest.Password == "" && ntlmBindRequest.Hash == "" {
+	if !ntlmBindRequest.AllowEmptyPassword && ntlmBindRequest.Password == "" && ntlmBindRequest.Hash == "" {
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
@@ -496,10 +517,10 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		var err error
 		var responseMessage []byte
 		// generate a response message to the challenge with the given Username/Password if password is provided
-		if ntlmBindRequest.Password != "" {
-			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password)
-		} else if ntlmBindRequest.Hash != "" {
+		if ntlmBindRequest.Hash != "" {
 			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
+		} else if ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword {
+			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password)
 		} else {
 			err = fmt.Errorf("need a password or hash to generate reply")
 		}
