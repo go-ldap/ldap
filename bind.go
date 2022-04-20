@@ -450,8 +450,7 @@ func (l *Conn) NTLMBind(domain, username, password string) error {
 // A username may be provided for trace (e.g. logging) purpose only, but it is normally not
 // authenticated or otherwise validated by the LDAP server.
 //
-// See https://tools.ietf.org/html/rfc4513#section-5.1.2 .
-// See https://tools.ietf.org/html/rfc4513#section-6.3.1 .
+// See https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4 part 3.2.5.1.2
 func (l *Conn) NTLMUnauthenticatedBind(domain, username string) error {
 	req := &NTLMBindRequest{
 		Domain:             domain,
