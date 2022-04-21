@@ -1,6 +1,6 @@
 module github.com/go-ldap/ldap
 
-go 1.13
+go 1.14
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e
