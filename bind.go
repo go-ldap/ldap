@@ -445,10 +445,9 @@ func (l *Conn) NTLMBind(domain, username, password string) error {
 	return err
 }
 
-// NTLMUnauthenticatedBind performs an unauthenticated bind.
+// NTLMUnauthenticatedBind performs an bind with an empty password.
 //
-// A username may be provided for trace (e.g. logging) purpose only, but it is normally not
-// authenticated or otherwise validated by the LDAP server.
+// A username is required. The anonymous bind is not (yet) supported by the go-ntlmssp library (https://github.com/Azure/go-ntlmssp/blob/819c794454d067543bc61d29f61fef4b3c3df62c/authenticate_message.go#L87)
 //
 // See https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4 part 3.2.5.1.2
 func (l *Conn) NTLMUnauthenticatedBind(domain, username string) error {
