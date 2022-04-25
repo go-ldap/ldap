@@ -32,6 +32,10 @@ func TestControlMicrosoftServerLinkTTL(t *testing.T) {
 	runControlTest(t, NewControlMicrosoftServerLinkTTL())
 }
 
+func TestControlSubtreeDelete(t *testing.T) {
+	runControlTest(t, NewControlSubtreeDelete())
+}
+
 func TestControlString(t *testing.T) {
 	runControlTest(t, NewControlString("x", true, "y"))
 	runControlTest(t, NewControlString("x", true, ""))
@@ -87,6 +91,10 @@ func TestDescribeControlManageDsaIT(t *testing.T) {
 func TestDescribeControlPaging(t *testing.T) {
 	runAddControlDescriptions(t, NewControlPaging(100), "Control Type (Paging)", "Control Value (Paging)")
 	runAddControlDescriptions(t, NewControlPaging(0), "Control Type (Paging)", "Control Value (Paging)")
+}
+
+func TestDescribeControlSubtreeDelete(t *testing.T) {
+	runAddControlDescriptions(t, NewControlSubtreeDelete(), "Control Type (Subtree Delete Control)")
 }
 
 func TestDescribeControlMicrosoftNotification(t *testing.T) {
