@@ -12,11 +12,14 @@ type Client interface {
 	Close()
 	IsClosing() bool
 	SetTimeout(time.Duration)
+	TLSConnectionState() (tls.ConnectionState, bool)
 
 	Bind(username, password string) error
 	UnauthenticatedBind(username string) error
 	SimpleBind(*SimpleBindRequest) (*SimpleBindResult, error)
 	ExternalBind() error
+	NTLMUnauthenticatedBind(domain, username string) error
+	Unbind() error
 
 	Add(*AddRequest) error
 	Del(*DelRequest) error
