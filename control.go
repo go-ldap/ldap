@@ -20,6 +20,8 @@ const (
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
 	// ControlTypeWhoAmI - https://tools.ietf.org/html/rfc4532
 	ControlTypeWhoAmI = "1.3.6.1.4.1.4203.1.11.3"
+	// ControlTypeSubTreeDelete - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
+	ControlTypeSubtreeDelete = "1.2.840.113556.1.4.805"
 
 	// ControlTypeMicrosoftNotification - https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
 	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
@@ -34,6 +36,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypePaging:                 "Paging",
 	ControlTypeBeheraPasswordPolicy:   "Password Policy - Behera Draft",
 	ControlTypeManageDsaIT:            "Manage DSA IT",
+	ControlTypeSubtreeDelete:          "Subtree Delete Control",
 	ControlTypeMicrosoftNotification:  "Change Notification - Microsoft",
 	ControlTypeMicrosoftShowDeleted:   "Show Deleted Objects - Microsoft",
 	ControlTypeMicrosoftServerLinkTTL: "Return TTL-DNs for link values with associated expiry times - Microsoft",
@@ -485,6 +488,8 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftShowDeleted(), nil
 	case ControlTypeMicrosoftServerLinkTTL:
 		return NewControlMicrosoftServerLinkTTL(), nil
+	case ControlTypeSubtreeDelete:
+		return NewControlSubtreeDelete(), nil
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -517,6 +522,30 @@ func NewControlBeheraPasswordPolicy() *ControlBeheraPasswordPolicy {
 		Grace:  -1,
 		Error:  -1,
 	}
+}
+
+type ControlSubtreeDelete struct{}
+
+func (c *ControlSubtreeDelete) GetControlType() string {
+	return ControlTypeSubtreeDelete
+}
+
+func NewControlSubtreeDelete() *ControlSubtreeDelete {
+	return &ControlSubtreeDelete{}
+}
+
+func (c *ControlSubtreeDelete) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeSubtreeDelete, "Control Type ("+ControlTypeMap[ControlTypeSubtreeDelete]+")"))
+
+	return packet
+}
+
+func (c *ControlSubtreeDelete) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)",
+		ControlTypeMap[ControlTypeSubtreeDelete],
+		ControlTypeSubtreeDelete)
 }
 
 func encodeControls(controls []Control) *ber.Packet {
