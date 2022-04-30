@@ -389,13 +389,15 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 
 					for _, child := range packet.Children[1].Children {
 						if child.Tag == 3 && len(child.Children) >= 1 {
-							if referral, ok = child.Children[0].Value.(string); !ok {
-								continue
+							referral, ok = child.Children[0].Value.(string)
+
+							if ok {
+								break
 							}
 						}
 					}
 
-					if referral != "" {
+					if ok {
 						result.Referrals = append(result.Referrals, referral)
 						continue
 					}
