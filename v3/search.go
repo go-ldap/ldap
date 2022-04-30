@@ -405,6 +405,16 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 
 				return result, err
 			}
+			if len(packet.Children) == 3 {
+				for _, child := range packet.Children[2].Children {
+					decodedChild, err := DecodeControl(child)
+					if err != nil {
+						return result, fmt.Errorf("failed to decode child control: %s", err)
+					}
+					result.Controls = append(result.Controls, decodedChild)
+				}
+			}
+			return result, nil
 		case ApplicationSearchResultReference:
 			if len(packet.Children) >= 2 && len(packet.Children[1].Children) >= 1 {
 				result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
