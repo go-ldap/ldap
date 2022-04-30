@@ -135,6 +135,8 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 type ModifyResult struct {
 	// Controls are the returned controls
 	Controls []Control
+	// Referral is the returned referral
+	Referral string
 }
 
 // ModifyWithResult performs the ModifyRequest and returns the result
@@ -159,7 +161,15 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 	case ApplicationModifyResponse:
 		err := GetLDAPError(packet)
 		if err != nil {
-			return nil, err
+			if IsErrorWithCode(err, LDAPResultReferral) {
+				for _, child := range packet.Children[1].Children {
+					if child.Tag == 3 {
+						result.Referral = child.Children[0].Value.(string)
+					}
+				}
+			}
+
+			return result, err
 		}
 		if len(packet.Children) == 3 {
 			for _, child := range packet.Children[2].Children {
