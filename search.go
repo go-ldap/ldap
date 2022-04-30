@@ -372,15 +372,35 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 		}
 
 		switch packet.Children[1].Tag {
-		case 4:
+		case ApplicationSearchResultEntry:
 			entry := &Entry{
 				DN:         packet.Children[1].Children[0].Value.(string),
 				Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
 			}
 			result.Entries = append(result.Entries, entry)
-		case 5:
+		case ApplicationSearchResultDone:
 			err := GetLDAPError(packet)
 			if err != nil {
+				if IsErrorWithCode(err, LDAPResultReferral) && len(packet.Children) >= 2 {
+					var (
+						referral string
+						ok       bool
+					)
+
+					for _, child := range packet.Children[1].Children {
+						if child.Tag == 3 && len(child.Children) >= 1 {
+							if referral, ok = child.Children[0].Value.(string); !ok {
+								continue
+							}
+						}
+					}
+
+					if referral != "" {
+						result.Referrals = append(result.Referrals, referral)
+						continue
+					}
+				}
+
 				return result, err
 			}
 			if len(packet.Children) == 3 {
@@ -393,8 +413,10 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				}
 			}
 			return result, nil
-		case 19:
-			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+		case ApplicationSearchResultReference:
+			if len(packet.Children) >= 2 && len(packet.Children[1].Children) >= 1 {
+				result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+			}
 		}
 	}
 }
