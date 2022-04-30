@@ -97,18 +97,7 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
 		err := GetLDAPError(packet)
 		if err != nil {
-			if IsErrorWithCode(err, LDAPResultReferral) && len(packet.Children) >= 2 {
-				for _, child := range packet.Children[1].Children {
-					if child.Tag == ber.TagBitString && len(child.Children) >= 1 {
-						referral, ok := child.Children[0].Value.(string)
-						if ok {
-							result.Referral = referral
-
-							break
-						}
-					}
-				}
-			}
+			result.Referral = getReferral(err, packet)
 
 			return result, err
 		}

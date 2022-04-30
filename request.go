@@ -69,3 +69,21 @@ func (l *Conn) readPacket(msgCtx *messageContext) (*ber.Packet, error) {
 	}
 	return packet, nil
 }
+
+func getReferral(err error, packet *ber.Packet) (referral string) {
+	var ok bool
+
+	if !IsErrorWithCode(err, LDAPResultReferral) || len(packet.Children) < 2 {
+		return ""
+	}
+
+	for _, child := range packet.Children[1].Children {
+		if child.Tag == ber.TagBitString && len(child.Children) >= 1 {
+			if referral, ok = child.Children[0].Value.(string); ok {
+				return referral
+			}
+		}
+	}
+
+	return ""
+}
