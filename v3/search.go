@@ -388,7 +388,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 					)
 
 					for _, child := range packet.Children[1].Children {
-						if child.Tag == 3 && len(child.Children) >= 1 {
+						if child.Tag == ber.TagBitString && len(child.Children) >= 1 {
 							referral, ok = child.Children[0].Value.(string)
 
 							if ok {
