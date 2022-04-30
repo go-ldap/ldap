@@ -163,13 +163,13 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 		if err != nil {
 			if IsErrorWithCode(err, LDAPResultReferral) && len(packet.Children) >= 2 {
 				for _, child := range packet.Children[1].Children {
-					if child.Tag == 3 && len(child.Children) >= 1 {
+					if child.Tag == ber.TagBitString && len(child.Children) >= 1 {
 						referral, ok := child.Children[0].Value.(string)
-						if !ok {
-							continue
-						}
+						if ok {
+							result.Referral = referral
 
-						result.Referral = referral
+							break
+						}
 					}
 				}
 			}
