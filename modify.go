@@ -161,10 +161,15 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 	case ApplicationModifyResponse:
 		err := GetLDAPError(packet)
 		if err != nil {
-			if IsErrorWithCode(err, LDAPResultReferral) {
+			if IsErrorWithCode(err, LDAPResultReferral) && len(packet.Children) >= 2 {
 				for _, child := range packet.Children[1].Children {
-					if child.Tag == 3 {
-						result.Referral = child.Children[0].Value.(string)
+					if child.Tag == 3 && len(child.Children) >= 1 {
+						referral, ok := child.Children[0].Value.(string)
+						if !ok {
+							continue
+						}
+
+						result.Referral = referral
 					}
 				}
 			}
