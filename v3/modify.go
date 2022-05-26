@@ -159,9 +159,12 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 
 	switch packet.Children[1].Tag {
 	case ApplicationModifyResponse:
-		err := GetLDAPError(packet)
-		if err != nil {
-			result.Referral = getReferral(err, packet)
+		if err = GetLDAPError(packet); err != nil {
+			if referral, referralErr := getReferral(err, packet); referralErr != nil {
+				return result, err
+			} else {
+				result.Referral = referral
+			}
 
 			return result, err
 		}
