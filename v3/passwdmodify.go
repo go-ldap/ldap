@@ -97,7 +97,7 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
 		if err = GetLDAPError(packet); err != nil {
 			if referral, referralErr := getReferral(err, packet); referralErr != nil {
-				return result, err
+				return result, referralErr
 			} else {
 				result.Referral = referral
 			}

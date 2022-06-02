@@ -161,7 +161,7 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 	case ApplicationModifyResponse:
 		if err = GetLDAPError(packet); err != nil {
 			if referral, referralErr := getReferral(err, packet); referralErr != nil {
-				return result, err
+				return result, referralErr
 			} else {
 				result.Referral = referral
 			}
