@@ -95,15 +95,13 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	result := &PasswordModifyResult{}
 
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
-		err := GetLDAPError(packet)
-		if err != nil {
-			if IsErrorWithCode(err, LDAPResultReferral) {
-				for _, child := range packet.Children[1].Children {
-					if child.Tag == 3 {
-						result.Referral = child.Children[0].Value.(string)
-					}
-				}
+		if err = GetLDAPError(packet); err != nil {
+			if referral, referralErr := getReferral(err, packet); referralErr != nil {
+				return result, referralErr
+			} else {
+				result.Referral = referral
 			}
+
 			return result, err
 		}
 	} else {
@@ -112,10 +110,10 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	extendedResponse := packet.Children[1]
 	for _, child := range extendedResponse.Children {
-		if child.Tag == 11 {
+		if child.Tag == ber.TagEmbeddedPDV {
 			passwordModifyResponseValue := ber.DecodePacket(child.Data.Bytes())
 			if len(passwordModifyResponseValue.Children) == 1 {
-				if passwordModifyResponseValue.Children[0].Tag == 0 {
+				if passwordModifyResponseValue.Children[0].Tag == ber.TagEOC {
 					result.GeneratedPassword = ber.DecodeString(passwordModifyResponseValue.Children[0].Data.Bytes())
 				}
 			}
