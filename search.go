@@ -253,10 +253,8 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			for _, item := range values {
 				fv.Set(reflect.Append(fv, reflect.ValueOf(item)))
 			}
-			break
 		case string:
 			fv.SetString(values[0])
-			break
 		default:
 			return fmt.Errorf("ldap: expected field to be of type string or []string, got %v", ft.Type)
 		}
