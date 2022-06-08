@@ -101,7 +101,7 @@ func ParseDN(str string) (*DN, error) {
 				buffer.WriteString(packet.Data.String())
 				i += len(data) - 1
 			}
-		case char == ',' || char == '+':
+		case char == ',' || char == '+' || char == ';':
 			// We're done with this RDN or value, push it
 			if len(attribute.Type) == 0 {
 				return nil, errors.New("incomplete type, value pair")
@@ -109,7 +109,7 @@ func ParseDN(str string) (*DN, error) {
 			attribute.Value = stringFromBuffer()
 			rdn.Attributes = append(rdn.Attributes, attribute)
 			attribute = new(AttributeTypeAndValue)
-			if char == ',' {
+			if char == ',' || char == ';' {
 				dn.RDNs = append(dn.RDNs, rdn)
 				rdn = new(RelativeDN)
 				rdn.Attributes = make([]*AttributeTypeAndValue, 0)
