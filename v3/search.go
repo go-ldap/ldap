@@ -182,7 +182,37 @@ func readTag(f reflect.StructField) (string, bool) {
 	return opts[0], omit
 }
 
-// Unmarshal take an struct to be filled with entry result
+// Unmarshal parses the Entry in the value pointed to by i
+//
+// Currently, this methods only supports struct fields of type
+// string or []string. Other field types will not be regarded.
+// If the field type is a string but multiple attribute values
+// are returned, the first value will be used to fill the field.
+//
+// Example:
+//	type UserEntry struct {
+//		// Fields with the tag key `dn` are automatically filled with the
+//		// objects distinguishedName. This can be used multiple times.
+//		DN string `ldap:"dn"`
+//
+//		// This field will be filled with the attribute value for
+//		// userPrincipalName. An attribute can be read into a struct field
+//		// multiple times. Missing attributes will not result in an error.
+//		UserPrincipalName string `ldap:"userPrincipalName"`
+//
+//		// memberOf may have multiple values. If you don't
+//		// know the amount of attribute values at runtime, use a string array.
+//		MemberOf []string `ldap:"memberOf"`
+//
+//		// This won't work, as the field is not of type string. For this
+//		// to work, you'll have to temporarily store the result in string
+// 		// (or string array) and convert it to the desired type afterwards.
+//		UserAccountControl uint32 `ldap:"userPrincipalName"`
+//	}
+//	user := UserEntry{}
+//	if err := result.Unmarshal(&user); err != nil {
+//		// ...
+//	}
 func (e *Entry) Unmarshal(i interface{}) (err error) {
 	// Make sure it's a ptr
 	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
