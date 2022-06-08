@@ -162,11 +162,13 @@ func (e *Entry) PrettyPrint(indent int) {
 	}
 }
 
-// Describe the tag to use for struct annotation
+// Describe the tag to use for struct field tags
 const decoderTagName = "ldap"
 
-// Read Struct Field to return the associated Tag name
-// omitempty can be specified
+// readTag will read the a reflect.StructField value for
+// the key defined in decoderTagName. If omitempty is
+// specified, the field may not be filled when using this
+// function to fill fields (e.g. Marshal)
 func readTag(f reflect.StructField) (string, bool) {
 	val, ok := f.Tag.Lookup(decoderTagName)
 	if !ok {
@@ -183,61 +185,50 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal take an struct to be filled with entry result
 func (e *Entry) Unmarshal(i interface{}) (err error) {
 	// Make sure it's a ptr
-	if reflect.ValueOf(i).Kind() != reflect.Ptr {
-		return fmt.Errorf("expecting a ptr not %s", reflect.ValueOf(i).Kind())
-
+	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
+		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
 	}
-	// Get ptr value and type
-	v, t := reflect.ValueOf(i).Elem(), reflect.TypeOf(i).Elem()
 
+	sv, st := reflect.ValueOf(i).Elem(), reflect.TypeOf(i).Elem()
 	// Make sure it's pointing to a struct
-	if v.Kind() != reflect.Struct {
-		return fmt.Errorf("expecting a ptr to a struct not %s", v.Kind())
+	if sv.Kind() != reflect.Struct {
+		return fmt.Errorf("ldap: expected pointer to a struct, got %s", sv.Kind())
 	}
 
-	// Go trough all the struct fields
-	for n := 0; n < t.NumField(); n++ {
-		// Holds field value and type
-		fv, ft := v.Field(n), t.Field(n)
+	for n := 0; n < st.NumField(); n++ {
+		// Holds struct field value and type
+		fv, ft := sv.Field(n), st.Field(n)
+
 		// skip unexported fields
 		if ft.PkgPath != "" {
 			continue
 		}
 
-		// Read tag from field type
-		tag, _ := readTag(ft)
+		// omitempty can be safely discarded, as it's not needed when unmarshalling
+		fieldTag, _ := readTag(ft)
 
-		// All entry have dn
-		if tag == "dn" {
+		// Fill the field with the distinguishedName if the tag key is `dn`
+		if fieldTag == "dn" {
 			fv.SetString(e.DN)
 			continue
 		}
 
-		// Go trough other attributes
-		for _, attr := range e.Attributes {
+		values := e.GetAttributeValues(fieldTag)
+		if len(values) == 0 {
+			continue
+		}
 
-			// Match attributes
-			if attr.Name == tag {
-
-				// Result is empty
-				if len(attr.Values) == 0 {
-					continue
-				}
-
-				// Result is a string
-				if len(attr.Values) == 1 && fv.Kind() == reflect.String {
-					fv.SetString(attr.Values[0])
-					continue
-				}
-
-				// Result is a slice
-				if len(attr.Values) > 1 && fv.Kind() == reflect.Slice {
-					for _, item := range attr.Values {
-						fv.Set(reflect.Append(fv, reflect.ValueOf(item)))
-					}
-				}
-
+		switch fv.Interface().(type) {
+		case []string:
+			for _, item := range values {
+				fv.Set(reflect.Append(fv, reflect.ValueOf(item)))
 			}
+			break
+		case string:
+			fv.SetString(values[0])
+			break
+		default:
+			return fmt.Errorf("ldap: expected field to be of type string or []string, got %v", ft.Type)
 		}
 	}
 	return

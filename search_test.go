@@ -75,15 +75,17 @@ func TestEntry_Unmarshal(t *testing.T) {
 	t.Run("user struct be decoded", func(t *testing.T) {
 		entry := &Entry{
 			DN: "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
-			Attributes: []*EntryAttribute{{
-				Name:       "cn",
-				Values:     []string{"mario"},
-				ByteValues: nil,
-			}, {
-				Name:       "mail",
-				Values:     []string{"mario@go-ldap.com"},
-				ByteValues: nil,
-			},
+			Attributes: []*EntryAttribute{
+				{
+					Name:       "cn",
+					Values:     []string{"mario"},
+					ByteValues: nil,
+				},
+				{
+					Name:       "mail",
+					Values:     []string{"mario@go-ldap.com"},
+					ByteValues: nil,
+				},
 			},
 		}
 
@@ -93,7 +95,11 @@ func TestEntry_Unmarshal(t *testing.T) {
 			Mail string `ldap:"mail"`
 		}
 
-		expect := &User{Dn: "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com", Cn: "mario", Mail: "mario@go-ldap.com"}
+		expect := &User{
+			Dn:   "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
+			Cn:   "mario",
+			Mail: "mario@go-ldap.com",
+		}
 		result := &User{}
 		err := entry.Unmarshal(result)
 
@@ -105,15 +111,18 @@ func TestEntry_Unmarshal(t *testing.T) {
 	t.Run("group struct be decoded", func(t *testing.T) {
 		entry := &Entry{
 			DN: "cn=DREAM_TEAM,ou=Groups,dc=go-ldap,dc=github,dc=com",
-			Attributes: []*EntryAttribute{{
-				Name:       "cn",
-				Values:     []string{"DREAM_TEAM"},
-				ByteValues: nil,
-			}, {
-				Name:       "member",
-				Values:     []string{"mario", "luigi", "browser"},
-				ByteValues: nil,
-			}},
+			Attributes: []*EntryAttribute{
+				{
+					Name:       "cn",
+					Values:     []string{"DREAM_TEAM"},
+					ByteValues: nil,
+				},
+				{
+					Name:       "member",
+					Values:     []string{"mario", "luigi", "browser"},
+					ByteValues: nil,
+				},
+			},
 		}
 
 		type Group struct {
