@@ -165,10 +165,9 @@ func (e *Entry) PrettyPrint(indent int) {
 // Describe the tag to use for struct field tags
 const decoderTagName = "ldap"
 
-// readTag will read the a reflect.StructField value for
+// readTag will read the reflect.StructField value for
 // the key defined in decoderTagName. If omitempty is
-// specified, the field may not be filled when using this
-// function to fill fields (e.g. Marshal)
+// specified, the field may not be filled.
 func readTag(f reflect.StructField) (string, bool) {
 	val, ok := f.Tag.Lookup(decoderTagName)
 	if !ok {
