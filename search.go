@@ -3,6 +3,7 @@ package ldap
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -159,6 +160,105 @@ func (e *Entry) PrettyPrint(indent int) {
 	for _, attr := range e.Attributes {
 		attr.PrettyPrint(indent + 2)
 	}
+}
+
+// Describe the tag to use for struct field tags
+const decoderTagName = "ldap"
+
+// readTag will read the reflect.StructField value for
+// the key defined in decoderTagName. If omitempty is
+// specified, the field may not be filled.
+func readTag(f reflect.StructField) (string, bool) {
+	val, ok := f.Tag.Lookup(decoderTagName)
+	if !ok {
+		return f.Name, false
+	}
+	opts := strings.Split(val, ",")
+	omit := false
+	if len(opts) == 2 {
+		omit = opts[1] == "omitempty"
+	}
+	return opts[0], omit
+}
+
+// Unmarshal parses the Entry in the value pointed to by i
+//
+// Currently, this methods only supports struct fields of type
+// string or []string. Other field types will not be regarded.
+// If the field type is a string but multiple attribute values
+// are returned, the first value will be used to fill the field.
+//
+// Example:
+//	type UserEntry struct {
+//		// Fields with the tag key `dn` are automatically filled with the
+//		// objects distinguishedName. This can be used multiple times.
+//		DN string `ldap:"dn"`
+//
+//		// This field will be filled with the attribute value for
+//		// userPrincipalName. An attribute can be read into a struct field
+//		// multiple times. Missing attributes will not result in an error.
+//		UserPrincipalName string `ldap:"userPrincipalName"`
+//
+//		// memberOf may have multiple values. If you don't
+//		// know the amount of attribute values at runtime, use a string array.
+//		MemberOf []string `ldap:"memberOf"`
+//
+//		// This won't work, as the field is not of type string. For this
+//		// to work, you'll have to temporarily store the result in string
+// 		// (or string array) and convert it to the desired type afterwards.
+//		UserAccountControl uint32 `ldap:"userPrincipalName"`
+//	}
+//	user := UserEntry{}
+//	if err := result.Unmarshal(&user); err != nil {
+//		// ...
+//	}
+func (e *Entry) Unmarshal(i interface{}) (err error) {
+	// Make sure it's a ptr
+	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
+		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
+	}
+
+	sv, st := reflect.ValueOf(i).Elem(), reflect.TypeOf(i).Elem()
+	// Make sure it's pointing to a struct
+	if sv.Kind() != reflect.Struct {
+		return fmt.Errorf("ldap: expected pointer to a struct, got %s", sv.Kind())
+	}
+
+	for n := 0; n < st.NumField(); n++ {
+		// Holds struct field value and type
+		fv, ft := sv.Field(n), st.Field(n)
+
+		// skip unexported fields
+		if ft.PkgPath != "" {
+			continue
+		}
+
+		// omitempty can be safely discarded, as it's not needed when unmarshalling
+		fieldTag, _ := readTag(ft)
+
+		// Fill the field with the distinguishedName if the tag key is `dn`
+		if fieldTag == "dn" {
+			fv.SetString(e.DN)
+			continue
+		}
+
+		values := e.GetAttributeValues(fieldTag)
+		if len(values) == 0 {
+			continue
+		}
+
+		switch fv.Interface().(type) {
+		case []string:
+			for _, item := range values {
+				fv.Set(reflect.Append(fv, reflect.ValueOf(item)))
+			}
+		case string:
+			fv.SetString(values[0])
+		default:
+			return fmt.Errorf("ldap: expected field to be of type string or []string, got %v", ft.Type)
+		}
+	}
+	return
 }
 
 // NewEntryAttribute returns a new EntryAttribute with the desired key-value pair

@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -47,4 +48,100 @@ func TestGetAttributeValue(t *testing.T) {
 	if entry.GetEqualFoldAttributeValue("alpha") != "value" {
 		t.Errorf("failed to get attribute in changed case")
 	}
+}
+
+func TestEntry_Unmarshal(t *testing.T) {
+
+	t.Run("passing a struct should fail", func(t *testing.T) {
+		entry := &Entry{}
+
+		type toStruct struct{}
+
+		result := toStruct{}
+		err := entry.Unmarshal(result)
+
+		assert.NotNil(t, err)
+	})
+
+	t.Run("passing a ptr to string should fail", func(t *testing.T) {
+		entry := &Entry{}
+
+		str := "foo"
+		err := entry.Unmarshal(&str)
+
+		assert.NotNil(t, err)
+	})
+
+	t.Run("user struct be decoded", func(t *testing.T) {
+		entry := &Entry{
+			DN: "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
+			Attributes: []*EntryAttribute{
+				{
+					Name:       "cn",
+					Values:     []string{"mario"},
+					ByteValues: nil,
+				},
+				{
+					Name:       "mail",
+					Values:     []string{"mario@go-ldap.com"},
+					ByteValues: nil,
+				},
+			},
+		}
+
+		type User struct {
+			Dn   string `ldap:"dn"`
+			Cn   string `ldap:"cn"`
+			Mail string `ldap:"mail"`
+		}
+
+		expect := &User{
+			Dn:   "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
+			Cn:   "mario",
+			Mail: "mario@go-ldap.com",
+		}
+		result := &User{}
+		err := entry.Unmarshal(result)
+
+		assert.Nil(t, err)
+		assert.Equal(t, expect, result)
+
+	})
+
+	t.Run("group struct be decoded", func(t *testing.T) {
+		entry := &Entry{
+			DN: "cn=DREAM_TEAM,ou=Groups,dc=go-ldap,dc=github,dc=com",
+			Attributes: []*EntryAttribute{
+				{
+					Name:       "cn",
+					Values:     []string{"DREAM_TEAM"},
+					ByteValues: nil,
+				},
+				{
+					Name:       "member",
+					Values:     []string{"mario", "luigi", "browser"},
+					ByteValues: nil,
+				},
+			},
+		}
+
+		type Group struct {
+			DN      string   `ldap:"dn" yaml:"dn" json:"dn"`
+			CN      string   `ldap:"cn" yaml:"cn" json:"cn"`
+			Members []string `ldap:"member"`
+		}
+
+		expect := &Group{
+			DN:      "cn=DREAM_TEAM,ou=Groups,dc=go-ldap,dc=github,dc=com",
+			CN:      "DREAM_TEAM",
+			Members: []string{"mario", "luigi", "browser"},
+		}
+
+		result := &Group{}
+		err := entry.Unmarshal(result)
+
+		assert.Nil(t, err)
+		assert.Equal(t, expect, result)
+	})
+
 }
