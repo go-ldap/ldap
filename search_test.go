@@ -86,6 +86,20 @@ func TestEntry_Unmarshal(t *testing.T) {
 					Values:     []string{"mario@go-ldap.com"},
 					ByteValues: nil,
 				},
+				// Tests int value.
+				{
+					Name:       "id",
+					Values:     []string{"2147483647"},
+					ByteValues: nil,
+				},
+				// Tests []byte value.
+				{
+					Name:   "data",
+					Values: []string{"data"},
+					ByteValues: [][]byte{
+						[]byte("data"),
+					},
+				},
 			},
 		}
 
@@ -93,12 +107,16 @@ func TestEntry_Unmarshal(t *testing.T) {
 			Dn   string `ldap:"dn"`
 			Cn   string `ldap:"cn"`
 			Mail string `ldap:"mail"`
+			ID   int    `ldap:"id"`
+			Data []byte `ldap:"data"`
 		}
 
 		expect := &User{
 			Dn:   "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
 			Cn:   "mario",
 			Mail: "mario@go-ldap.com",
+			ID:   2147483647,
+			Data: []byte("data"),
 		}
 		result := &User{}
 		err := entry.Unmarshal(result)
