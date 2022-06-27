@@ -92,6 +92,12 @@ func TestEntry_Unmarshal(t *testing.T) {
 					Values:     []string{"2147483647"},
 					ByteValues: nil,
 				},
+				// Tests int64 value.
+				{
+					Name:       "longId",
+					Values:     []string{"9223372036854775807"},
+					ByteValues: nil,
+				},
 				// Tests []byte value.
 				{
 					Name:   "data",
@@ -104,19 +110,21 @@ func TestEntry_Unmarshal(t *testing.T) {
 		}
 
 		type User struct {
-			Dn   string `ldap:"dn"`
-			Cn   string `ldap:"cn"`
-			Mail string `ldap:"mail"`
-			ID   int    `ldap:"id"`
-			Data []byte `ldap:"data"`
+			Dn     string `ldap:"dn"`
+			Cn     string `ldap:"cn"`
+			Mail   string `ldap:"mail"`
+			ID     int    `ldap:"id"`
+			LongID int64  `ldap:"longId"`
+			Data   []byte `ldap:"data"`
 		}
 
 		expect := &User{
-			Dn:   "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
-			Cn:   "mario",
-			Mail: "mario@go-ldap.com",
-			ID:   2147483647,
-			Data: []byte("data"),
+			Dn:     "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
+			Cn:     "mario",
+			Mail:   "mario@go-ldap.com",
+			ID:     2147483647,
+			LongID: 9223372036854775807,
+			Data:   []byte("data"),
 		}
 		result := &User{}
 		err := entry.Unmarshal(result)

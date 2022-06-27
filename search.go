@@ -185,9 +185,9 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string, []string, int or []byte. Other field types will not be regarded.
-// If the field type is a string or int but multiple attribute values
-// are returned, the first value will be used to fill the field.
+// string, []string, int, int64 or []byte. Other field types will not be
+// regarded. If the field type is a string or int but multiple attribute
+// values are returned, the first value will be used to fill the field.
 //
 // Example:
 //	type UserEntry struct {
@@ -207,6 +207,9 @@ func readTag(f reflect.StructField) (string, bool) {
 //		// ID is an integer value, it will fail unmarshaling when the given
 //		// attribute value cannot be parsed into an integer.
 //		ID int `ldap:"id"`
+//
+//		// LongID is similar to ID but uses an int64 instead.
+//		LongID int64 `ldap:"longId"`
 //
 //		// Data is similar to MemberOf a slice containing all attribute
 //		// values.
@@ -265,12 +268,12 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			fv.SetString(values[0])
 		case []byte:
 			fv.SetBytes([]byte(values[0]))
-		case int:
-			intVal, err := strconv.ParseInt(values[0], 10, 32)
+		case int, int64:
+			intVal, err := strconv.ParseInt(values[0], 10, 64)
 			if err != nil {
 				return fmt.Errorf("ldap: could not parse value '%s' into int field", values[0])
 			}
-			fv.SetInt(int64(intVal))
+			fv.SetInt(intVal)
 		default:
 			return fmt.Errorf("ldap: expected field to be of type string, []string, int or []byte, got %v", ft.Type)
 		}
