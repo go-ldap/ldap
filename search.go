@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -184,9 +185,9 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string or []string. Other field types will not be regarded.
-// If the field type is a string but multiple attribute values
-// are returned, the first value will be used to fill the field.
+// string, []string, int, int64 or []byte. Other field types will not be
+// regarded. If the field type is a string or int but multiple attribute
+// values are returned, the first value will be used to fill the field.
 //
 // Example:
 //	type UserEntry struct {
@@ -202,6 +203,17 @@ func readTag(f reflect.StructField) (string, bool) {
 //		// memberOf may have multiple values. If you don't
 //		// know the amount of attribute values at runtime, use a string array.
 //		MemberOf []string `ldap:"memberOf"`
+//
+//		// ID is an integer value, it will fail unmarshaling when the given
+//		// attribute value cannot be parsed into an integer.
+//		ID int `ldap:"id"`
+//
+//		// LongID is similar to ID but uses an int64 instead.
+//		LongID int64 `ldap:"longId"`
+//
+//		// Data is similar to MemberOf a slice containing all attribute
+//		// values.
+//		Data []byte `ldap:"data"`
 //
 //		// This won't work, as the field is not of type string. For this
 //		// to work, you'll have to temporarily store the result in string
@@ -254,8 +266,16 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			}
 		case string:
 			fv.SetString(values[0])
+		case []byte:
+			fv.SetBytes([]byte(values[0]))
+		case int, int64:
+			intVal, err := strconv.ParseInt(values[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("ldap: could not parse value '%s' into int field", values[0])
+			}
+			fv.SetInt(intVal)
 		default:
-			return fmt.Errorf("ldap: expected field to be of type string or []string, got %v", ft.Type)
+			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64 or []byte, got %v", ft.Type)
 		}
 	}
 	return
