@@ -275,7 +275,7 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			}
 			fv.SetInt(intVal)
 		default:
-			return fmt.Errorf("ldap: expected field to be of type string, []string, int or []byte, got %v", ft.Type)
+			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64 or []byte, got %v", ft.Type)
 		}
 	}
 	return
