@@ -5,6 +5,7 @@ import (
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -18,14 +19,93 @@ type AttributeTypeAndValue struct {
 	Value string
 }
 
+// String returns a normalized string representation of this attribute type and
+// value pair which is the a lowercased join of the Type and Value with a "=".
+func (a *AttributeTypeAndValue) String() string {
+	return strings.ToLower(a.Type) + "=" + a.encodeValue()
+}
+
+func (a *AttributeTypeAndValue) encodeValue() string {
+	// Normalize the value first.
+	// value := strings.ToLower(a.Value)
+	value := a.Value
+
+	encodedBuf := bytes.Buffer{}
+
+	escapeChar := func(c byte) {
+		encodedBuf.WriteByte('\\')
+		encodedBuf.WriteByte(c)
+	}
+
+	escapeHex := func(c byte) {
+		encodedBuf.WriteByte('\\')
+		encodedBuf.WriteString(enchex.EncodeToString([]byte{c}))
+	}
+
+	for i := 0; i < len(value); i++ {
+		char := value[i]
+		if i == 0 && char == ' ' || char == '#' {
+			// Special case leading space or number sign.
+			escapeChar(char)
+			continue
+		}
+		if i == len(value)-1 && char == ' ' {
+			// Special case trailing space.
+			escapeChar(char)
+			continue
+		}
+
+		switch char {
+		case '"', '+', ',', ';', '<', '>', '\\':
+			// Each of these special characters must be escaped.
+			escapeChar(char)
+			continue
+		}
+
+		if char < ' ' || char > '~' {
+			// All special character escapes are handled first
+			// above. All bytes less than ASCII SPACE and all bytes
+			// greater than ASCII TILDE must be hex-escaped.
+			escapeHex(char)
+			continue
+		}
+
+		// Any other character does not require escaping.
+		encodedBuf.WriteByte(char)
+	}
+
+	return encodedBuf.String()
+}
+
 // RelativeDN represents a relativeDistinguishedName from https://tools.ietf.org/html/rfc4514
 type RelativeDN struct {
 	Attributes []*AttributeTypeAndValue
 }
 
+// String returns a normalized string representation of this relative DN which
+// is the a join of all attributes (sorted in increasing order) with a "+".
+func (r *RelativeDN) String() string {
+	attrs := make([]string, len(r.Attributes))
+	for i := range r.Attributes {
+		attrs[i] = r.Attributes[i].String()
+	}
+	sort.Strings(attrs)
+	return strings.Join(attrs, "+")
+}
+
 // DN represents a distinguishedName from https://tools.ietf.org/html/rfc4514
 type DN struct {
 	RDNs []*RelativeDN
+}
+
+// String returns a normalized string representation of this DN which is the
+// join of all relative DNs with a ",".
+func (d *DN) String() string {
+	rdns := make([]string, len(d.RDNs))
+	for i := range d.RDNs {
+		rdns[i] = d.RDNs[i].String()
+	}
+	return strings.Join(rdns, ",")
 }
 
 // ParseDN returns a distinguishedName or an error.
@@ -84,7 +164,7 @@ func ParseDN(str string) (*DN, error) {
 			if len(str) > i+1 && str[i+1] == '#' {
 				i += 2
 				index := strings.IndexAny(str[i:], ",+")
-				data := str
+				var data string
 				if index > 0 {
 					data = str[i : i+index]
 				} else {
