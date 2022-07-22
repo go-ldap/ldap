@@ -148,8 +148,8 @@ func TestDNEqual(t *testing.T) {
 		},
 		// Difference in leading/trailing chars is ignored
 		{
-			"cn=John Doe, ou=People, dc=sun.com",
-			"cn=John Doe,ou=People,dc=sun.com",
+			"cn=\\ John\\20Doe, ou=People, dc=sun.com",
+			"cn= \\ John Doe,ou=People,dc=sun.com",
 			true,
 		},
 		// Difference in values is significant
@@ -174,11 +174,16 @@ func TestDNEqual(t *testing.T) {
 			continue
 		}
 		if expected, actual := tc.Equal, a.Equal(b); expected != actual {
-			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			t.Errorf("%d: when comparing %q and %q expected %v, got %v", i, a, b, expected, actual)
 			continue
 		}
 		if expected, actual := tc.Equal, b.Equal(a); expected != actual {
-			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
+			t.Errorf("%d: when comparing %q and %q expected %v, got %v", i, a, b, expected, actual)
+			continue
+		}
+
+		if expected, actual := a.Equal(b), a.String() == b.String(); expected != actual {
+			t.Errorf("%d: when asserting string comparison of %q and %q expected equal %v, got %v", i, a, b, expected, actual)
 			continue
 		}
 	}
