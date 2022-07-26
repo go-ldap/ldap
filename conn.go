@@ -87,7 +87,8 @@ const (
 type Conn struct {
 	// requestTimeout is loaded atomically
 	// so we need to ensure 64-bit alignment on 32-bit platforms.
-	requestTimeout      time.Duration
+	// https://github.com/go-ldap/ldap/pull/199
+	requestTimeout      int64
 	conn                net.Conn
 	isTLS               bool
 	closing             uint32
@@ -281,7 +282,7 @@ func (l *Conn) Close() {
 
 // SetTimeout sets the time after a request is sent that a MessageTimeout triggers
 func (l *Conn) SetTimeout(timeout time.Duration) {
-	l.requestTimeout = timeout
+	atomic.StoreInt64(&l.requestTimeout, int64(timeout))
 }
 
 // Returns the next available messageID
@@ -486,7 +487,7 @@ func (l *Conn) processMessages() {
 				// Add timeout if defined
 				if l.requestTimeout > 0 {
 					go func() {
-						timer := time.NewTimer(l.requestTimeout)
+						timer := time.NewTimer(time.Duration(l.requestTimeout))
 						defer func() {
 							if err := recover(); err != nil {
 								logger.Printf("ldap: recovered panic in RequestTimeout: %v", err)
