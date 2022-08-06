@@ -320,3 +320,27 @@ func Test_addControlDescriptions(t *testing.T) {
 		})
 	}
 }
+
+func TestEscapeDN(t *testing.T) {
+	tests := []struct {
+		name string
+		dn   string
+		want string
+	}{
+		{name: "emptyString", dn: "", want: ""},
+		{name: "comma", dn: "test,user", want: "test\\,user"},
+		{name: "numberSign", dn: "#test#user#", want: "\\#test#user#"},
+		{name: "backslash", dn: "\\test\\user\\", want: "\\\\test\\\\user\\\\"},
+		{name: "whitespaces", dn: "  test user  ", want: "\\  test user \\ "},
+		{name: "nullByte", dn: "\u0000te\x00st\x00user" + string(rune(0)), want: "\\00te\\00st\\00user\\00"},
+		{name: "variousCharacters", dn: "test\"+,;<>\\-_user", want: "test\\\"\\+\\,\\;\\<\\>\\\\-_user"},
+		{name: "multiByteRunes", dn: "test\u0391user ", want: "test\u0391user\\ "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EscapeDN(tt.dn); got != tt.want {
+				t.Errorf("EscapeDN(%s) = %s, expected %s", tt.dn, got, tt.want)
+			}
+		})
+	}
+}
