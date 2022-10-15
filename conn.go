@@ -161,6 +161,11 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 	}
 
 	switch u.Scheme {
+	case "cldap":
+		if port == "" {
+			port = DefaultLdapPort
+		}
+		return dc.d.Dial("udp", net.JoinHostPort(host, port))
 	case "ldap":
 		if port == "" {
 			port = DefaultLdapPort
@@ -203,7 +208,8 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 }
 
 // DialURL connects to the given ldap URL.
-// The following schemas are supported: ldap://, ldaps://, ldapi://.
+// The following schemas are supported: ldap://, ldaps://, ldapi://,
+// and cldap:// (RFC1798, deprecated but used by Active Directory).
 // On success a new Conn for the connection is returned.
 func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
 	u, err := url.Parse(addr)
