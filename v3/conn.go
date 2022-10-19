@@ -119,30 +119,31 @@ type DialOpt func(*DialContext)
 // DialWithDialer updates net.Dialer in DialContext.
 func DialWithDialer(d *net.Dialer) DialOpt {
 	return func(dc *DialContext) {
-		dc.d = d
+		dc.dialer = d
 	}
 }
 
 // DialWithTLSConfig updates tls.Config in DialContext.
 func DialWithTLSConfig(tc *tls.Config) DialOpt {
 	return func(dc *DialContext) {
-		dc.tc = tc
+		dc.tlsConfig = tc
 	}
 }
 
 // DialWithTLSDialer is a wrapper for DialWithTLSConfig with the option to
 // specify a net.Dialer to for example define a timeout or a custom resolver.
+// @deprecated Use DialWithDialer and DialWithTLSConfig instead
 func DialWithTLSDialer(tlsConfig *tls.Config, dialer *net.Dialer) DialOpt {
 	return func(dc *DialContext) {
-		dc.tc = tlsConfig
-		dc.d = dialer
+		dc.tlsConfig = tlsConfig
+		dc.dialer = dialer
 	}
 }
 
 // DialContext contains necessary parameters to dial the given ldap URL.
 type DialContext struct {
-	d  *net.Dialer
-	tc *tls.Config
+	dialer    *net.Dialer
+	tlsConfig *tls.Config
 }
 
 func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
@@ -150,7 +151,7 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 		if u.Path == "" || u.Path == "/" {
 			u.Path = "/var/run/slapd/ldapi"
 		}
-		return dc.d.Dial("unix", u.Path)
+		return dc.dialer.Dial("unix", u.Path)
 	}
 
 	host, port, err := net.SplitHostPort(u.Host)
@@ -165,17 +166,17 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 		if port == "" {
 			port = DefaultLdapPort
 		}
-		return dc.d.Dial("udp", net.JoinHostPort(host, port))
+		return dc.dialer.Dial("udp", net.JoinHostPort(host, port))
 	case "ldap":
 		if port == "" {
 			port = DefaultLdapPort
 		}
-		return dc.d.Dial("tcp", net.JoinHostPort(host, port))
+		return dc.dialer.Dial("tcp", net.JoinHostPort(host, port))
 	case "ldaps":
 		if port == "" {
 			port = DefaultLdapsPort
 		}
-		return tls.DialWithDialer(dc.d, "tcp", net.JoinHostPort(host, port), dc.tc)
+		return tls.DialWithDialer(dc.dialer, "tcp", net.JoinHostPort(host, port), dc.tlsConfig)
 	}
 
 	return nil, fmt.Errorf("Unknown scheme '%s'", u.Scheme)
@@ -221,8 +222,8 @@ func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
 	for _, opt := range opts {
 		opt(&dc)
 	}
-	if dc.d == nil {
-		dc.d = &net.Dialer{Timeout: DefaultTimeout}
+	if dc.dialer == nil {
+		dc.dialer = &net.Dialer{Timeout: DefaultTimeout}
 	}
 
 	c, err := dc.dial(u)
