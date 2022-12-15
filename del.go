@@ -1,6 +1,8 @@
 package ldap
 
 import (
+	"context"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -34,7 +36,12 @@ func NewDelRequest(DN string, Controls []Control) *DelRequest {
 
 // Del executes the given delete request
 func (l *Conn) Del(delRequest *DelRequest) error {
-	msgCtx, err := l.doRequest(delRequest)
+	return l.DelContext(l.ctx, delRequest)
+}
+
+// DelContext executes the given delete request
+func (l *Conn) DelContext(ctx context.Context, delRequest *DelRequest) error {
+	msgCtx, err := l.doRequest(ctx, delRequest)
 	if err != nil {
 		return err
 	}

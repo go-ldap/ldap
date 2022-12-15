@@ -192,18 +192,22 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("LDAP Result Code %d %q: %s", e.ResultCode, LDAPResultCodeMap[e.ResultCode], e.Err.Error())
 }
 
+func (e *Error) Unwrap() error {
+	return e.Err
+}
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).
 func GetLDAPError(packet *ber.Packet) error {
 	if packet == nil {
-		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
+		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty packet")}
 	}
 
 	if len(packet.Children) >= 2 {
 		response := packet.Children[1]
 		if response == nil {
-			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty response in packet"), Packet: packet}
+			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty response in packet"), Packet: packet}
 		}
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
 			resultCode := uint16(response.Children[0].Value.(int64))
@@ -219,7 +223,7 @@ func GetLDAPError(packet *ber.Packet) error {
 		}
 	}
 
-	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid packet format"), Packet: packet}
+	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid packet format"), Packet: packet}
 }
 
 // NewError creates an LDAP error with the given code and underlying error

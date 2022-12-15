@@ -1,6 +1,8 @@
 package ldap
 
 import (
+	"context"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -40,7 +42,7 @@ func NewModifyDNRequest(dn string, rdn string, delOld bool, newSup string) *Modi
 //
 // Refer NewModifyDNRequest for other parameters
 func NewModifyDNWithControlsRequest(dn string, rdn string, delOld bool,
-		newSup string, controls []Control) *ModifyDNRequest {
+	newSup string, controls []Control) *ModifyDNRequest {
 	return &ModifyDNRequest{
 		DN:           dn,
 		NewRDN:       rdn,
@@ -75,7 +77,13 @@ func (req *ModifyDNRequest) appendTo(envelope *ber.Packet) error {
 // ModifyDN renames the given DN and optionally move to another base (when the "newSup" argument
 // to NewModifyDNRequest() is not "").
 func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
-	msgCtx, err := l.doRequest(m)
+	return l.ModifyDNContext(l.ctx, m)
+}
+
+// ModifyDNContext renames the given DN and optionally move to another base (when the "newSup" argument
+// to NewModifyDNRequest() is not "").
+func (l *Conn) ModifyDNContext(ctx context.Context, m *ModifyDNRequest) error {
+	msgCtx, err := l.doRequest(ctx, m)
 	if err != nil {
 		return err
 	}

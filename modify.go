@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"errors"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -109,7 +110,12 @@ func NewModifyRequest(dn string, controls []Control) *ModifyRequest {
 
 // Modify performs the ModifyRequest
 func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
-	msgCtx, err := l.doRequest(modifyRequest)
+	return l.ModifyContext(l.ctx, modifyRequest)
+}
+
+// Modify performs the ModifyRequest
+func (l *Conn) ModifyContext(ctx context.Context, modifyRequest *ModifyRequest) error {
+	msgCtx, err := l.doRequest(ctx, modifyRequest)
 	if err != nil {
 		return err
 	}
@@ -141,7 +147,12 @@ type ModifyResult struct {
 
 // ModifyWithResult performs the ModifyRequest and returns the result
 func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, error) {
-	msgCtx, err := l.doRequest(modifyRequest)
+	return l.ModifyWithResultContext(l.ctx, modifyRequest)
+}
+
+// ModifyWithResultContext performs the ModifyRequest and returns the result
+func (l *Conn) ModifyWithResultContext(ctx context.Context, modifyRequest *ModifyRequest) (*ModifyResult, error) {
+	msgCtx, err := l.doRequest(ctx, modifyRequest)
 	if err != nil {
 		return nil, err
 	}
