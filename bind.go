@@ -62,7 +62,7 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
-	msgCtx, err := l.doRequest(simpleBindRequest)
+	msgCtx, err := l.doRequest(l.ctx, simpleBindRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
-	msgCtx, err := l.doRequest(digestMD5BindRequest)
+	msgCtx, err := l.doRequest(l.ctx, digestMD5BindRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		auth.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, resp, "Credentials"))
 		request.AppendChild(auth)
 		packet.AppendChild(request)
-		msgCtx, err = l.sendMessage(packet)
+		msgCtx, err = l.sendMessage(l.ctx, packet)
 		if err != nil {
 			return nil, fmt.Errorf("send message: %s", err)
 		}
@@ -375,7 +375,7 @@ var externalBindRequest = requestFunc(func(envelope *ber.Packet) error {
 //
 // See https://tools.ietf.org/html/rfc4422#appendix-A
 func (l *Conn) ExternalBind() error {
-	msgCtx, err := l.doRequest(externalBindRequest)
+	msgCtx, err := l.doRequest(l.ctx, externalBindRequest)
 	if err != nil {
 		return err
 	}
@@ -478,7 +478,7 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		return nil, NewError(ErrorEmptyPassword, errors.New("ldap: empty password not allowed by the client"))
 	}
 
-	msgCtx, err := l.doRequest(ntlmBindRequest)
+	msgCtx, err := l.doRequest(l.ctx, ntlmBindRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +538,7 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 
 		request.AppendChild(auth)
 		packet.AppendChild(request)
-		msgCtx, err = l.sendMessage(packet)
+		msgCtx, err = l.sendMessage(l.ctx, packet)
 		if err != nil {
 			return nil, fmt.Errorf("send message: %s", err)
 		}
@@ -671,7 +671,7 @@ func (l *Conn) saslBindTokenExchange(reqControls []Control, reqToken []byte) ([]
 		envelope.AppendChild(encodeControls(reqControls))
 	}
 
-	msgCtx, err := l.sendMessage(envelope)
+	msgCtx, err := l.sendMessage(l.ctx, envelope)
 	if err != nil {
 		return nil, err
 	}

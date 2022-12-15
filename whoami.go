@@ -42,7 +42,7 @@ func (l *Conn) WhoAmI(controls []Control) (*WhoAmIResult, error) {
 
 	l.Debug.PrintPacket(packet)
 
-	msgCtx, err := l.sendMessage(packet)
+	msgCtx, err := l.sendMessage(l.ctx, packet)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (l *Conn) WhoAmI(controls []Control) (*WhoAmIResult, error) {
 			return nil, err
 		}
 	} else {
-		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("Unexpected Response: %d", packet.Children[1].Tag))
+		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("unexpected Response: %d", packet.Children[1].Tag))
 	}
 
 	extendedResponse := packet.Children[1]

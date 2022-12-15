@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -16,6 +17,7 @@ import (
 )
 
 func TestUnresponsiveConnection(t *testing.T) {
+	ctx := context.Background()
 	// The do-nothing server that accepts requests and does nothing
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
@@ -39,7 +41,7 @@ func TestUnresponsiveConnection(t *testing.T) {
 	packet.AppendChild(bindRequest)
 
 	// Send packet and test response
-	msgCtx, err := conn.sendMessage(packet)
+	msgCtx, err := conn.sendMessage(ctx, packet)
 	if err != nil {
 		t.Fatalf("error sending message: %v", err)
 	}
@@ -53,7 +55,7 @@ func TestUnresponsiveConnection(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
-	if !IsErrorWithCode(err, ErrorNetwork) || err.(*Error).Err.Error() != "ldap: connection timed out" {
+	if !IsErrorWithCode(err, ErrorNetwork) || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -107,13 +109,14 @@ func TestFinishMessage(t *testing.T) {
 // See: https://github.com/go-ldap/ldap/issues/332
 func TestNilConnection(t *testing.T) {
 	var conn *Conn
-	_, err := conn.Search(&SearchRequest{})
+	_, err := conn.SearchContext(context.Background(), &SearchRequest{})
 	if err != ErrNilConnection {
 		t.Fatalf("expected error to be ErrNilConnection, got %v", err)
 	}
 }
 
 func testSendRequest(t *testing.T, ptc *packetTranslatorConn, conn *Conn) (msgCtx *messageContext) {
+	ctx := context.Background()
 	var msgID int64
 	runWithTimeout(t, time.Second, func() {
 		msgID = conn.nextMessageID()
@@ -125,7 +128,7 @@ func testSendRequest(t *testing.T, ptc *packetTranslatorConn, conn *Conn) (msgCt
 	var err error
 
 	runWithTimeout(t, time.Second, func() {
-		msgCtx, err = conn.sendMessage(requestPacket)
+		msgCtx, err = conn.sendMessage(ctx, requestPacket)
 		if err != nil {
 			t.Fatalf("unable to send request message: %s", err)
 		}

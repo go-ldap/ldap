@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -23,7 +24,7 @@ func (f requestFunc) appendTo(p *ber.Packet) error {
 	return f(p)
 }
 
-func (l *Conn) doRequest(req request) (*messageContext, error) {
+func (l *Conn) doRequest(ctx context.Context, req request) (*messageContext, error) {
 	if l == nil || l.conn == nil {
 		return nil, ErrNilConnection
 	}
@@ -38,7 +39,7 @@ func (l *Conn) doRequest(req request) (*messageContext, error) {
 		l.Debug.PrintPacket(packet)
 	}
 
-	msgCtx, err := l.sendMessage(packet)
+	msgCtx, err := l.sendMessage(ctx, packet)
 	if err != nil {
 		return nil, err
 	}

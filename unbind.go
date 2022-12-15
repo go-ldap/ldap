@@ -23,7 +23,7 @@ func (l *Conn) Unbind() error {
 		return ErrConnUnbound
 	}
 
-	_, err := l.doRequest(unbindRequest{})
+	_, err := l.doRequest(l.ctx, unbindRequest{})
 	if err != nil {
 		return err
 	}

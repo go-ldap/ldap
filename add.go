@@ -1,6 +1,8 @@
 package ldap
 
 import (
+	"context"
+
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
@@ -66,7 +68,12 @@ func NewAddRequest(dn string, controls []Control) *AddRequest {
 
 // Add performs the given AddRequest
 func (l *Conn) Add(addRequest *AddRequest) error {
-	msgCtx, err := l.doRequest(addRequest)
+	return l.AddContext(l.ctx, addRequest)
+}
+
+// AddContext performs the given AddRequest
+func (l *Conn) AddContext(ctx context.Context, addRequest *AddRequest) error {
+	msgCtx, err := l.doRequest(ctx, addRequest)
 	if err != nil {
 		return err
 	}

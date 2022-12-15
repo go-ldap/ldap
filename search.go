@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -411,6 +412,18 @@ func NewSearchRequest(
 //  - given SearchRequest contains a control of type ControlTypePaging with pagingSize not equal to the size requested: fail without issuing any queries
 // A requested pagingSize of 0 is interpreted as no limit by LDAP servers.
 func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error) {
+	return l.SearchWithPagingContext(l.ctx, searchRequest, pagingSize)
+}
+
+// SearchWithPagingContext accepts a search request and desired page size in order to execute LDAP queries to fulfill the
+// search request. All paged LDAP query responses will be buffered and the final result will be returned atomically.
+// The following four cases are possible given the arguments:
+//  - given SearchRequest missing a control of type ControlTypePaging: we will add one with the desired paging size
+//  - given SearchRequest contains a control of type ControlTypePaging that isn't actually a ControlPaging: fail without issuing any queries
+//  - given SearchRequest contains a control of type ControlTypePaging with pagingSize equal to the size requested: no change to the search request
+//  - given SearchRequest contains a control of type ControlTypePaging with pagingSize not equal to the size requested: fail without issuing any queries
+// A requested pagingSize of 0 is interpreted as no limit by LDAP servers.
+func (l *Conn) SearchWithPagingContext(ctx context.Context, searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error) {
 	var pagingControl *ControlPaging
 
 	control := FindControl(searchRequest.Controls, ControlTypePaging)
@@ -430,7 +443,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 
 	searchResult := new(SearchResult)
 	for {
-		result, err := l.Search(searchRequest)
+		result, err := l.SearchContext(ctx, searchRequest)
 		l.Debug.Printf("Looking for Paging Control...")
 		if err != nil {
 			return searchResult, err
@@ -463,7 +476,7 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 	if pagingControl != nil {
 		l.Debug.Printf("Abandoning Paging...")
 		pagingControl.PagingSize = 0
-		if _, err := l.Search(searchRequest); err != nil {
+		if _, err := l.SearchContext(ctx, searchRequest); err != nil {
 			return searchResult, err
 		}
 	}
@@ -473,7 +486,12 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 
 // Search performs the given search request
 func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
-	msgCtx, err := l.doRequest(searchRequest)
+	return l.SearchContext(l.ctx, searchRequest)
+}
+
+// SearchContext performs the given search request
+func (l *Conn) SearchContext(ctx context.Context, searchRequest *SearchRequest) (*SearchResult, error) {
+	msgCtx, err := l.doRequest(ctx, searchRequest)
 	if err != nil {
 		return nil, err
 	}
