@@ -23,6 +23,11 @@ const (
 	// ControlTypeSubTreeDelete - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
 	ControlTypeSubtreeDelete = "1.2.840.113556.1.4.805"
 
+	// ControlTypeServerSideSorting - https://www.ietf.org/rfc/rfc2891.txt
+	ControlTypeServerSideSorting = "1.2.840.113556.1.4.473"
+	// ControlTypeServerSideSorting - https://www.ietf.org/rfc/rfc2891.txt
+	ControlTypeServerSideSortingResult = "1.2.840.113556.1.4.474"
+
 	// ControlTypeMicrosoftNotification - https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
 	ControlTypeMicrosoftNotification = "1.2.840.113556.1.4.528"
 	// ControlTypeMicrosoftShowDeleted - https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
@@ -490,6 +495,8 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftServerLinkTTL(), nil
 	case ControlTypeSubtreeDelete:
 		return NewControlSubtreeDelete(), nil
+	case ControlTypeServerSideSortingResult:
+		return NewControlServerSideSortingResult(ber.DecodePacket(value.Data.Bytes()))
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -554,4 +561,158 @@ func encodeControls(controls []Control) *ber.Packet {
 		packet.AppendChild(control.Encode())
 	}
 	return packet
+}
+
+// ControlServerSideSorting
+
+type SortKey struct {
+	Reverse       bool
+	AttributeType string
+	MatchingRule  string
+}
+
+type ControlServerSideSorting struct {
+	SortKeys []*SortKey
+}
+
+func (c *ControlServerSideSorting) GetControlType() string {
+	return ControlTypeServerSideSorting
+}
+
+func NewControlServerSideSorting(sortKeys []*SortKey) *ControlServerSideSorting {
+	return &ControlServerSideSorting{SortKeys: sortKeys}
+}
+
+func (c *ControlServerSideSorting) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	control := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.GetControlType(), "Control Type")
+
+	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value")
+	seqs := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKeyList")
+
+	for _, f := range c.SortKeys {
+		seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+
+		seq.AppendChild(
+			ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, f.AttributeType, "attributeType"),
+		)
+		seq.AppendChild(
+			ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
+		)
+		if f.Reverse {
+			seq.AppendChild(
+				ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 1, f.Reverse, "reverseOrder"),
+			)
+		}
+
+		seqs.AppendChild(seq)
+	}
+
+	value.AppendChild(seqs)
+
+	packet.AppendChild(control)
+	packet.AppendChild(value)
+
+	return packet
+}
+
+func (c *ControlServerSideSorting) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)  Criticality:%t %+v",
+		"Server Side Sorting",
+		c.GetControlType(),
+		false,
+		c.SortKeys,
+	)
+}
+
+// ControlServerSideSortingResponse
+
+const (
+	ControlServerSideSortingCodeSuccess                  ControlServerSideSortingCode = 0
+	ControlServerSideSortingCodeOperationsError          ControlServerSideSortingCode = 1
+	ControlServerSideSortingCodeTimeLimitExceeded        ControlServerSideSortingCode = 2
+	ControlServerSideSortingCodeStrongAuthRequired       ControlServerSideSortingCode = 8
+	ControlServerSideSortingCodeAdminLimitExceeded       ControlServerSideSortingCode = 11
+	ControlServerSideSortingCodeNoSuchAttribute          ControlServerSideSortingCode = 16
+	ControlServerSideSortingCodeInappropriateMatching    ControlServerSideSortingCode = 18
+	ControlServerSideSortingCodeInsufficientAccessRights ControlServerSideSortingCode = 50
+	ControlServerSideSortingCodeBusy                     ControlServerSideSortingCode = 51
+	ControlServerSideSortingCodeUnwillingToPerform       ControlServerSideSortingCode = 53
+	ControlServerSideSortingCodeOther                    ControlServerSideSortingCode = 80
+)
+
+var ControlServerSideSortingCodes = []ControlServerSideSortingCode{
+	ControlServerSideSortingCodeSuccess,
+	ControlServerSideSortingCodeOperationsError,
+	ControlServerSideSortingCodeTimeLimitExceeded,
+	ControlServerSideSortingCodeStrongAuthRequired,
+	ControlServerSideSortingCodeAdminLimitExceeded,
+	ControlServerSideSortingCodeNoSuchAttribute,
+	ControlServerSideSortingCodeInappropriateMatching,
+	ControlServerSideSortingCodeInsufficientAccessRights,
+	ControlServerSideSortingCodeBusy,
+	ControlServerSideSortingCodeUnwillingToPerform,
+	ControlServerSideSortingCodeOther,
+}
+
+type ControlServerSideSortingCode int64
+
+func (c ControlServerSideSortingCode) Valid() error {
+	for _, validRet := range ControlServerSideSortingCodes {
+		if c == validRet {
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown return code : %d", c)
+}
+
+func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSortingResult, error) {
+	control := &ControlServerSideSortingResult{}
+
+	if pkt == nil || len(pkt.Children) == 0 {
+		return nil, fmt.Errorf("bad packet")
+	}
+
+	codeInt, err := ber.ParseInt64(pkt.Children[0].Data.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	code := ControlServerSideSortingCode(codeInt)
+	if err := code.Valid(); err != nil {
+		return nil, err
+	}
+
+	return control, nil
+}
+
+type ControlServerSideSortingResult struct {
+	Criticality bool
+
+	Result ControlServerSideSortingCode
+
+	// Not populated for now. I can't get openldap to send me this value, so I think this is specific to other directory server
+	// AttributeType string
+}
+
+func (control *ControlServerSideSortingResult) GetControlType() string {
+	return ControlTypeServerSideSortingResult
+}
+func (c *ControlServerSideSortingResult) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortResult sequence")
+	sortResult := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(c.Result), "SortResult")
+	packet.AppendChild(sortResult)
+
+	return packet
+}
+
+func (c *ControlServerSideSortingResult) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q) Criticality:%t ResultCode:%+v",
+		"Server Side Sorting Result",
+		c.GetControlType(),
+		c.Criticality,
+		c.Result,
+	)
 }
