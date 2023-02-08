@@ -190,6 +190,7 @@ func readTag(f reflect.StructField) (string, bool) {
 // values are returned, the first value will be used to fill the field.
 //
 // Example:
+//
 //	type UserEntry struct {
 //		// Fields with the tag key `dn` are automatically filled with the
 //		// objects distinguishedName. This can be used multiple times.
@@ -217,7 +218,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //
 //		// This won't work, as the field is not of type string. For this
 //		// to work, you'll have to temporarily store the result in string
-// 		// (or string array) and convert it to the desired type afterwards.
+//		// (or string array) and convert it to the desired type afterwards.
 //		UserAccountControl uint32 `ldap:"userPrincipalName"`
 //	}
 //	user := UserEntry{}
@@ -338,6 +339,13 @@ func (s *SearchResult) PrettyPrint(indent int) {
 	}
 }
 
+// appendTo appends all entries of `s` to `r`
+func (s *SearchResult) appendTo(r *SearchResult) {
+	r.Entries = append(r.Entries, s.Entries...)
+	r.Referrals = append(r.Referrals, s.Referrals...)
+	r.Controls = append(r.Controls, s.Controls...)
+}
+
 // SearchRequest represents a search request to send to the server
 type SearchRequest struct {
 	BaseDN       string
@@ -405,10 +413,11 @@ func NewSearchRequest(
 // SearchWithPaging accepts a search request and desired page size in order to execute LDAP queries to fulfill the
 // search request. All paged LDAP query responses will be buffered and the final result will be returned atomically.
 // The following four cases are possible given the arguments:
-//  - given SearchRequest missing a control of type ControlTypePaging: we will add one with the desired paging size
-//  - given SearchRequest contains a control of type ControlTypePaging that isn't actually a ControlPaging: fail without issuing any queries
-//  - given SearchRequest contains a control of type ControlTypePaging with pagingSize equal to the size requested: no change to the search request
-//  - given SearchRequest contains a control of type ControlTypePaging with pagingSize not equal to the size requested: fail without issuing any queries
+//   - given SearchRequest missing a control of type ControlTypePaging: we will add one with the desired paging size
+//   - given SearchRequest contains a control of type ControlTypePaging that isn't actually a ControlPaging: fail without issuing any queries
+//   - given SearchRequest contains a control of type ControlTypePaging with pagingSize equal to the size requested: no change to the search request
+//   - given SearchRequest contains a control of type ControlTypePaging with pagingSize not equal to the size requested: fail without issuing any queries
+//
 // A requested pagingSize of 0 is interpreted as no limit by LDAP servers.
 func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error) {
 	var pagingControl *ControlPaging
@@ -431,17 +440,19 @@ func (l *Conn) SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32)
 	searchResult := new(SearchResult)
 	for {
 		result, err := l.Search(searchRequest)
-		l.Debug.Printf("Looking for Paging Control...")
+		if result != nil {
+			result.appendTo(searchResult)
+		} else {
+			if err == nil {
+				// We have to do this beautifulness in case something absolutely strange happens, which
+				// should only occur in case there is no packet, but also no error.
+				return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
+			}
+		}
 		if err != nil {
+			// If an error occurred, all results that have been received so far will be returned
 			return searchResult, err
 		}
-		if result == nil {
-			return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
-		}
-
-		searchResult.Entries = append(searchResult.Entries, result.Entries...)
-		searchResult.Referrals = append(searchResult.Referrals, result.Referrals...)
-		searchResult.Controls = append(searchResult.Controls, result.Controls...)
 
 		l.Debug.Printf("Looking for Paging Control...")
 		pagingResult := FindControl(result.Controls, ControlTypePaging)
