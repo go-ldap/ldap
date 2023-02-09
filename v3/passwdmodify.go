@@ -70,7 +70,6 @@ func (req *PasswordModifyRequest) appendTo(envelope *ber.Packet) error {
 // newPassword is the desired user's password. If empty the server can return
 // an error or generate a new password that will be available in the
 // PasswordModifyResult.GeneratedPassword
-//
 func NewPasswordModifyRequest(userIdentity string, oldPassword string, newPassword string) *PasswordModifyRequest {
 	return &PasswordModifyRequest{
 		UserIdentity: userIdentity,
@@ -96,11 +95,7 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
 		if err = GetLDAPError(packet); err != nil {
-			if referral, referralErr := getReferral(err, packet); referralErr != nil {
-				return result, referralErr
-			} else {
-				result.Referral = referral
-			}
+			result.Referral = getReferral(err, packet)
 
 			return result, err
 		}
