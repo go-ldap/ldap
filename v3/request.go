@@ -79,21 +79,28 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 		return ""
 	}
 
-	children := len(packet.Children[1].Children)
-
-	if children == 0 || (packet.Children[1].TagType != ber.TypeConstructed || packet.Children[1].ClassType != ber.ClassApplication) {
+	// The packet Tag itself (of child 2) is generally a ber.TagObjectDescriptor with referrals however OpenLDAP
+	// seemingly returns a ber.Tag.GeneralizedTime. Every currently tested LDAP server which returns referrals returns
+	// an ASN.1 BER packet with the Type of ber.TypeConstructed and Class of ber.ClassApplication however. Thus this
+	// check expressly checks these fields instead.
+	//
+	// Related Issues:
+	//   - https://github.com/authelia/authelia/issues/4199 (downstream)
+	if len(packet.Children[1].Children) == 0 || (packet.Children[1].TagType != ber.TypeConstructed || packet.Children[1].ClassType != ber.ClassApplication) {
 		return ""
 	}
 
 	var ok bool
 
-	for i := 0; i < children; i++ {
-		if (packet.Children[1].Children[i].Tag != ber.TagBitString && packet.Children[1].Children[i].Tag != ber.TagPrintableString) ||
-			packet.Children[1].Children[i].TagType != ber.TypeConstructed || packet.Children[1].Children[i].ClassType != ber.ClassContext {
+	for _, child := range packet.Children[1].Children {
+		// The referral URI itself should be contained within a child which has a Tag of ber.BitString or
+		// ber.TagPrintableString, and the Type of ber.TypeConstructed and the Class of ClassContext. As soon as any of
+		// these conditions is not true  we can skip this child.
+		if (child.Tag != ber.TagBitString && child.Tag != ber.TagPrintableString) || child.TagType != ber.TypeConstructed || child.ClassType != ber.ClassContext {
 			continue
 		}
 
-		if referral, ok = packet.Children[1].Children[i].Children[0].Value.(string); ok {
+		if referral, ok = child.Children[0].Value.(string); ok {
 			return referral
 		}
 	}
