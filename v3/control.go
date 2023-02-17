@@ -38,13 +38,15 @@ const (
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
-	ControlTypePaging:                 "Paging",
-	ControlTypeBeheraPasswordPolicy:   "Password Policy - Behera Draft",
-	ControlTypeManageDsaIT:            "Manage DSA IT",
-	ControlTypeSubtreeDelete:          "Subtree Delete Control",
-	ControlTypeMicrosoftNotification:  "Change Notification - Microsoft",
-	ControlTypeMicrosoftShowDeleted:   "Show Deleted Objects - Microsoft",
-	ControlTypeMicrosoftServerLinkTTL: "Return TTL-DNs for link values with associated expiry times - Microsoft",
+	ControlTypePaging:                  "Paging",
+	ControlTypeBeheraPasswordPolicy:    "Password Policy - Behera Draft",
+	ControlTypeManageDsaIT:             "Manage DSA IT",
+	ControlTypeSubtreeDelete:           "Subtree Delete Control",
+	ControlTypeMicrosoftNotification:   "Change Notification - Microsoft",
+	ControlTypeMicrosoftShowDeleted:    "Show Deleted Objects - Microsoft",
+	ControlTypeMicrosoftServerLinkTTL:  "Return TTL-DNs for link values with associated expiry times - Microsoft",
+	ControlTypeServerSideSorting:       "Server Side Sorting Request - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
+	ControlTypeServerSideSortingResult: "Server Side Sorting Results - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -495,8 +497,10 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftServerLinkTTL(), nil
 	case ControlTypeSubtreeDelete:
 		return NewControlSubtreeDelete(), nil
+	case ControlTypeServerSideSorting:
+		return NewControlServerSideSorting(value)
 	case ControlTypeServerSideSortingResult:
-		return NewControlServerSideSortingResult(ber.DecodePacket(value.Data.Bytes()))
+		return NewControlServerSideSortingResult(value)
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -579,7 +583,38 @@ func (c *ControlServerSideSorting) GetControlType() string {
 	return ControlTypeServerSideSorting
 }
 
-func NewControlServerSideSorting(sortKeys []*SortKey) *ControlServerSideSorting {
+func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, error) {
+	sortKeys := []*SortKey{}
+
+	val := value.Children[1].Children
+
+	if len(val) != 1 {
+		return nil, fmt.Errorf("no sequence value in packet")
+	}
+
+	sequences := val[0].Children
+
+	for i, sequence := range sequences {
+		sortKey := &SortKey{}
+
+		if len(sequence.Children) < 2 {
+			return nil, fmt.Errorf("attributeType or matchingRule is missing from sequence %d", i)
+		}
+
+		sortKey.AttributeType = sequence.Children[0].Value.(string)
+		sortKey.MatchingRule = sequence.Children[1].Value.(string)
+
+		if len(sequence.Children) == 3 {
+			sortKey.Reverse = sequence.Children[2].Value.(bool)
+		}
+
+		sortKeys = append(sortKeys, sortKey)
+	}
+
+	return &ControlServerSideSorting{SortKeys: sortKeys}, nil
+}
+
+func NewControlServerSideSortingWithSortKeys(sortKeys []*SortKey) *ControlServerSideSorting {
 	return &ControlServerSideSorting{SortKeys: sortKeys}
 }
 
@@ -658,6 +693,7 @@ var ControlServerSideSortingCodes = []ControlServerSideSortingCode{
 
 type ControlServerSideSortingCode int64
 
+// Valid test the code contained in the control against the ControlServerSideSortingCodes slice and return an error if the code is unknown.
 func (c ControlServerSideSortingCode) Valid() error {
 	for _, validRet := range ControlServerSideSortingCodes {
 		if c == validRet {
