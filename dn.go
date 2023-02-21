@@ -286,7 +286,7 @@ func (a *AttributeTypeAndValue) Equal(other *AttributeTypeAndValue) bool {
 	return strings.EqualFold(a.Type, other.Type) && a.Value == other.Value
 }
 
-// Equal returns true if the DNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).
+// EqualFold returns true if the DNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).
 // Returns true if they have the same number of relative distinguished names
 // and corresponding relative distinguished names (by position) are the same.
 // Case of the attribute type and value is not significant
@@ -318,7 +318,7 @@ func (d *DN) AncestorOfFold(other *DN) bool {
 	return true
 }
 
-// Equal returns true if the RelativeDNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).
+// EqualFold returns true if the RelativeDNs are equal as defined by rfc4517 4.2.15 (distinguishedNameMatch).
 // Case of the attribute type is not significant
 func (r *RelativeDN) EqualFold(other *RelativeDN) bool {
 	if len(r.Attributes) != len(other.Attributes) {

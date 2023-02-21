@@ -40,7 +40,7 @@ func NewModifyDNRequest(dn string, rdn string, delOld bool, newSup string) *Modi
 //
 // Refer NewModifyDNRequest for other parameters
 func NewModifyDNWithControlsRequest(dn string, rdn string, delOld bool,
-		newSup string, controls []Control) *ModifyDNRequest {
+	newSup string, controls []Control) *ModifyDNRequest {
 	return &ModifyDNRequest{
 		DN:           dn,
 		NewRDN:       rdn,
