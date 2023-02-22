@@ -9,7 +9,8 @@ import (
 var (
 	errRespChanClosed = errors.New("ldap: response channel closed")
 	errCouldNotRetMsg = errors.New("ldap: could not retrieve message")
-	ErrNilConnection  = errors.New("ldap: conn is nil, expected net.Conn")
+	// ErrNilConnection is returned if doRequest is called with a nil connection.
+	ErrNilConnection = errors.New("ldap: conn is nil, expected net.Conn")
 )
 
 type request interface {

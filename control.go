@@ -20,7 +20,7 @@ const (
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
 	// ControlTypeWhoAmI - https://tools.ietf.org/html/rfc4532
 	ControlTypeWhoAmI = "1.3.6.1.4.1.4203.1.11.3"
-	// ControlTypeSubTreeDelete - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
+	// ControlTypeSubtreeDelete - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
 	ControlTypeSubtreeDelete = "1.2.840.113556.1.4.805"
 
 	// ControlTypeMicrosoftNotification - https://msdn.microsoft.com/en-us/library/aa366983(v=vs.85).aspx
@@ -232,7 +232,7 @@ func (c *ControlManageDsaIT) GetControlType() string {
 
 // Encode returns the ber packet representation
 func (c *ControlManageDsaIT) Encode() *ber.Packet {
-	//FIXME
+	// FIXME
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeManageDsaIT, "Control Type ("+ControlTypeMap[ControlTypeManageDsaIT]+")"))
 	if c.Criticality {
@@ -439,18 +439,18 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 		for _, child := range sequence.Children {
 			if child.Tag == 0 {
-				//Warning
+				// Warning
 				warningPacket := child.Children[0]
 				val, err := ber.ParseInt64(warningPacket.Data.Bytes())
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode data bytes: %s", err)
 				}
 				if warningPacket.Tag == 0 {
-					//timeBeforeExpiration
+					// timeBeforeExpiration
 					c.Expire = val
 					warningPacket.Value = c.Expire
 				} else if warningPacket.Tag == 1 {
-					//graceAuthNsRemaining
+					// graceAuthNsRemaining
 					c.Grace = val
 					warningPacket.Value = c.Grace
 				}
@@ -524,16 +524,21 @@ func NewControlBeheraPasswordPolicy() *ControlBeheraPasswordPolicy {
 	}
 }
 
+// ControlSubtreeDelete implements the subtree delete control described in
+// https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
 type ControlSubtreeDelete struct{}
 
+// GetControlType returns the OID
 func (c *ControlSubtreeDelete) GetControlType() string {
 	return ControlTypeSubtreeDelete
 }
 
+// NewControlSubtreeDelete returns a ControlSubtreeDelete control.
 func NewControlSubtreeDelete() *ControlSubtreeDelete {
 	return &ControlSubtreeDelete{}
 }
 
+// Encode returns the ber packet representation
 func (c *ControlSubtreeDelete) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeSubtreeDelete, "Control Type ("+ControlTypeMap[ControlTypeSubtreeDelete]+")"))
