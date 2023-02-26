@@ -2,7 +2,6 @@ package ldap
 
 import (
 	"errors"
-	"fmt"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -10,7 +9,8 @@ import (
 var (
 	errRespChanClosed = errors.New("ldap: response channel closed")
 	errCouldNotRetMsg = errors.New("ldap: could not retrieve message")
-	ErrNilConnection  = errors.New("ldap: conn is nil, expected net.Conn")
+	// ErrNilConnection is returned if doRequest is called with a nil connection.
+	ErrNilConnection = errors.New("ldap: conn is nil, expected net.Conn")
 )
 
 type request interface {
@@ -71,28 +71,40 @@ func (l *Conn) readPacket(msgCtx *messageContext) (*ber.Packet, error) {
 	return packet, nil
 }
 
-func getReferral(err error, packet *ber.Packet) (referral string, e error) {
+func getReferral(err error, packet *ber.Packet) (referral string) {
 	if !IsErrorWithCode(err, LDAPResultReferral) {
-		return "", nil
+		return ""
 	}
 
 	if len(packet.Children) < 2 {
-		return "", fmt.Errorf("ldap: returned error indicates the packet contains a referral but it doesn't have sufficient child nodes: %w", err)
+		return ""
 	}
 
-	if packet.Children[1].Tag != ber.TagObjectDescriptor {
-		return "", fmt.Errorf("ldap: returned error indicates the packet contains a referral but the relevant child node isn't an object descriptor: %w", err)
+	// The packet Tag itself (of child 2) is generally a ber.TagObjectDescriptor with referrals however OpenLDAP
+	// seemingly returns a ber.Tag.GeneralizedTime. Every currently tested LDAP server which returns referrals returns
+	// an ASN.1 BER packet with the Type of ber.TypeConstructed and Class of ber.ClassApplication however. Thus this
+	// check expressly checks these fields instead.
+	//
+	// Related Issues:
+	//   - https://github.com/authelia/authelia/issues/4199 (downstream)
+	if len(packet.Children[1].Children) == 0 || (packet.Children[1].TagType != ber.TypeConstructed || packet.Children[1].ClassType != ber.ClassApplication) {
+		return ""
 	}
 
 	var ok bool
 
 	for _, child := range packet.Children[1].Children {
-		if child.Tag == ber.TagBitString && len(child.Children) >= 1 {
-			if referral, ok = child.Children[0].Value.(string); ok {
-				return referral, nil
-			}
+		// The referral URI itself should be contained within a child which has a Tag of ber.BitString or
+		// ber.TagPrintableString, and the Type of ber.TypeConstructed and the Class of ClassContext. As soon as any of
+		// these conditions is not true  we can skip this child.
+		if (child.Tag != ber.TagBitString && child.Tag != ber.TagPrintableString) || child.TagType != ber.TypeConstructed || child.ClassType != ber.ClassContext {
+			continue
+		}
+
+		if referral, ok = child.Children[0].Value.(string); ok {
+			return referral
 		}
 	}
 
-	return "", fmt.Errorf("ldap: returned error indicates the packet contains a referral but the referral couldn't be decoded: %w", err)
+	return ""
 }
