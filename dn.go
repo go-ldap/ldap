@@ -156,10 +156,10 @@ func ParseDN(str string) (*DN, error) {
 		case char == '\\':
 			unescapedTrailingSpaces = 0
 			escaping = true
-		case char == '=':
+		case char == '=' && attribute.Type == "":
 			attribute.Type = stringFromBuffer()
 			// Special case: If the first character in the value is # the
-			// following data is BER encoded so we can just fast forward
+			// following data is BER encoded, so we can just fast-forward
 			// and decode.
 			if len(str) > i+1 && str[i+1] == '#' {
 				i += 2
