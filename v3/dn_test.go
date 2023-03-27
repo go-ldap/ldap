@@ -56,6 +56,10 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"cn", "john.doe;weird name"}}},
 			{[]*AttributeTypeAndValue{{"dc", "example"}}},
 			{[]*AttributeTypeAndValue{{"dc", "net"}}}}},
+		`cn=ZXhhbXBsZVRleHQ=,dc=dummy,dc=com`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "ZXhhbXBsZVRleHQ="}}},
+			{[]*AttributeTypeAndValue{{"dc", "dummy"}}},
+			{[]*AttributeTypeAndValue{{"dc", "com"}}}}},
 	}
 
 	for test, answer := range testcases {
