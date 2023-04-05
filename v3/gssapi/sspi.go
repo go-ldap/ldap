@@ -99,7 +99,6 @@ func (c *SSPIClient) InitSecContext(target string, token []byte) ([]byte, bool, 
 // NegotiateSaslAuth performs the last step of the SASL handshake.
 // See RFC 4752 section 3.1.
 func (c *SSPIClient) NegotiateSaslAuth(token []byte, authzid string) ([]byte, error) {
-
 	// Using SSPI rather than of GSSAPI, relevant documentation of differences here:
 	// https://learn.microsoft.com/en-us/windows/win32/secauthn/sspi-kerberos-interoperability-with-gssapi
 

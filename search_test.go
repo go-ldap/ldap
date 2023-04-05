@@ -1,9 +1,10 @@
 package ldap
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestNewEntry tests that repeated calls to NewEntry return the same value with the same input
@@ -51,7 +52,6 @@ func TestGetAttributeValue(t *testing.T) {
 }
 
 func TestEntry_Unmarshal(t *testing.T) {
-
 	t.Run("passing a struct should fail", func(t *testing.T) {
 		entry := &Entry{}
 
@@ -131,7 +131,6 @@ func TestEntry_Unmarshal(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Equal(t, expect, result)
-
 	})
 
 	t.Run("group struct be decoded", func(t *testing.T) {
@@ -169,5 +168,4 @@ func TestEntry_Unmarshal(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, expect, result)
 	})
-
 }

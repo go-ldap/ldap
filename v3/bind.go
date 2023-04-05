@@ -261,7 +261,7 @@ func parseParams(str string) (map[string]string, error) {
 	var state int
 	for i := 0; i <= len(str); i++ {
 		switch state {
-		case 0: //reading key
+		case 0: // reading key
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
 			}
@@ -270,7 +270,7 @@ func parseParams(str string) (map[string]string, error) {
 				continue
 			}
 			state = 1
-		case 1: //reading value
+		case 1: // reading value
 			if i == len(str) {
 				m[key] = value
 				break
@@ -289,7 +289,7 @@ func parseParams(str string) (map[string]string, error) {
 			default:
 				value += string(str[i])
 			}
-		case 2: //inside quotes
+		case 2: // inside quotes
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
 			}
@@ -651,7 +651,6 @@ func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) er
 }
 
 func (l *Conn) saslBindTokenExchange(reqControls []Control, reqToken []byte) ([]byte, error) {
-
 	// Construct LDAP Bind request with GSSAPI SASL mechanism.
 	envelope := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 	envelope.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
