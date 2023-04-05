@@ -346,9 +346,9 @@ func ExampleControlPaging_manualPaging() {
 
 // This example demonstrates how to use EXTERNAL SASL with TLS client certificates.
 func ExampleConn_ExternalBind() {
-	var ldapCert = "/path/to/cert.pem"
-	var ldapKey = "/path/to/key.pem"
-	var ldapCAchain = "/path/to/ca_chain.pem"
+	ldapCert := "/path/to/cert.pem"
+	ldapKey := "/path/to/key.pem"
+	ldapCAchain := "/path/to/ca_chain.pem"
 
 	// Load client cert and key
 	cert, err := tls.LoadX509KeyPair(ldapCert, ldapKey)

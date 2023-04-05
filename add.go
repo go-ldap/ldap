@@ -61,7 +61,6 @@ func NewAddRequest(dn string, controls []Control) *AddRequest {
 		DN:       dn,
 		Controls: controls,
 	}
-
 }
 
 // Add performs the given AddRequest

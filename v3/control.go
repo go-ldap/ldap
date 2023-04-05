@@ -740,6 +740,7 @@ type ControlServerSideSortingResult struct {
 func (control *ControlServerSideSortingResult) GetControlType() string {
 	return ControlTypeServerSideSortingResult
 }
+
 func (c *ControlServerSideSortingResult) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortResult sequence")
 	sortResult := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(c.Result), "SortResult")
