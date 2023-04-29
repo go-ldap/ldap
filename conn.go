@@ -239,7 +239,7 @@ func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
 
 // NewConn returns a new Conn using conn for network I/O.
 func NewConn(conn net.Conn, isTLS bool) *Conn {
-	return &Conn{
+	l := &Conn{
 		conn:            conn,
 		chanConfirm:     make(chan struct{}),
 		chanMessageID:   make(chan int64),
@@ -248,11 +248,12 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 		requestTimeout:  0,
 		isTLS:           isTLS,
 	}
+	l.wgClose.Add(1)
+	return l
 }
 
 // Start initializes goroutines to read responses and process messages
 func (l *Conn) Start() {
-	l.wgClose.Add(1)
 	go l.reader()
 	go l.processMessages()
 }
