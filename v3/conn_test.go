@@ -88,7 +88,7 @@ func TestInvalidStateSendResponseDeadlock(t *testing.T) {
 		done:      make(chan struct{}),
 		responses: make(chan *PacketResponse),
 	}
-	msgCtx.sendResponse(&PacketResponse{})
+	msgCtx.sendResponse(&PacketResponse{}, time.Millisecond)
 }
 
 // TestFinishMessage tests that we do not enter deadlock when a goroutine makes
