@@ -79,6 +79,18 @@ func TestInvalidCloseStateDeadlock(t *testing.T) {
 	conn.Close()
 }
 
+// TestInvalidStateSendResponseDeadlock tests that we do not enter deadlock when the
+// message handler is blocked or inactive.
+func TestInvalidStateSendResponseDeadlock(t *testing.T) {
+	// Attempt to send a response packet when the message handler is blocked or inactive
+	msgCtx := &messageContext{
+		id:        0,
+		done:      make(chan struct{}),
+		responses: make(chan *PacketResponse),
+	}
+	msgCtx.sendResponse(&PacketResponse{})
+}
+
 // TestFinishMessage tests that we do not enter deadlock when a goroutine makes
 // a request but does not handle all responses from the server.
 func TestFinishMessage(t *testing.T) {
