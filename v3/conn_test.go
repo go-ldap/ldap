@@ -58,9 +58,9 @@ func TestUnresponsiveConnection(t *testing.T) {
 	}
 }
 
-// TestInvalidCloseStateDeadlock tests that we do not enter deadlock when the
+// TestInvalidStateCloseDeadlock tests that we do not enter deadlock when the
 // message handler is blocked or inactive.
-func TestInvalidCloseStateDeadlock(t *testing.T) {
+func TestInvalidStateCloseDeadlock(t *testing.T) {
 	// The do-nothing server that accepts requests and does nothing
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}))
