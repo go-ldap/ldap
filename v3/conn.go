@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -274,7 +275,20 @@ func (l *Conn) Close() {
 	if l.setClosing() {
 		l.Debug.Printf("Sending quit message and waiting for confirmation")
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
-		<-l.chanConfirm
+
+		timeoutCtx := context.Background()
+		if l.requestTimeout > 0 {
+			var cancelFunc context.CancelFunc
+			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(l.requestTimeout))
+			defer cancelFunc()
+		}
+		select {
+		case <-l.chanConfirm:
+			// Confirmation was received.
+		case <-timeoutCtx.Done():
+			// The timeout was reached before confirmation was received.
+		}
+
 		close(l.chanMessage)
 
 		l.Debug.Printf("Closing network connection")
