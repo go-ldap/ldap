@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -60,13 +61,21 @@ type messageContext struct {
 
 // sendResponse should only be called within the processMessages() loop which
 // is also responsible for closing the responses channel.
-func (msgCtx *messageContext) sendResponse(packet *PacketResponse) {
+func (msgCtx *messageContext) sendResponse(packet *PacketResponse, timeout time.Duration) {
+	timeoutCtx := context.Background()
+	if timeout > 0 {
+		var cancelFunc context.CancelFunc
+		timeoutCtx, cancelFunc = context.WithTimeout(context.Background(), timeout)
+		defer cancelFunc()
+	}
 	select {
 	case msgCtx.responses <- packet:
 		// Successfully sent packet to message handler.
 	case <-msgCtx.done:
 		// The request handler is done and will not receive more
 		// packets.
+	case <-timeoutCtx.Done():
+		// The timeout was reached before the packet was sent.
 	}
 }
 
@@ -238,7 +247,7 @@ func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
 
 // NewConn returns a new Conn using conn for network I/O.
 func NewConn(conn net.Conn, isTLS bool) *Conn {
-	return &Conn{
+	l := &Conn{
 		conn:            conn,
 		chanConfirm:     make(chan struct{}),
 		chanMessageID:   make(chan int64),
@@ -247,11 +256,12 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 		requestTimeout:  0,
 		isTLS:           isTLS,
 	}
+	l.wgClose.Add(1)
+	return l
 }
 
 // Start initializes goroutines to read responses and process messages
 func (l *Conn) Start() {
-	l.wgClose.Add(1)
 	go l.reader()
 	go l.processMessages()
 }
@@ -274,7 +284,20 @@ func (l *Conn) Close() {
 	if l.setClosing() {
 		l.Debug.Printf("Sending quit message and waiting for confirmation")
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
-		<-l.chanConfirm
+
+		timeoutCtx := context.Background()
+		if l.requestTimeout > 0 {
+			var cancelFunc context.CancelFunc
+			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(l.requestTimeout))
+			defer cancelFunc()
+		}
+		select {
+		case <-l.chanConfirm:
+			// Confirmation was received.
+		case <-timeoutCtx.Done():
+			// The timeout was reached before confirmation was received.
+		}
+
 		close(l.chanMessage)
 
 		l.Debug.Printf("Closing network connection")
@@ -454,7 +477,7 @@ func (l *Conn) processMessages() {
 			// If we are closing due to an error, inform anyone who
 			// is waiting about the error.
 			if l.IsClosing() && l.closeErr.Load() != nil {
-				msgCtx.sendResponse(&PacketResponse{Error: l.closeErr.Load().(error)})
+				msgCtx.sendResponse(&PacketResponse{Error: l.closeErr.Load().(error)}, time.Duration(l.requestTimeout))
 			}
 			l.Debug.Printf("Closing channel for MessageID %d", messageID)
 			close(msgCtx.responses)
@@ -482,7 +505,7 @@ func (l *Conn) processMessages() {
 				_, err := l.conn.Write(buf)
 				if err != nil {
 					l.Debug.Printf("Error Sending Message: %s", err.Error())
-					message.Context.sendResponse(&PacketResponse{Error: fmt.Errorf("unable to send request: %s", err)})
+					message.Context.sendResponse(&PacketResponse{Error: fmt.Errorf("unable to send request: %s", err)}, time.Duration(l.requestTimeout))
 					close(message.Context.responses)
 					break
 				}
@@ -517,7 +540,7 @@ func (l *Conn) processMessages() {
 			case MessageResponse:
 				l.Debug.Printf("Receiving message %d", message.MessageID)
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
-					msgCtx.sendResponse(&PacketResponse{message.Packet, nil})
+					msgCtx.sendResponse(&PacketResponse{message.Packet, nil}, time.Duration(l.requestTimeout))
 				} else {
 					logger.Printf("Received unexpected message %d, %v", message.MessageID, l.IsClosing())
 					l.Debug.PrintPacket(message.Packet)
@@ -527,7 +550,7 @@ func (l *Conn) processMessages() {
 				// All reads will return immediately
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
 					l.Debug.Printf("Receiving message timeout for %d", message.MessageID)
-					msgCtx.sendResponse(&PacketResponse{message.Packet, NewError(ErrorNetwork, errors.New("ldap: connection timed out"))})
+					msgCtx.sendResponse(&PacketResponse{message.Packet, NewError(ErrorNetwork, errors.New("ldap: connection timed out"))}, time.Duration(l.requestTimeout))
 					delete(l.messageContexts, message.MessageID)
 					close(msgCtx.responses)
 				}
