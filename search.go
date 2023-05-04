@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -275,6 +276,12 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 				return fmt.Errorf("ldap: could not parse value '%s' into int field", values[0])
 			}
 			fv.SetInt(intVal)
+		case time.Time:
+			t, err := ber.ParseGeneralizedTime([]byte(values[0]))
+			if err != nil {
+				return fmt.Errorf("ldap: could not parse value '%s' into time.Time field", values[0])
+			}
+			fv.Set(reflect.ValueOf(t))
 		default:
 			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64 or []byte, got %v", ft.Type)
 		}
