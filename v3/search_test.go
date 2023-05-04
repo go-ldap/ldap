@@ -126,7 +126,7 @@ func TestEntry_Unmarshal(t *testing.T) {
 			Created time.Time `ldap:"createdTimestamp"`
 		}
 
-		t, err := time.Parse("200601021504Z", "202305041930Z")
+		created, err := time.Parse("200601021504Z", "202305041930Z")
 		if err != nil {
 			t.Errorf("failed to parse ref time: %s", err)
 		}
@@ -137,7 +137,7 @@ func TestEntry_Unmarshal(t *testing.T) {
 			ID:      2147483647,
 			LongID:  9223372036854775807,
 			Data:    []byte("data"),
-			Created: t,
+			Created: created,
 		}
 		result := &User{}
 		err := entry.Unmarshal(result)
