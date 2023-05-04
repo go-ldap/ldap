@@ -140,7 +140,7 @@ func TestEntry_Unmarshal(t *testing.T) {
 			Created: created,
 		}
 		result := &User{}
-		err := entry.Unmarshal(result)
+		err = entry.Unmarshal(result)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expect, result)
