@@ -325,7 +325,7 @@ func (l *Conn) nextMessageID() int64 {
 }
 
 // GetLastError returns the last recorded error from goroutines like processMessages and reader.
-// Previously set errors are overridden
+// Only the last recorded error will be returned.
 func (l *Conn) GetLastError() error {
 	return l.err
 }
