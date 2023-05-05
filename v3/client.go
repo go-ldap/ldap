@@ -9,7 +9,8 @@ import (
 type Client interface {
 	Start()
 	StartTLS(*tls.Config) error
-	Close()
+	Close() error
+	GetLastError() error
 	IsClosing() bool
 	SetTimeout(time.Duration)
 	TLSConnectionState() (tls.ConnectionState, bool)
