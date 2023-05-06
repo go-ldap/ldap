@@ -186,7 +186,7 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string, []string, int, int64, []byte or time.Time. Other field types
+// string, []string, int, int64, []byte, *DN, []*DN or time.Time. Other field types
 // will not be regarded. If the field type is a string or int but multiple
 // attribute values are returned, the first value will be used to fill the field.
 //
@@ -220,12 +220,19 @@ func readTag(f reflect.StructField) (string, bool) {
 //		// Time is parsed with the generalizedTime spec into a time.Time
 //		Created time.Time `ldap:"createdTimestamp"`
 //
+//		// *DN is parsed with the ParseDN
+//		Owner *ldap.DN `ldap:"owner"`
+//
+//		// []*DN is parsed with the ParseDN
+//		Children []*ldap.DN `ldap:"children"`
+//
 //		// This won't work, as the field is not of type string. For this
 //		// to work, you'll have to temporarily store the result in string
 //		// (or string array) and convert it to the desired type afterwards.
 //		UserAccountControl uint32 `ldap:"userPrincipalName"`
 //	}
 //	user := UserEntry{}
+//
 //	if err := result.Unmarshal(&user); err != nil {
 //		// ...
 //	}
@@ -285,8 +292,22 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 				return fmt.Errorf("ldap: could not parse value '%s' into time.Time field", values[0])
 			}
 			fv.Set(reflect.ValueOf(t))
+		case *DN:
+			dn, err := ParseDN(values[0])
+			if err != nil {
+				return fmt.Errorf("ldap: could not parse value '%s' into *ldap.DN field", values[0])
+			}
+			fv.Set(reflect.ValueOf(dn))
+		case []*DN:
+			for _, item := range values {
+				dn, err := ParseDN(item)
+				if err != nil {
+					return fmt.Errorf("ldap: could not parse value '%s' into *ldap.DN field", item)
+				}
+				fv.Set(reflect.Append(fv, reflect.ValueOf(dn)))
+			}
 		default:
-			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64, []byte or time.Time, got %v", ft.Type)
+			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
 		}
 	}
 	return
