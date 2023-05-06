@@ -186,9 +186,9 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string, []string, int, int64 or []byte. Other field types will not be
-// regarded. If the field type is a string or int but multiple attribute
-// values are returned, the first value will be used to fill the field.
+// string, []string, int, int64, []byte or time.Time. Other field types
+// will not be regarded. If the field type is a string or int but multiple
+// attribute values are returned, the first value will be used to fill the field.
 //
 // Example:
 //
@@ -216,6 +216,9 @@ func readTag(f reflect.StructField) (string, bool) {
 //		// Data is similar to MemberOf a slice containing all attribute
 //		// values.
 //		Data []byte `ldap:"data"`
+//
+//		// Time is parsed with the generalizedTime spec into a time.Time
+//		Created time.Time `ldap:"createdTimestamp"`
 //
 //		// This won't work, as the field is not of type string. For this
 //		// to work, you'll have to temporarily store the result in string
