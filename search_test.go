@@ -3,6 +3,7 @@ package ldap
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -106,28 +107,69 @@ func TestEntry_Unmarshal(t *testing.T) {
 						[]byte("data"),
 					},
 				},
+				// Tests time.Time value.
+				{
+					Name:       "createdTimestamp",
+					Values:     []string{"202305041930Z"},
+					ByteValues: nil,
+				},
+				// Tests *DN value
+				{
+					Name:       "owner",
+					Values:     []string{"uid=foo,dc=example,dc=org"},
+					ByteValues: nil,
+				},
+				// Tests []*DN value
+				{
+					Name:       "children",
+					Values:     []string{"uid=bar,dc=example,dc=org", "uid=baz,dc=example,dc=org"},
+					ByteValues: nil,
+				},
 			},
 		}
 
 		type User struct {
-			Dn     string `ldap:"dn"`
-			Cn     string `ldap:"cn"`
-			Mail   string `ldap:"mail"`
-			ID     int    `ldap:"id"`
-			LongID int64  `ldap:"longId"`
-			Data   []byte `ldap:"data"`
+			Dn       string    `ldap:"dn"`
+			Cn       string    `ldap:"cn"`
+			Mail     string    `ldap:"mail"`
+			ID       int       `ldap:"id"`
+			LongID   int64     `ldap:"longId"`
+			Data     []byte    `ldap:"data"`
+			Created  time.Time `ldap:"createdTimestamp"`
+			Owner    *DN       `ldap:"owner"`
+			Children []*DN     `ldap:"children"`
+		}
+
+		created, err := time.Parse("200601021504Z", "202305041930Z")
+		if err != nil {
+			t.Errorf("failed to parse ref time: %s", err)
+		}
+		owner, err := ParseDN("uid=foo,dc=example,dc=org")
+		if err != nil {
+			t.Errorf("failed to parse ref DN: %s", err)
+		}
+		var children []*DN
+		for _, child := range []string{"uid=bar,dc=example,dc=org", "uid=baz,dc=example,dc=org"} {
+			dn, err := ParseDN(child)
+			if err != nil {
+				t.Errorf("failed to parse child ref DN: %s", err)
+			}
+			children = append(children, dn)
 		}
 
 		expect := &User{
-			Dn:     "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
-			Cn:     "mario",
-			Mail:   "mario@go-ldap.com",
-			ID:     2147483647,
-			LongID: 9223372036854775807,
-			Data:   []byte("data"),
+			Dn:       "cn=mario,ou=Users,dc=go-ldap,dc=github,dc=com",
+			Cn:       "mario",
+			Mail:     "mario@go-ldap.com",
+			ID:       2147483647,
+			LongID:   9223372036854775807,
+			Data:     []byte("data"),
+			Created:  created,
+			Owner:    owner,
+			Children: children,
 		}
 		result := &User{}
-		err := entry.Unmarshal(result)
+		err = entry.Unmarshal(result)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expect, result)
