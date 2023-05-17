@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"time"
 )
 
 // This example demonstrates how to bind a connection to an ldap user
@@ -341,6 +342,57 @@ func ExampleControlPaging_manualPaging() {
 		// If no new paging information is available or the cookie is empty, we
 		// are done with the pagination.
 		break
+	}
+}
+
+// This example demonstrates how to use DirSync to manually execute a
+// DirSync search request
+func ExampleConn_DirSync() {
+	conn, err := Dial("tcp", "ad.example.org:389")
+	if err != nil {
+		log.Fatalf("Failed to connect: %s\n", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.SimpleBind(&SimpleBindRequest{
+		Username: "cn=Some User,ou=people,dc=example,dc=org",
+		Password: "MySecretPass",
+	})
+
+	req := &SearchRequest{
+		BaseDN:     `DC=example,DC=org`,
+		Filter:     `(&(objectClass=person)(!(objectClass=computer)))`,
+		Attributes: []string{"*"},
+		Scope:      ScopeWholeSubtree,
+	}
+	// This is the initial sync with all entries matching the filter
+	doMore := true
+	var cookie []byte
+	for doMore {
+		res, err := conn.DirSync(req, DirSyncObjectSecurity, 1000, cookie)
+		if err != nil {
+			log.Fatalf("failed to search: %s", err)
+		}
+		for _, entry := range res.Entries {
+			entry.Print()
+		}
+		ctrl := FindControl(res.Controls, ControlTypeDirSync)
+		if ctrl == nil || ctrl.(*ControlDirSync).Flags == 0 {
+			doMore = false
+		}
+		cookie = res.Cookie
+	}
+	// We're done with the initial sync. Now pull every 15 seconds for the
+	// updated entries - note that you get just the changes, not a full entry.
+	for {
+		res, err := conn.DirSync(req, DirSyncObjectSecurity, 1000, cookie)
+		if err != nil {
+			log.Fatalf("failed to search: %s", err)
+		}
+		for _, entry := range res.Entries {
+			entry.Print()
+		}
+		time.Sleep(15 * time.Second)
 	}
 }
 
