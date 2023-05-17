@@ -358,6 +358,9 @@ func ExampleConn_DirSync() {
 		Username: "cn=Some User,ou=people,dc=example,dc=org",
 		Password: "MySecretPass",
 	})
+	if err != nil {
+		log.Fatalf("failed to bind: %s", err)
+	}
 
 	req := &SearchRequest{
 		BaseDN:     `DC=example,DC=org`,
