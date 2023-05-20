@@ -383,7 +383,7 @@ func ExampleConn_DirSync() {
 		if ctrl == nil || ctrl.(*ControlDirSync).Flags == 0 {
 			doMore = false
 		}
-		cookie = res.Cookie
+		cookie = ctrl.(*ControlDirSync).Cookie
 	}
 	// We're done with the initial sync. Now pull every 15 seconds for the
 	// updated entries - note that you get just the changes, not a full entry.

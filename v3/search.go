@@ -354,8 +354,6 @@ type SearchResult struct {
 	Referrals []string
 	// Controls are the returned controls
 	Controls []Control
-	// Cookie is the returned cookie
-	Cookie []byte
 }
 
 // Print outputs a human-readable description
@@ -637,7 +635,6 @@ func (l *Conn) DirSync(searchRequest *SearchRequest, flags int64, maxAttrCount i
 		return searchResult, nil
 	}
 	dirSyncControl.SetCookie(cookie)
-	searchResult.Cookie = cookie
 
 	return searchResult, nil
 }
