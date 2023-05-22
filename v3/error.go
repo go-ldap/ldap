@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"fmt"
+	"strings"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -210,10 +211,11 @@ func GetLDAPError(packet *ber.Packet) error {
 			if resultCode == 0 { // No error
 				return nil
 			}
+			errorMsg := strings.Trim(response.Children[2].Value.(string), "\x00")
 			return &Error{
 				ResultCode: resultCode,
 				MatchedDN:  response.Children[1].Value.(string),
-				Err:        fmt.Errorf("%s", response.Children[2].Value.(string)),
+				Err:        fmt.Errorf("%s", errorMsg),
 				Packet:     packet,
 			}
 		}
