@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -377,6 +378,28 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Controls = append(r.Controls, s.Controls...)
 }
 
+// SearchSingleResult holds the server's single response to a search request
+type SearchSingleResult struct {
+	// Entry is the returned entry
+	Entry *Entry
+	// Referral is the returned referral
+	Referral string
+	// Controls are the returned controls
+	Controls []Control
+	// Error is set when the search request was failed
+	Error error
+}
+
+// Print outputs a human-readable description
+func (s *SearchSingleResult) Print() {
+	s.Entry.Print()
+}
+
+// PrettyPrint outputs a human-readable description with indenting
+func (s *SearchSingleResult) PrettyPrint(indent int) {
+	s.Entry.PrettyPrint(indent)
+}
+
 // SearchRequest represents a search request to send to the server
 type SearchRequest struct {
 	BaseDN       string
@@ -559,6 +582,111 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
 		}
 	}
+}
+
+// SearchWithChannel performs a search request and returns all search results
+// via the returned channel as soon as they are received. This means you get
+// all results until an error happens (or the search successfully finished),
+// e.g. for size / time limited requests all are recieved via the channel
+// until the limit is reached.
+func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchRequest) chan *SearchSingleResult {
+	ch := make(chan *SearchSingleResult)
+	go func() {
+		defer close(ch)
+		if l.IsClosing() {
+			return
+		}
+
+		packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
+		// encode search request
+		err := searchRequest.appendTo(packet)
+		if err != nil {
+			ch <- &SearchSingleResult{Error: err}
+			return
+		}
+		l.Debug.PrintPacket(packet)
+
+		msgCtx, err := l.sendMessage(packet)
+		if err != nil {
+			ch <- &SearchSingleResult{Error: err}
+			return
+		}
+		defer l.finishMessage(msgCtx)
+
+		foundSearchSingleResultDone := false
+		for !foundSearchSingleResultDone {
+			select {
+			case <-ctx.Done():
+				l.Debug.Printf("%d: %s", msgCtx.id, ctx.Err().Error())
+				return
+			default:
+				l.Debug.Printf("%d: waiting for response", msgCtx.id)
+				packetResponse, ok := <-msgCtx.responses
+				if !ok {
+					err := NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+					ch <- &SearchSingleResult{Error: err}
+					return
+				}
+				packet, err = packetResponse.ReadPacket()
+				l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+				if err != nil {
+					ch <- &SearchSingleResult{Error: err}
+					return
+				}
+
+				if l.Debug {
+					if err := addLDAPDescriptions(packet); err != nil {
+						ch <- &SearchSingleResult{Error: err}
+						return
+					}
+					ber.PrintPacket(packet)
+				}
+
+				switch packet.Children[1].Tag {
+				case ApplicationSearchResultEntry:
+					entry := new(Entry)
+					entry.DN = packet.Children[1].Children[0].Value.(string)
+					for _, child := range packet.Children[1].Children[1].Children {
+						attr := new(EntryAttribute)
+						attr.Name = child.Children[0].Value.(string)
+						for _, value := range child.Children[1].Children {
+							attr.Values = append(attr.Values, value.Value.(string))
+							attr.ByteValues = append(attr.ByteValues, value.ByteValue)
+						}
+						entry.Attributes = append(entry.Attributes, attr)
+					}
+					ch <- &SearchSingleResult{Entry: entry}
+
+				case ApplicationSearchResultDone:
+					if err := GetLDAPError(packet); err != nil {
+						ch <- &SearchSingleResult{Error: err}
+						return
+					}
+					if len(packet.Children) == 3 {
+						result := &SearchSingleResult{}
+						for _, child := range packet.Children[2].Children {
+							decodedChild, err := DecodeControl(child)
+							if err != nil {
+								werr := fmt.Errorf("failed to decode child control: %w", err)
+								ch <- &SearchSingleResult{Error: werr}
+								return
+							}
+							result.Controls = append(result.Controls, decodedChild)
+						}
+						ch <- result
+					}
+					foundSearchSingleResultDone = true
+
+				case ApplicationSearchResultReference:
+					ref := packet.Children[1].Children[0].Value.(string)
+					ch <- &SearchSingleResult{Referral: ref}
+				}
+			}
+		}
+		l.Debug.Printf("%d: returning", msgCtx.id)
+	}()
+	return ch
 }
 
 // unpackAttributes will extract all given LDAP attributes and it's values

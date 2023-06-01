@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -47,6 +48,34 @@ func ExampleConn_Search() {
 
 	for _, entry := range sr.Entries {
 		fmt.Printf("%s: %v\n", entry.DN, entry.GetAttributeValue("cn"))
+	}
+}
+
+// This example demonstrates how to search with channel
+func ExampleConn_SearchWithChannel() {
+	l, err := DialURL(fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		"dc=example,dc=com", // The base dn to search
+		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
+		"(&(objectClass=organizationalPerson))", // The filter to apply
+		[]string{"dn", "cn"},                    // A list attributes to retrieve
+		nil,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := l.SearchWithChannel(ctx, searchRequest)
+	for res := range ch {
+		if res.Error != nil {
+			log.Fatalf("Error searching: %s", res.Error)
+		}
+		fmt.Printf("%s has DN %s\n", res.Entry.GetAttributeValue("cn"), res.Entry.DN)
 	}
 }
 

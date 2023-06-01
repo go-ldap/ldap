@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
@@ -343,4 +344,65 @@ func TestEscapeDN(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSearchWithChannel(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[2],
+		attributes,
+		nil)
+
+	srs := make([]*Entry, 0)
+	ctx := context.Background()
+	for sr := range l.SearchWithChannel(ctx, searchRequest) {
+		if sr.Error != nil {
+			t.Fatal(err)
+		}
+		srs = append(srs, sr.Entry)
+	}
+
+	t.Logf("TestSearchWithChannel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
+}
+
+func TestSearchWithChannelAndCancel(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[2],
+		attributes,
+		nil)
+
+	cancelNum := 10
+	srs := make([]*Entry, 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	for sr := range l.SearchWithChannel(ctx, searchRequest) {
+		if sr.Error != nil {
+			t.Fatal(err)
+		}
+		srs = append(srs, sr.Entry)
+		if len(srs) == cancelNum {
+			cancel()
+		}
+	}
+	if len(srs) > cancelNum+2 {
+		// The cancel process is asynchronous,
+		// so a few entries after it canceled might be received
+		t.Errorf("Got entries %d, expected less than %d", len(srs), cancelNum+2)
+	}
+	t.Logf("TestSearchWithChannel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
 }
