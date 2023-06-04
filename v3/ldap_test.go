@@ -362,7 +362,7 @@ func TestSearchWithChannel(t *testing.T) {
 
 	srs := make([]*Entry, 0)
 	ctx := context.Background()
-	for sr := range l.SearchWithChannel(ctx, searchRequest) {
+	for sr := range l.SearchWithChannel(ctx, searchRequest, 64) {
 		if sr.Error != nil {
 			t.Fatal(err)
 		}
@@ -390,7 +390,7 @@ func TestSearchWithChannelAndCancel(t *testing.T) {
 	srs := make([]*Entry, 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ch := l.SearchWithChannel(ctx, searchRequest)
+	ch := l.SearchWithChannel(ctx, searchRequest, 0)
 	for i := 0; i < 10; i++ {
 		sr := <-ch
 		if sr.Error != nil {

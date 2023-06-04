@@ -587,8 +587,13 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 // all results until an error happens (or the search successfully finished),
 // e.g. for size / time limited requests all are recieved via the channel
 // until the limit is reached.
-func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchRequest) <-chan *SearchSingleResult {
-	ch := make(chan *SearchSingleResult)
+func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchRequest, channelSize int) <-chan *SearchSingleResult {
+	var ch chan *SearchSingleResult
+	if channelSize > 0 {
+		ch = make(chan *SearchSingleResult, channelSize)
+	} else {
+		ch = make(chan *SearchSingleResult)
+	}
 	go func() {
 		defer close(ch)
 		if l.IsClosing() {

@@ -70,7 +70,7 @@ func ExampleConn_SearchWithChannel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := l.SearchWithChannel(ctx, searchRequest)
+	ch := l.SearchWithChannel(ctx, searchRequest, 64)
 	for res := range ch {
 		if res.Error != nil {
 			log.Fatalf("Error searching: %s", res.Error)
