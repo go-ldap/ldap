@@ -645,18 +645,12 @@ func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchReque
 
 				switch packet.Children[1].Tag {
 				case ApplicationSearchResultEntry:
-					entry := new(Entry)
-					entry.DN = packet.Children[1].Children[0].Value.(string)
-					for _, child := range packet.Children[1].Children[1].Children {
-						attr := new(EntryAttribute)
-						attr.Name = child.Children[0].Value.(string)
-						for _, value := range child.Children[1].Children {
-							attr.Values = append(attr.Values, value.Value.(string))
-							attr.ByteValues = append(attr.ByteValues, value.ByteValue)
-						}
-						entry.Attributes = append(entry.Attributes, attr)
+					ch <- &SearchSingleResult{
+						Entry: &Entry{
+							DN:         packet.Children[1].Children[0].Value.(string),
+							Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
+						},
 					}
-					ch <- &SearchSingleResult{Entry: entry}
 
 				case ApplicationSearchResultDone:
 					if err := GetLDAPError(packet); err != nil {
