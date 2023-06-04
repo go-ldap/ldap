@@ -597,7 +597,13 @@ func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchReque
 		ch = make(chan *SearchSingleResult)
 	}
 	go func() {
-		defer close(ch)
+		defer func() {
+			close(ch)
+			if err := recover(); err != nil {
+				l.err = fmt.Errorf("ldap: recovered panic in SearchWithChannel: %v", err)
+			}
+		}()
+
 		if l.IsClosing() {
 			return
 		}
