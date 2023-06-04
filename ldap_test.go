@@ -390,7 +390,9 @@ func TestSearchWithChannelAndCancel(t *testing.T) {
 	srs := make([]*Entry, 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for sr := range l.SearchWithChannel(ctx, searchRequest) {
+	ch := l.SearchWithChannel(ctx, searchRequest)
+	for i := 0; i < 10; i++ {
+		sr := <-ch
 		if sr.Error != nil {
 			t.Fatal(err)
 		}
@@ -399,10 +401,8 @@ func TestSearchWithChannelAndCancel(t *testing.T) {
 			cancel()
 		}
 	}
-	if len(srs) > cancelNum+2 {
-		// The cancel process is asynchronous,
-		// so a few entries after it canceled might be received
-		t.Errorf("Got entries %d, expected less than %d", len(srs), cancelNum+2)
+	if len(srs) != cancelNum {
+		t.Errorf("Got entries %d, expected %d", len(srs), cancelNum)
 	}
 	t.Logf("TestSearchWithChannel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
 }
