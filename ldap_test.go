@@ -401,6 +401,9 @@ func TestSearchWithChannelAndCancel(t *testing.T) {
 			cancel()
 		}
 	}
+	for range ch {
+		t.Log("Consume all entries from the channel to prevent blocking by the connection")
+	}
 	if len(srs) != cancelNum {
 		t.Errorf("Got entries %d, expected %d", len(srs), cancelNum)
 	}
