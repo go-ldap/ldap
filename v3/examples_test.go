@@ -52,6 +52,35 @@ func ExampleConn_Search() {
 }
 
 // This example demonstrates how to search with channel
+func ExampleConn_SearchAsync() {
+	l, err := DialURL(fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		"dc=example,dc=com", // The base dn to search
+		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
+		"(&(objectClass=organizationalPerson))", // The filter to apply
+		[]string{"dn", "cn"},                    // A list attributes to retrieve
+		nil,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := l.SearchAsync(ctx, searchRequest, 64)
+	for r.Next() {
+		entry := r.Entry()
+		fmt.Printf("%s has DN %s\n", entry.GetAttributeValue("cn"), entry.DN)
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// This example demonstrates how to search with channel
 func ExampleConn_SearchWithChannel() {
 	l, err := DialURL(fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {

@@ -584,6 +584,17 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 	}
 }
 
+// SearchAsync performs a search request and returns all search results asynchronously.
+// This means you get all results until an error happens (or the search successfully finished),
+// e.g. for size / time limited requests all are recieved until the limit is reached.
+// To stop the search, call cancel function returned context.
+func (l *Conn) SearchAsync(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
+	r := &searchResponse{conn: l}
+	r.searchAsync(ctx, searchRequest, bufferSize)
+	return r
+}
+
 // SearchWithChannel performs a search request and returns all search results
 // via the returned channel as soon as they are received. This means you get
 // all results until an error happens (or the search successfully finished),
