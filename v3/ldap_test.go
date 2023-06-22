@@ -3,6 +3,7 @@ package ldap
 import (
 	"context"
 	"crypto/tls"
+	"log"
 	"testing"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -346,7 +347,7 @@ func TestEscapeDN(t *testing.T) {
 	}
 }
 
-func TestSearchWithChannel(t *testing.T) {
+func TestSearchAsync(t *testing.T) {
 	l, err := DialURL(ldapServer)
 	if err != nil {
 		t.Fatal(err)
@@ -362,17 +363,18 @@ func TestSearchWithChannel(t *testing.T) {
 
 	srs := make([]*Entry, 0)
 	ctx := context.Background()
-	for sr := range l.SearchWithChannel(ctx, searchRequest, 64) {
-		if sr.Error != nil {
-			t.Fatal(err)
-		}
-		srs = append(srs, sr.Entry)
+	r := l.SearchAsync(ctx, searchRequest, 64)
+	for r.Next() {
+		srs = append(srs, r.Entry())
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
 	}
 
-	t.Logf("TestSearchWithChannel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
+	t.Logf("TestSearcAsync: %s -> num of entries = %d", searchRequest.Filter, len(srs))
 }
 
-func TestSearchWithChannelAndCancel(t *testing.T) {
+func TestSearchAsyncAndCancel(t *testing.T) {
 	l, err := DialURL(ldapServer)
 	if err != nil {
 		t.Fatal(err)
@@ -390,22 +392,21 @@ func TestSearchWithChannelAndCancel(t *testing.T) {
 	srs := make([]*Entry, 0)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ch := l.SearchWithChannel(ctx, searchRequest, 0)
-	for i := 0; i < 10; i++ {
-		sr := <-ch
-		if sr.Error != nil {
-			t.Fatal(err)
-		}
-		srs = append(srs, sr.Entry)
+	r := l.SearchAsync(ctx, searchRequest, 0)
+	for r.Next() {
+		srs = append(srs, r.Entry())
 		if len(srs) == cancelNum {
 			cancel()
 		}
 	}
-	for range ch {
-		t.Log("Consume all entries from the channel to prevent blocking by the connection")
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
 	}
-	if len(srs) != cancelNum {
-		t.Errorf("Got entries %d, expected %d", len(srs), cancelNum)
+
+	if len(srs) > cancelNum+3 {
+		// the cancellation process is asynchronous,
+		// so it might get some entries after calling cancel()
+		t.Errorf("Got entries %d, expected < %d", len(srs), cancelNum+3)
 	}
-	t.Logf("TestSearchWithChannel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
+	t.Logf("TestSearchAsyncAndCancel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
 }

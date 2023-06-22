@@ -582,114 +582,15 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 	}
 }
 
-// SearchWithChannel performs a search request and returns all search results
-// via the returned channel as soon as they are received. This means you get
-// all results until an error happens (or the search successfully finished),
-// e.g. for size / time limited requests all are recieved via the channel
-// until the limit is reached.
-func (l *Conn) SearchWithChannel(ctx context.Context, searchRequest *SearchRequest, channelSize int) <-chan *SearchSingleResult {
-	var ch chan *SearchSingleResult
-	if channelSize > 0 {
-		ch = make(chan *SearchSingleResult, channelSize)
-	} else {
-		ch = make(chan *SearchSingleResult)
-	}
-	go func() {
-		defer func() {
-			close(ch)
-			if err := recover(); err != nil {
-				l.err = fmt.Errorf("ldap: recovered panic in SearchWithChannel: %v", err)
-			}
-		}()
-
-		if l.IsClosing() {
-			return
-		}
-
-		packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
-		// encode search request
-		err := searchRequest.appendTo(packet)
-		if err != nil {
-			ch <- &SearchSingleResult{Error: err}
-			return
-		}
-		l.Debug.PrintPacket(packet)
-
-		msgCtx, err := l.sendMessage(packet)
-		if err != nil {
-			ch <- &SearchSingleResult{Error: err}
-			return
-		}
-		defer l.finishMessage(msgCtx)
-
-		foundSearchSingleResultDone := false
-		for !foundSearchSingleResultDone {
-			select {
-			case <-ctx.Done():
-				l.Debug.Printf("%d: %s", msgCtx.id, ctx.Err().Error())
-				return
-			default:
-				l.Debug.Printf("%d: waiting for response", msgCtx.id)
-				packetResponse, ok := <-msgCtx.responses
-				if !ok {
-					err := NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
-					ch <- &SearchSingleResult{Error: err}
-					return
-				}
-				packet, err = packetResponse.ReadPacket()
-				l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
-				if err != nil {
-					ch <- &SearchSingleResult{Error: err}
-					return
-				}
-
-				if l.Debug {
-					if err := addLDAPDescriptions(packet); err != nil {
-						ch <- &SearchSingleResult{Error: err}
-						return
-					}
-					ber.PrintPacket(packet)
-				}
-
-				switch packet.Children[1].Tag {
-				case ApplicationSearchResultEntry:
-					ch <- &SearchSingleResult{
-						Entry: &Entry{
-							DN:         packet.Children[1].Children[0].Value.(string),
-							Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
-						},
-					}
-
-				case ApplicationSearchResultDone:
-					if err := GetLDAPError(packet); err != nil {
-						ch <- &SearchSingleResult{Error: err}
-						return
-					}
-					if len(packet.Children) == 3 {
-						result := &SearchSingleResult{}
-						for _, child := range packet.Children[2].Children {
-							decodedChild, err := DecodeControl(child)
-							if err != nil {
-								werr := fmt.Errorf("failed to decode child control: %w", err)
-								ch <- &SearchSingleResult{Error: werr}
-								return
-							}
-							result.Controls = append(result.Controls, decodedChild)
-						}
-						ch <- result
-					}
-					foundSearchSingleResultDone = true
-
-				case ApplicationSearchResultReference:
-					ref := packet.Children[1].Children[0].Value.(string)
-					ch <- &SearchSingleResult{Referral: ref}
-				}
-			}
-		}
-		l.Debug.Printf("%d: returning", msgCtx.id)
-	}()
-	return ch
+// SearchAsync performs a search request and returns all search results asynchronously.
+// This means you get all results until an error happens (or the search successfully finished),
+// e.g. for size / time limited requests all are recieved until the limit is reached.
+// To stop the search, call cancel function returned context.
+func (l *Conn) SearchAsync(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
+	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
 }
 
 // unpackAttributes will extract all given LDAP attributes and it's values

@@ -51,8 +51,8 @@ func ExampleConn_Search() {
 	}
 }
 
-// This example demonstrates how to search with channel
-func ExampleConn_SearchWithChannel() {
+// This example demonstrates how to search asynchronously
+func ExampleConn_SearchAsync() {
 	l, err := DialURL(fmt.Sprintf("%s:%d", "ldap.example.com", 389))
 	if err != nil {
 		log.Fatal(err)
@@ -70,12 +70,13 @@ func ExampleConn_SearchWithChannel() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := l.SearchWithChannel(ctx, searchRequest, 64)
-	for res := range ch {
-		if res.Error != nil {
-			log.Fatalf("Error searching: %s", res.Error)
-		}
-		fmt.Printf("%s has DN %s\n", res.Entry.GetAttributeValue("cn"), res.Entry.DN)
+	r := l.SearchAsync(ctx, searchRequest, 64)
+	for r.Next() {
+		entry := r.Entry()
+		fmt.Printf("%s has DN %s\n", entry.GetAttributeValue("cn"), entry.DN)
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
 	}
 }
 
