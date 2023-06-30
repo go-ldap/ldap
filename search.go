@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -375,6 +376,28 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Controls = append(r.Controls, s.Controls...)
 }
 
+// SearchSingleResult holds the server's single response to a search request
+type SearchSingleResult struct {
+	// Entry is the returned entry
+	Entry *Entry
+	// Referral is the returned referral
+	Referral string
+	// Controls are the returned controls
+	Controls []Control
+	// Error is set when the search request was failed
+	Error error
+}
+
+// Print outputs a human-readable description
+func (s *SearchSingleResult) Print() {
+	s.Entry.Print()
+}
+
+// PrettyPrint outputs a human-readable description with indenting
+func (s *SearchSingleResult) PrettyPrint(indent int) {
+	s.Entry.PrettyPrint(indent)
+}
+
 // SearchRequest represents a search request to send to the server
 type SearchRequest struct {
 	BaseDN       string
@@ -557,6 +580,17 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
 		}
 	}
+}
+
+// SearchAsync performs a search request and returns all search results asynchronously.
+// This means you get all results until an error happens (or the search successfully finished),
+// e.g. for size / time limited requests all are recieved until the limit is reached.
+// To stop the search, call cancel function returned context.
+func (l *Conn) SearchAsync(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
+	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
 }
 
 // unpackAttributes will extract all given LDAP attributes and it's values

@@ -1,7 +1,9 @@
 package ldap
 
 import (
+	"context"
 	"crypto/tls"
+	"log"
 	"testing"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -343,4 +345,68 @@ func TestEscapeDN(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSearchAsync(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[2],
+		attributes,
+		nil)
+
+	srs := make([]*Entry, 0)
+	ctx := context.Background()
+	r := l.SearchAsync(ctx, searchRequest, 64)
+	for r.Next() {
+		srs = append(srs, r.Entry())
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	t.Logf("TestSearcAsync: %s -> num of entries = %d", searchRequest.Filter, len(srs))
+}
+
+func TestSearchAsyncAndCancel(t *testing.T) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		baseDN,
+		ScopeWholeSubtree, DerefAlways, 0, 0, false,
+		filter[2],
+		attributes,
+		nil)
+
+	cancelNum := 10
+	srs := make([]*Entry, 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := l.SearchAsync(ctx, searchRequest, 0)
+	for r.Next() {
+		srs = append(srs, r.Entry())
+		if len(srs) == cancelNum {
+			cancel()
+		}
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	if len(srs) > cancelNum+3 {
+		// the cancellation process is asynchronous,
+		// so it might get some entries after calling cancel()
+		t.Errorf("Got entries %d, expected < %d", len(srs), cancelNum+3)
+	}
+	t.Logf("TestSearchAsyncAndCancel: %s -> num of entries = %d", searchRequest.Filter, len(srs))
 }
