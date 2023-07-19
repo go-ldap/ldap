@@ -51,6 +51,10 @@ var ControlTypeMap = map[string]string{
 	ControlTypeMicrosoftShowDeleted:   "Show Deleted Objects - Microsoft",
 	ControlTypeMicrosoftServerLinkTTL: "Return TTL-DNs for link values with associated expiry times - Microsoft",
 	ControlTypeDirSync:                "DirSync",
+	ControlTypeSyncRequest:            "Sync Request",
+	ControlTypeSyncState:              "Sync State",
+	ControlTypeSyncDone:               "Sync Done",
+	ControlTypeSyncInfo:               "Sync Info",
 }
 
 // Control defines an interface controls provide to encode and describe themselves

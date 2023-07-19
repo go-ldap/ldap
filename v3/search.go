@@ -587,10 +587,25 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 // SearchAsync performs a search request and returns all search results asynchronously.
 // This means you get all results until an error happens (or the search successfully finished),
 // e.g. for size / time limited requests all are recieved until the limit is reached.
-// To stop the search, call cancel function returned context.
+// To stop the search, call cancel function of the context.
 func (l *Conn) SearchAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
 	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
+}
+
+// Syncrepl is a short name for LDAP Sync Replication engine that works on the
+// consumer-side. This can perform a persistent search and returns an entry
+// when the entry is updated on the server side.
+// To stop the search, call cancel function of the context.
+func (l *Conn) Syncrepl(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
+	mode ControlSyncRequestMode, cookie []byte,
+) Response {
+	control := NewControlSyncRequest(mode, cookie)
+	searchRequest.Controls = append(searchRequest.Controls, control)
+	r := newSyncReplResponse(l, bufferSize)
 	r.start(ctx, searchRequest)
 	return r
 }

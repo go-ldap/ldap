@@ -58,6 +58,10 @@ var ControlTypeMap = map[string]string{
 	ControlTypeServerSideSorting:       "Server Side Sorting Request - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
 	ControlTypeServerSideSortingResult: "Server Side Sorting Results - LDAP Control Extension for Server Side Sorting of Search Results (RFC2891)",
 	ControlTypeDirSync:                 "DirSync",
+	ControlTypeSyncRequest:             "Sync Request",
+	ControlTypeSyncState:               "Sync State",
+	ControlTypeSyncDone:                "Sync Done",
+	ControlTypeSyncInfo:                "Sync Info",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
