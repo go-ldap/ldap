@@ -61,8 +61,8 @@ func NewClientWithPassword(username, realm, password string, krb5confPath string
 	}, nil
 }
 
-// NewClientFromCCache create a client from a populated client cache.
-func NewClientFromCCache(krb5confPath, ccachePath string, settings ...func(*client.Settings)) (*Client, error) {
+// NewClientFromCCache creates a new client from a populated client cache.
+func NewClientFromCCache(ccachePath, krb5confPath string, settings ...func(*client.Settings)) (*Client, error) {
 	krb5conf, err := config.Load(krb5confPath)
 	if err != nil {
 		return nil, err
