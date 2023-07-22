@@ -60,10 +60,6 @@ func (r *searchResponse) Next() bool {
 	if r.err != nil {
 		return false
 	}
-	r.err = r.conn.GetLastError()
-	if r.err != nil {
-		return false
-	}
 	r.entry = res.Entry
 	r.referral = res.Referral
 	r.controls = res.Controls
