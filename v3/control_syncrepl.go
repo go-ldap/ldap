@@ -70,12 +70,14 @@ type ControlSyncRequest struct {
 	ReloadHint  bool
 }
 
-func NewControlSyncRequest(mode ControlSyncRequestMode, cookie []byte) *ControlSyncRequest {
+func NewControlSyncRequest(
+	mode ControlSyncRequestMode, cookie []byte, reloadHint bool,
+) *ControlSyncRequest {
 	return &ControlSyncRequest{
 		Criticality: true,
 		Mode:        mode,
 		Cookie:      cookie,
-		ReloadHint:  false,
+		ReloadHint:  reloadHint,
 	}
 }
 

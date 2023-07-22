@@ -599,9 +599,9 @@ func (l *Conn) SearchAsync(
 // To stop the search, call cancel function of the context.
 func (l *Conn) Syncrepl(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
-	mode ControlSyncRequestMode, cookie []byte,
+	mode ControlSyncRequestMode, cookie []byte, reloadHint bool,
 ) Response {
-	control := NewControlSyncRequest(mode, cookie)
+	control := NewControlSyncRequest(mode, cookie, reloadHint)
 	searchRequest.Controls = append(searchRequest.Controls, control)
 	r := newSyncReplResponse(l, bufferSize)
 	r.start(ctx, searchRequest)

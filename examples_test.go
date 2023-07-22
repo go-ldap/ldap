@@ -101,7 +101,7 @@ func ExampleConn_Syncrepl() {
 
 	mode := SyncRequestModeRefreshAndPersist
 	var cookie []byte = nil
-	r := l.Syncrepl(ctx, searchRequest, 64, mode, cookie)
+	r := l.Syncrepl(ctx, searchRequest, 64, mode, cookie, false)
 	for r.Next() {
 		entry := r.Entry()
 		if entry != nil {
