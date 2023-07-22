@@ -603,7 +603,7 @@ func (l *Conn) Syncrepl(
 ) Response {
 	control := NewControlSyncRequest(mode, cookie, reloadHint)
 	searchRequest.Controls = append(searchRequest.Controls, control)
-	r := newSyncReplResponse(l, bufferSize)
+	r := newSyncreplResponse(l, bufferSize)
 	r.start(ctx, searchRequest)
 	return r
 }

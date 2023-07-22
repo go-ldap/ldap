@@ -18,7 +18,7 @@ const (
 	ControlTypeSyncInfo = "1.3.6.1.4.1.4203.1.9.1.4"
 )
 
-func DecodeSyncReplControl(packet *ber.Packet) (Control, error) {
+func DecodeSyncreplControl(packet *ber.Packet) (Control, error) {
 	var (
 		controlType string
 		value       *ber.Packet

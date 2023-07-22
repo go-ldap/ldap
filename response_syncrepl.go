@@ -8,41 +8,41 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-type syncReplResponse struct {
+type syncreplResponse struct {
 	sr *searchResponse
 }
 
 // Entry returns an entry from the given search request
-func (r *syncReplResponse) Entry() *Entry {
+func (r *syncreplResponse) Entry() *Entry {
 	return r.sr.entry
 }
 
 // Referral returns a referral from the given search request
-func (r *syncReplResponse) Referral() string {
+func (r *syncreplResponse) Referral() string {
 	return r.sr.referral
 }
 
 // Controls returns controls from the given search request
-func (r *syncReplResponse) Controls() []Control {
+func (r *syncreplResponse) Controls() []Control {
 	return r.sr.controls
 }
 
 // Err returns an error when the given search request was failed
-func (r *syncReplResponse) Err() error {
+func (r *syncreplResponse) Err() error {
 	return r.sr.err
 }
 
 // Next returns whether next data exist or not
-func (r *syncReplResponse) Next() bool {
+func (r *syncreplResponse) Next() bool {
 	return r.sr.Next()
 }
 
-func (r *syncReplResponse) start(ctx context.Context, searchRequest *SearchRequest) {
+func (r *syncreplResponse) start(ctx context.Context, searchRequest *SearchRequest) {
 	go func() {
 		defer func() {
 			close(r.sr.ch)
 			if err := recover(); err != nil {
-				r.sr.conn.err = fmt.Errorf("ldap: recovered panic in syncReplResponse: %v", err)
+				r.sr.conn.err = fmt.Errorf("ldap: recovered panic in syncreplResponse: %v", err)
 			}
 		}()
 
@@ -100,7 +100,7 @@ func (r *syncReplResponse) start(ctx context.Context, searchRequest *SearchReque
 						continue
 					}
 					controlPacket := packet.Children[2].Children[0]
-					decoded, err := DecodeSyncReplControl(controlPacket)
+					decoded, err := DecodeSyncreplControl(controlPacket)
 					if err != nil {
 						werr := fmt.Errorf("failed to decode search result entry: %w", err)
 						result.Error = werr
@@ -119,7 +119,7 @@ func (r *syncReplResponse) start(ctx context.Context, searchRequest *SearchReque
 						return
 					}
 					controlPacket := packet.Children[2].Children[0]
-					decoded, err := DecodeSyncReplControl(controlPacket)
+					decoded, err := DecodeSyncreplControl(controlPacket)
 					if err != nil {
 						werr := fmt.Errorf("failed to decode search result done: %w", err)
 						r.sr.ch <- &SearchSingleResult{Error: werr}
@@ -131,7 +131,7 @@ func (r *syncReplResponse) start(ctx context.Context, searchRequest *SearchReque
 					return
 
 				case ApplicationIntermediateResponse:
-					decoded, err := DecodeSyncReplControl(packet.Children[1])
+					decoded, err := DecodeSyncreplControl(packet.Children[1])
 					if err != nil {
 						werr := fmt.Errorf("failed to decode intermediate response: %w", err)
 						r.sr.ch <- &SearchSingleResult{Error: werr}
@@ -149,8 +149,8 @@ func (r *syncReplResponse) start(ctx context.Context, searchRequest *SearchReque
 	}()
 }
 
-func newSyncReplResponse(conn *Conn, bufferSize int) *syncReplResponse {
-	return &syncReplResponse{
+func newSyncreplResponse(conn *Conn, bufferSize int) *syncreplResponse {
+	return &syncreplResponse{
 		sr: newSearchResponse(conn, bufferSize),
 	}
 }
