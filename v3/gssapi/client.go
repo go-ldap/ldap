@@ -85,7 +85,7 @@ func NewClientFromCCache(krb5confPath, ccachePath string, settings ...func(*clie
 
 // Close deletes any established secure context and closes the client.
 func (client *Client) Close() error {
-	client.Destroy()
+	client.Client.Destroy()
 	return nil
 }
 
@@ -104,7 +104,7 @@ func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool,
 
 	switch input {
 	case nil:
-		tkt, ekey, err := client.GetServiceTicket(target)
+		tkt, ekey, err := client.Client.GetServiceTicket(target)
 		if err != nil {
 			return nil, false, err
 		}
