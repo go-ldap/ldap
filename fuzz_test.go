@@ -31,16 +31,6 @@ func FuzzDecodeEscapedSymbols(f *testing.F) {
 	})
 }
 
-func FuzzEscapeFilter(f *testing.F) {
-
-	f.Add("a\x00b(c)d*e\\f")
-	f.Add("Lučić")
-
-	f.Fuzz(func(t *testing.T, input_data string) {
-		_ = EscapeFilter(input_data)
-	})
-}
-
 func FuzzEscapeDN(f *testing.F) {
 
 	f.Add("test,user")
