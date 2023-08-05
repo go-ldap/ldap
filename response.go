@@ -127,12 +127,25 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 
 				switch packet.Children[1].Tag {
 				case ApplicationSearchResultEntry:
-					r.ch <- &SearchSingleResult{
+					result := &SearchSingleResult{
 						Entry: &Entry{
 							DN:         packet.Children[1].Children[0].Value.(string),
 							Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
 						},
 					}
+					if len(packet.Children) != 3 {
+						r.ch <- result
+						continue
+					}
+					decoded, err := DecodeControl(packet.Children[2].Children[0])
+					if err != nil {
+						werr := fmt.Errorf("failed to decode search result entry: %w", err)
+						result.Error = werr
+						r.ch <- result
+						return
+					}
+					result.Controls = append(result.Controls, decoded)
+					r.ch <- result
 
 				case ApplicationSearchResultDone:
 					if err := GetLDAPError(packet); err != nil {
@@ -157,6 +170,20 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 				case ApplicationSearchResultReference:
 					ref := packet.Children[1].Children[0].Value.(string)
 					r.ch <- &SearchSingleResult{Referral: ref}
+
+				case ApplicationIntermediateResponse:
+					decoded, err := DecodeControl(packet.Children[1])
+					if err != nil {
+						werr := fmt.Errorf("failed to decode intermediate response: %w", err)
+						r.ch <- &SearchSingleResult{Error: werr}
+						return
+					}
+					result := &SearchSingleResult{}
+					result.Controls = append(result.Controls, decoded)
+					r.ch <- result
+
+				default:
+					r.conn.Debug.Printf("got application code: %d", packet.Children[1].Tag)
 				}
 			}
 		}
