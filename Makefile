@@ -55,6 +55,11 @@ test:
 quicktest:
 	go test ./...
 
+fuzz:
+	go test -fuzz=FuzzParseDN				-fuzztime=600s .
+	go test -fuzz=FuzzDecodeEscapedSymbols	-fuzztime=600s .
+	go test -fuzz=FuzzEscapeDN 				-fuzztime=600s .
+
 # Capture output and force failure when there is non-empty output
 fmt:
 	@echo gofmt -l .
