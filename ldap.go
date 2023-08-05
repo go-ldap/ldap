@@ -32,6 +32,7 @@ const (
 	ApplicationSearchResultReference = 19
 	ApplicationExtendedRequest       = 23
 	ApplicationExtendedResponse      = 24
+	ApplicationIntermediateResponse  = 25
 )
 
 // ApplicationMap contains human readable descriptions of LDAP Application Codes
@@ -56,6 +57,7 @@ var ApplicationMap = map[uint8]string{
 	ApplicationSearchResultReference: "Search Result Reference",
 	ApplicationExtendedRequest:       "Extended Request",
 	ApplicationExtendedResponse:      "Extended Response",
+	ApplicationIntermediateResponse:  "Intermediate Response",
 }
 
 // Ldap Behera Password Policy Draft 10 (https://tools.ietf.org/html/draft-behera-ldap-password-policy-10)

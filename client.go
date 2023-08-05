@@ -36,4 +36,5 @@ type Client interface {
 	SearchAsync(ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response
 	SearchWithPaging(searchRequest *SearchRequest, pagingSize uint32) (*SearchResult, error)
 	DirSync(searchRequest *SearchRequest, flags, maxAttrCount int64, cookie []byte) (*SearchResult, error)
+	Syncrepl(ctx context.Context, searchRequest *SearchRequest, bufferSize int, mode ControlSyncRequestMode, cookie []byte, reloadHint bool) Response
 }
