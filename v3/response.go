@@ -183,7 +183,9 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 					r.ch <- result
 
 				default:
-					r.conn.Debug.Printf("got application code: %d", packet.Children[1].Tag)
+					err := fmt.Errorf("unknown tag: %d", packet.Children[1].Tag)
+					r.ch <- &SearchSingleResult{Error: err}
+					return
 				}
 			}
 		}
