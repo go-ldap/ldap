@@ -206,15 +206,21 @@ func GetLDAPError(packet *ber.Packet) error {
 			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty response in packet"), Packet: packet}
 		}
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-			resultCode := uint16(response.Children[0].Value.(int64))
-			if resultCode == 0 { // No error
-				return nil
-			}
-			return &Error{
-				ResultCode: resultCode,
-				MatchedDN:  response.Children[1].Value.(string),
-				Err:        fmt.Errorf("%s", response.Children[2].Value.(string)),
-				Packet:     packet,
+			if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
+				resultCode := uint16(response.Children[0].Value.(int64))
+				if resultCode == 0 { // No error
+					return nil
+				}
+
+				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
+					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
+					return &Error{
+						ResultCode: resultCode,
+						MatchedDN:  response.Children[1].Value.(string),
+						Err:        fmt.Errorf("%s", response.Children[2].Value.(string)),
+						Packet:     packet,
+					}
+				}
 			}
 		}
 	}
