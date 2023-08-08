@@ -82,6 +82,27 @@ func TestGetLDAPError(t *testing.T) {
 	}
 }
 
+// TestGetLDAPErrorInvalidResponse tests that responses with an unexpected ordering or combination of children
+// don't cause a panic.
+func TestGetLDAPErrorInvalidResponse(t *testing.T) {
+	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
+	packet := ber.NewSequence("LDAPMessage")
+	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
+	packet.AppendChild(bindResponse)
+	err := GetLDAPError(packet)
+	if err == nil {
+		t.Errorf("Did not get error response")
+	}
+
+	ldapError := err.(*Error)
+	if ldapError.ResultCode != ErrorNetwork {
+		t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, ErrorNetwork)
+	}
+}
+
 // TestGetLDAPErrorSuccess tests parsing of a result with no error (resultCode == 0).
 func TestGetLDAPErrorSuccess(t *testing.T) {
 	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
