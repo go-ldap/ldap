@@ -10,13 +10,13 @@ jobs:
     strategy:
       matrix:
         go: [
+          '1.21',
           '1.20',
           '1.19',
           '1.18',
           '1.17',
           '1.16',
           '1.15',
-          '1.14',
         ]
         branch: [ '.', './v3' ]
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.branch }} (Modules)
