@@ -523,29 +523,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlSubtreeDelete(), nil
 	case ControlTypeDirSync:
 		value.Description += " (DirSync)"
-		c := new(ControlDirSync)
-		if value.Value != nil {
-			valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
-			if err != nil {
-				return nil, err
-			}
-			value.Data.Truncate(0)
-			value.Value = nil
-			value.AppendChild(valueChildren)
-		}
-		value = value.Children[0]
-		if len(value.Children) != 3 { // also on initial creation, Cookie is an empty string
-			return nil, fmt.Errorf("invalid number of children in dirSync control")
-		}
-		value.Description = "DirSync Control Value"
-		value.Children[0].Description = "Flags"
-		value.Children[1].Description = "MaxAttrCnt"
-		value.Children[2].Description = "Cookie"
-		c.Flags = value.Children[0].Value.(int64)
-		c.MaxAttrCnt = value.Children[1].Value.(int64)
-		c.Cookie = value.Children[2].Data.Bytes()
-		value.Children[2].Value = c.Cookie
-		return c, nil
+		return NewControlDirSyncForDecode(value)
 	case ControlTypeSyncState:
 		value.Description += " (Sync State)"
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
@@ -640,18 +618,52 @@ func encodeControls(controls []Control) *ber.Packet {
 
 // ControlDirSync implements the control described in https://msdn.microsoft.com/en-us/library/aa366978(v=vs.85).aspx
 type ControlDirSync struct {
-	Flags      int64
-	MaxAttrCnt int64
-	Cookie     []byte
+	Criticality  bool
+	Flags        int64
+	MaxAttrCount int64
+	Cookie       []byte
 }
 
-// NewControlDirSync returns a dir sync control
-func NewControlDirSync(flags int64, maxAttrCount int64, cookie []byte) *ControlDirSync {
+// NewControlDirSyncForEncode returns a dir sync control
+func NewControlDirSyncForEncode(
+	flags int64, maxAttrCount int64, cookie []byte,
+) *ControlDirSync {
 	return &ControlDirSync{
-		Flags:      flags,
-		MaxAttrCnt: maxAttrCount,
-		Cookie:     cookie,
+		Criticality:  true,
+		Flags:        flags,
+		MaxAttrCount: maxAttrCount,
+		Cookie:       cookie,
 	}
+}
+
+// NewControlDirSyncForDecode returns a dir sync control
+func NewControlDirSyncForDecode(value *ber.Packet) (*ControlDirSync, error) {
+	if value.Value != nil {
+		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+		}
+		value.Data.Truncate(0)
+		value.Value = nil
+		value.AppendChild(valueChildren)
+	}
+	child := value.Children[0]
+	if len(child.Children) != 3 { // also on initial creation, Cookie is an empty string
+		return nil, fmt.Errorf("invalid number of children in dirSync control")
+	}
+	child.Description = "DirSync Control Value"
+	child.Children[0].Description = "Flags"
+	child.Children[1].Description = "MaxAttrCount"
+	child.Children[2].Description = "Cookie"
+
+	cookie := child.Children[2].Data.Bytes()
+	child.Children[2].Value = cookie
+	return &ControlDirSync{
+		Criticality:  true,
+		Flags:        child.Children[0].Value.(int64),
+		MaxAttrCount: child.Children[1].Value.(int64),
+		Cookie:       cookie,
+	}, nil
 }
 
 // GetControlType returns the OID
@@ -661,28 +673,33 @@ func (c *ControlDirSync) GetControlType() string {
 
 // String returns a human-readable description
 func (c *ControlDirSync) String() string {
-	return fmt.Sprintf("ControlType: %s (%q), Criticality: true, ControlValue: Flags: %d, MaxAttrCnt: %d", ControlTypeMap[ControlTypeDirSync], ControlTypeDirSync, c.Flags, c.MaxAttrCnt)
+	return fmt.Sprintf(
+		"ControlType: %s (%q) Criticality: %t ControlValue: Flags: %d MaxAttrCount: %d",
+		ControlTypeMap[ControlTypeDirSync],
+		ControlTypeDirSync,
+		c.Criticality,
+		c.Flags,
+		c.MaxAttrCount,
+	)
 }
 
 // Encode returns the ber packet representation
 func (c *ControlDirSync) Encode() *ber.Packet {
-	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
-	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
-	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, true, "Criticality")) // must be true always
-
-	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
-
-	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
-	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.Flags), "Flags"))
-	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.MaxAttrCnt), "MaxAttrCount"))
-
 	cookie := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "Cookie")
 	if len(c.Cookie) != 0 {
 		cookie.Value = c.Cookie
 		cookie.Data.Write(c.Cookie)
 	}
-	seq.AppendChild(cookie)
 
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
+	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
+
+	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.Flags), "Flags"))
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(c.MaxAttrCount), "MaxAttrCount"))
+	seq.AppendChild(cookie)
 	val.AppendChild(seq)
 
 	packet.AppendChild(val)

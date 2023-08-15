@@ -44,8 +44,8 @@ func TestControlString(t *testing.T) {
 }
 
 func TestControlDirSync(t *testing.T) {
-	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil))
-	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
+	runControlTest(t, NewControlDirSyncForEncode(DirSyncObjectSecurity, 1000, nil))
+	runControlTest(t, NewControlDirSyncForEncode(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
 }
 
 func runControlTest(t *testing.T, originalControl Control) {
@@ -122,7 +122,7 @@ func TestDescribeControlString(t *testing.T) {
 }
 
 func TestDescribeControlDirSync(t *testing.T) {
-	runAddControlDescriptions(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
+	runAddControlDescriptions(t, NewControlDirSyncForEncode(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
 }
 
 func runAddControlDescriptions(t *testing.T, originalControl Control, childDescriptions ...string) {
