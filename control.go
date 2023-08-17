@@ -523,7 +523,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlSubtreeDelete(), nil
 	case ControlTypeDirSync:
 		value.Description += " (DirSync)"
-		return NewControlDirSyncForDecode(value)
+		return NewResponseControlDirSync(value)
 	case ControlTypeSyncState:
 		value.Description += " (Sync State)"
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
@@ -624,8 +624,8 @@ type ControlDirSync struct {
 	Cookie       []byte
 }
 
-// NewControlDirSyncForEncode returns a dir sync control
-func NewControlDirSyncForEncode(
+// NewRequestControlDirSync returns a dir sync control
+func NewRequestControlDirSync(
 	flags int64, maxAttrCount int64, cookie []byte,
 ) *ControlDirSync {
 	return &ControlDirSync{
@@ -636,8 +636,8 @@ func NewControlDirSyncForEncode(
 	}
 }
 
-// NewControlDirSyncForDecode returns a dir sync control
-func NewControlDirSyncForDecode(value *ber.Packet) (*ControlDirSync, error) {
+// NewResponseControlDirSync returns a dir sync control
+func NewResponseControlDirSync(value *ber.Packet) (*ControlDirSync, error) {
 	if value.Value != nil {
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
 		if err != nil {

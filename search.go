@@ -638,7 +638,7 @@ func (l *Conn) DirSync(
 ) (*SearchResult, error) {
 	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
 	if control == nil {
-		c := NewControlDirSyncForEncode(flags, maxAttrCount, cookie)
+		c := NewRequestControlDirSync(flags, maxAttrCount, cookie)
 		searchRequest.Controls = append(searchRequest.Controls, c)
 	} else {
 		c := control.(*ControlDirSync)
@@ -680,7 +680,7 @@ func (l *Conn) DirSyncAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
 	flags, maxAttrCount int64, cookie []byte,
 ) Response {
-	control := NewControlDirSyncForEncode(flags, maxAttrCount, cookie)
+	control := NewRequestControlDirSync(flags, maxAttrCount, cookie)
 	searchRequest.Controls = append(searchRequest.Controls, control)
 	r := newSearchResponse(l, bufferSize)
 	r.start(ctx, searchRequest)
