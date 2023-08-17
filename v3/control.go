@@ -928,9 +928,12 @@ func (c *ControlSyncRequest) GetControlType() string {
 func (c *ControlSyncRequest) Encode() *ber.Packet {
 	_mode := int64(c.Mode)
 	mode := ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, _mode, "Mode")
-	cookie := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Cookie")
-	cookie.Value = c.Cookie
-	cookie.Data.Write(c.Cookie)
+	var cookie *ber.Packet
+	if len(c.Cookie) > 0 {
+		cookie = ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Cookie")
+		cookie.Value = c.Cookie
+		cookie.Data.Write(c.Cookie)
+	}
 	reloadHint := ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.ReloadHint, "Reload Hint")
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
@@ -940,7 +943,9 @@ func (c *ControlSyncRequest) Encode() *ber.Packet {
 	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (Sync Request)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Sync Request Value")
 	seq.AppendChild(mode)
-	seq.AppendChild(cookie)
+	if cookie != nil {
+		seq.AppendChild(cookie)
+	}
 	seq.AppendChild(reloadHint)
 	val.AppendChild(seq)
 
