@@ -192,6 +192,8 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("LDAP Result Code %d %q: %s", e.ResultCode, LDAPResultCodeMap[e.ResultCode], e.Err.Error())
 }
 
+func (e *Error) Unwrap() error { return e.Err }
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).

@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"errors"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -100,6 +101,24 @@ func TestGetLDAPErrorInvalidResponse(t *testing.T) {
 	ldapError := err.(*Error)
 	if ldapError.ResultCode != ErrorNetwork {
 		t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, ErrorNetwork)
+	}
+}
+
+func TestErrorIs(t *testing.T) {
+	err := NewError(ErrorNetwork, io.EOF)
+	if !errors.Is(err, io.EOF) {
+		t.Errorf("Expected an io.EOF error: %v", err)
+	}
+}
+
+func TestErrorAs(t *testing.T) {
+	var netErr net.InvalidAddrError = "invalid addr"
+	err := NewError(ErrorNetwork, netErr)
+
+	var target net.InvalidAddrError
+	ok := errors.As(err, &target)
+	if !ok {
+		t.Error("Expected an InvalidAddrError")
 	}
 }
 
