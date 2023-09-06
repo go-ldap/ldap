@@ -624,6 +624,11 @@ type ControlDirSync struct {
 	Cookie       []byte
 }
 
+// @deprecated Use NewRequestControlDirSync instead
+func NewControlDirSync(flags int64, maxAttrCount int64, cookie []byte) *ControlDirSync {
+	return NewRequestControlDirSync(flags, maxAttrCount, cookie)
+}
+
 // NewRequestControlDirSync returns a dir sync control
 func NewRequestControlDirSync(
 	flags int64, maxAttrCount int64, cookie []byte,
