@@ -466,6 +466,49 @@ func ExampleConn_DirSync() {
 	}
 }
 
+// This example demonstrates how to use DirSync search asynchronously
+func ExampleConn_DirSyncAsync() {
+	conn, err := Dial("tcp", "ad.example.org:389")
+	if err != nil {
+		log.Fatalf("Failed to connect: %s\n", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.SimpleBind(&SimpleBindRequest{
+		Username: "cn=Some User,ou=people,dc=example,dc=org",
+		Password: "MySecretPass",
+	})
+	if err != nil {
+		log.Fatalf("failed to bind: %s", err)
+	}
+
+	req := &SearchRequest{
+		BaseDN:     `DC=example,DC=org`,
+		Filter:     `(&(objectClass=person)(!(objectClass=computer)))`,
+		Attributes: []string{"*"},
+		Scope:      ScopeWholeSubtree,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var cookie []byte = nil
+	r := conn.DirSyncAsync(ctx, req, 64, DirSyncObjectSecurity, 1000, cookie)
+	for r.Next() {
+		entry := r.Entry()
+		if entry != nil {
+			entry.Print()
+		}
+		controls := r.Controls()
+		if len(controls) != 0 {
+			fmt.Printf("%s", controls)
+		}
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 // This example demonstrates how to use EXTERNAL SASL with TLS client certificates.
 func ExampleConn_ExternalBind() {
 	ldapCert := "/path/to/cert.pem"
