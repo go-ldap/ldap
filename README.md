@@ -22,7 +22,7 @@ The library implements the following specifications:
 
 ## Go Modules:
 
-`go get github.com/go-ldap/ldap/v3`
+`go get github.com/gustavoluvizotto/ldap-fork/v3`
 
 As go-ldap was v2+ when Go Modules came out, updating to Go Modules would be considered a breaking change.
 
@@ -35,7 +35,7 @@ https://tools.ietf.org/html/rfc4511
 For more info, please visit the pull request that updated to modules.
 https://github.com/go-ldap/ldap/pull/247
 
-To install with `GOMODULE111=off`, use `go get github.com/go-ldap/ldap`
+To install with `GOMODULE111=off`, use `go get github.com/gustavoluvizotto/ldap-fork`
 https://golang.org/cmd/go/#hdr-Legacy_GOPATH_go_get
 
 As always, we are looking for contributors with great ideas on how to best move forward.
