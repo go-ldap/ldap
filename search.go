@@ -633,55 +633,56 @@ func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
 }
 
 // DirSync does a Search with dirSync Control.
-func (l *Conn) DirSync(searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte) (*SearchResult, error) {
-	var dirSyncControl *ControlDirSync
-
+func (l *Conn) DirSync(
+	searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte,
+) (*SearchResult, error) {
 	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
 	if control == nil {
-		dirSyncControl = NewControlDirSync(flags, maxAttrCount, cookie)
-		searchRequest.Controls = append(searchRequest.Controls, dirSyncControl)
+		c := NewRequestControlDirSync(flags, maxAttrCount, cookie)
+		searchRequest.Controls = append(searchRequest.Controls, c)
 	} else {
-		castControl, ok := control.(*ControlDirSync)
-		if !ok {
-			return nil, fmt.Errorf("Expected DirSync control to be of type *ControlDirSync, got %v", control)
+		c := control.(*ControlDirSync)
+		if c.Flags != flags {
+			return nil, fmt.Errorf("flags given in search request (%d) conflicts with flags given in search call (%d)", c.Flags, flags)
 		}
-		if castControl.Flags != flags {
-			return nil, fmt.Errorf("flags given in search request (%d) conflicts with flags given in search call (%d)", castControl.Flags, flags)
+		if c.MaxAttrCount != maxAttrCount {
+			return nil, fmt.Errorf("MaxAttrCnt given in search request (%d) conflicts with maxAttrCount given in search call (%d)", c.MaxAttrCount, maxAttrCount)
 		}
-		if castControl.MaxAttrCnt != maxAttrCount {
-			return nil, fmt.Errorf("MaxAttrCnt given in search request (%d) conflicts with maxAttrCount given in search call (%d)", castControl.MaxAttrCnt, maxAttrCount)
-		}
-		dirSyncControl = castControl
 	}
-	searchResult := new(SearchResult)
-	result, err := l.Search(searchRequest)
+	searchResult, err := l.Search(searchRequest)
 	l.Debug.Printf("Looking for result...")
 	if err != nil {
-		return searchResult, err
+		return nil, err
 	}
-	if result == nil {
-		return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
+	if searchResult == nil {
+		return nil, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
 	}
-
-	searchResult.Entries = append(searchResult.Entries, result.Entries...)
-	searchResult.Referrals = append(searchResult.Referrals, result.Referrals...)
-	searchResult.Controls = append(searchResult.Controls, result.Controls...)
 
 	l.Debug.Printf("Looking for DirSync Control...")
-	dirSyncResult := FindControl(result.Controls, ControlTypeDirSync)
-	if dirSyncResult == nil {
-		dirSyncControl = nil
+	resultControl := FindControl(searchResult.Controls, ControlTypeDirSync)
+	if resultControl == nil {
 		l.Debug.Printf("Could not find dirSyncControl control.  Breaking...")
 		return searchResult, nil
 	}
 
-	cookie = dirSyncResult.(*ControlDirSync).Cookie
+	cookie = resultControl.(*ControlDirSync).Cookie
 	if len(cookie) == 0 {
-		dirSyncControl = nil
 		l.Debug.Printf("Could not find cookie.  Breaking...")
 		return searchResult, nil
 	}
-	dirSyncControl.SetCookie(cookie)
 
 	return searchResult, nil
+}
+
+// DirSyncDirSyncAsync performs a search request and returns all search results
+// asynchronously. This is efficient when the server returns lots of entries.
+func (l *Conn) DirSyncAsync(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
+	flags, maxAttrCount int64, cookie []byte,
+) Response {
+	control := NewRequestControlDirSync(flags, maxAttrCount, cookie)
+	searchRequest.Controls = append(searchRequest.Controls, control)
+	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
 }
