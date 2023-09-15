@@ -58,6 +58,32 @@ func TestUnresponsiveConnection(t *testing.T) {
 	}
 }
 
+func TestRequestTimeoutDeadlock(t *testing.T) {
+	// The do-nothing server that accepts requests and does nothing
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+	c, err := net.Dial(ts.Listener.Addr().Network(), ts.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("error connecting to localhost tcp: %v", err)
+	}
+
+	// Create an Ldap connection
+	conn := NewConn(c, false)
+	conn.Start()
+	// trigger a race condition on accessing request timeout
+	n := 3
+	for i := 0; i < n; i++ {
+		go func() {
+			conn.SetTimeout(time.Millisecond)
+		}()
+	}
+
+	// Attempt to close the connection when the message handler is
+	// blocked or inactive
+	conn.Close()
+}
+
 // TestInvalidStateCloseDeadlock tests that we do not enter deadlock when the
 // message handler is blocked or inactive.
 func TestInvalidStateCloseDeadlock(t *testing.T) {
