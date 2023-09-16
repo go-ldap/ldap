@@ -288,10 +288,9 @@ func (l *Conn) Close() (err error) {
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
 
 		timeoutCtx := context.Background()
-		requestTimeout := l.getTimeout()
-		if requestTimeout > 0 {
+		if l.getTimeout() > 0 {
 			var cancelFunc context.CancelFunc
-			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(requestTimeout))
+			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(l.getTimeout()))
 			defer cancelFunc()
 		}
 		select {
@@ -529,9 +528,10 @@ func (l *Conn) processMessages() {
 				l.messageContexts[message.MessageID] = message.Context
 
 				// Add timeout if defined
-				if l.getTimeout() > 0 {
+				requestTimeout := l.getTimeout()
+				if requestTimeout > 0 {
 					go func() {
-						timer := time.NewTimer(time.Duration(l.getTimeout()))
+						timer := time.NewTimer(time.Duration(requestTimeout))
 						defer func() {
 							if err := recover(); err != nil {
 								l.err = fmt.Errorf("ldap: recovered panic in RequestTimeout: %v", err)
