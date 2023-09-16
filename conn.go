@@ -528,10 +528,9 @@ func (l *Conn) processMessages() {
 				l.messageContexts[message.MessageID] = message.Context
 
 				// Add timeout if defined
-				requestTimeout := l.getTimeout()
-				if requestTimeout > 0 {
+				if l.getTimeout() > 0 {
 					go func() {
-						timer := time.NewTimer(time.Duration(requestTimeout))
+						timer := time.NewTimer(time.Duration(l.getTimeout()))
 						defer func() {
 							if err := recover(); err != nil {
 								l.err = fmt.Errorf("ldap: recovered panic in RequestTimeout: %v", err)
