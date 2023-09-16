@@ -288,10 +288,9 @@ func (l *Conn) Close() (err error) {
 		l.chanMessage <- &messagePacket{Op: MessageQuit}
 
 		timeoutCtx := context.Background()
-		requestTimeout := l.getTimeout()
-		if requestTimeout > 0 {
+		if l.getTimeout() > 0 {
 			var cancelFunc context.CancelFunc
-			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(requestTimeout))
+			timeoutCtx, cancelFunc = context.WithTimeout(timeoutCtx, time.Duration(l.getTimeout()))
 			defer cancelFunc()
 		}
 		select {

@@ -220,6 +220,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //
 //		// Time is parsed with the generalizedTime spec into a time.Time
 //		Created time.Time `ldap:"createdTimestamp"`
+//
 //		// *DN is parsed with the ParseDN
 //		Owner *ldap.DN `ldap:"owner"`
 //
@@ -232,6 +233,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //		UserAccountControl uint32 `ldap:"userPrincipalName"`
 //	}
 //	user := UserEntry{}
+//
 //	if err := result.Unmarshal(&user); err != nil {
 //		// ...
 //	}
@@ -376,7 +378,7 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Controls = append(r.Controls, s.Controls...)
 }
 
-// SearchSingleResult holds the server's single response to a search request
+// SearchSingleResult holds the server's single entry response to a search request
 type SearchSingleResult struct {
 	// Entry is the returned entry
 	Entry *Entry
