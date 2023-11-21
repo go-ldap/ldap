@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -10,6 +11,84 @@ import (
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
+
+// TestWrappedError tests that match the result code when an error is wrapped.
+func TestWrappedError(t *testing.T) {
+	resultCodes := []uint16{
+		LDAPResultProtocolError,
+		LDAPResultBusy,
+		ErrorNetwork,
+	}
+
+	tests := []struct {
+		name     string
+		err      error
+		codes    []uint16
+		expected bool
+	}{
+		// success
+		{
+			name: "a normal error",
+			err: &Error{
+				ResultCode: ErrorNetwork,
+			},
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		{
+			name: "a wrapped error",
+			err: fmt.Errorf("wrap: %w", &Error{
+				ResultCode: LDAPResultBusy,
+			}),
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		{
+			name: "multiple wrapped error",
+			err: fmt.Errorf("second: %w",
+				fmt.Errorf("first: %w",
+					&Error{
+						ResultCode: LDAPResultProtocolError,
+					},
+				),
+			),
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		// failure
+		{
+			name: "not match a normal error",
+			err: &Error{
+				ResultCode: LDAPResultSuccess,
+			},
+			codes:    resultCodes,
+			expected: false,
+		},
+
+		{
+			name: "not match a wrapped error",
+			err: fmt.Errorf("wrap: %w", &Error{
+				ResultCode: LDAPResultNoSuchObject,
+			}),
+			codes:    resultCodes,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			actual := IsErrorAnyOf(tt.err, tt.codes...)
+			if tt.expected != actual {
+				t.Errorf("expected %t, but got %t", tt.expected, actual)
+			}
+		})
+	}
+}
 
 // TestNilPacket tests that nil packets don't cause a panic.
 func TestNilPacket(t *testing.T) {
