@@ -279,6 +279,8 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			}
 		case string:
 			fv.SetString(values[0])
+		case *string:
+			fv.Set(reflect.ValueOf(&values[0]))
 		case []byte:
 			fv.SetBytes([]byte(values[0]))
 		case int, int64:
