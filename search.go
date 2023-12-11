@@ -187,8 +187,8 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string, []string, int, int64, []byte, *DN, []*DN or time.Time. Other field types
-// will not be regarded. If the field type is a string or int but multiple
+// string, *string, []string, int, int64, []byte, *DN, []*DN or time.Time.
+// Other field types will not be regarded. If the field type is a string or int but multiple
 // attribute values are returned, the first value will be used to fill the field.
 //
 // Example:
@@ -310,7 +310,7 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 				fv.Set(reflect.Append(fv, reflect.ValueOf(dn)))
 			}
 		default:
-			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
+			return fmt.Errorf("ldap: expected field to be of type string, *string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
 		}
 	}
 	return
