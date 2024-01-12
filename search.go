@@ -18,6 +18,7 @@ const (
 	ScopeBaseObject   = 0
 	ScopeSingleLevel  = 1
 	ScopeWholeSubtree = 2
+	ScopeChildren     = 3
 )
 
 // ScopeMap contains human readable descriptions of scope choices
@@ -25,6 +26,7 @@ var ScopeMap = map[int]string{
 	ScopeBaseObject:   "Base Object",
 	ScopeSingleLevel:  "Single Level",
 	ScopeWholeSubtree: "Whole Subtree",
+	ScopeChildren:     "Children",
 }
 
 // derefAliases
