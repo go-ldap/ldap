@@ -18,6 +18,8 @@ const (
 	ScopeBaseObject   = 0
 	ScopeSingleLevel  = 1
 	ScopeWholeSubtree = 2
+	// ScopeChildren is an OpenLDAP extension that may not be supported by another directory server.
+	// See: https://github.com/openldap/openldap/blob/7c55484ee153047efd0e562fc1638c1a2525f320/include/ldap.h#L598
 	ScopeChildren     = 3
 )
 
