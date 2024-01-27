@@ -20,7 +20,7 @@ const (
 	ScopeWholeSubtree = 2
 	// ScopeChildren is an OpenLDAP extension that may not be supported by another directory server.
 	// See: https://github.com/openldap/openldap/blob/7c55484ee153047efd0e562fc1638c1a2525f320/include/ldap.h#L598
-	ScopeChildren     = 3
+	ScopeChildren = 3
 )
 
 // ScopeMap contains human readable descriptions of scope choices
@@ -46,6 +46,10 @@ var DerefMap = map[int]string{
 	DerefFindingBaseObj: "DerefFindingBaseObj",
 	DerefAlways:         "DerefAlways",
 }
+
+// ErrSizeLimitExceeded will be returned if the search result is exceeding the defined SizeLimit
+// and enforcing the requested limit is enabled in the search request (EnforceSizeLimit)
+var ErrSizeLimitExceeded = NewError(ErrorNetwork, errors.New("ldap: size limit exceeded"))
 
 // NewEntry returns an Entry object with the specified distinguished name and attribute key-value pairs.
 // The map of attributes is accessed in alphabetical order of the keys in order to ensure that, for the
@@ -417,6 +421,11 @@ type SearchRequest struct {
 	Filter       string
 	Attributes   []string
 	Controls     []Control
+
+	// EnforceSizeLimit will hard limit the maximum number of entries parsed, in case the directory
+	// server returns more results than requested. This setting is disabled by default and does not
+	// work in async search requests.
+	EnforceSizeLimit bool
 }
 
 func (req *SearchRequest) appendTo(envelope *ber.Packet) error {
@@ -564,6 +573,12 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 
 		switch packet.Children[1].Tag {
 		case 4:
+			if searchRequest.EnforceSizeLimit &&
+				searchRequest.SizeLimit > 0 &&
+				len(result.Entries) >= searchRequest.SizeLimit {
+				return result, ErrSizeLimitExceeded
+			}
+
 			entry := &Entry{
 				DN:         packet.Children[1].Children[0].Value.(string),
 				Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
