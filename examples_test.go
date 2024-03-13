@@ -80,6 +80,43 @@ func ExampleConn_SearchAsync() {
 	}
 }
 
+// This example demonstrates how to do syncrepl (persistent search)
+func ExampleConn_Syncrepl() {
+	l, err := DialURL(fmt.Sprintf("%s:%d", "ldap.example.com", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+
+	searchRequest := NewSearchRequest(
+		"dc=example,dc=com", // The base dn to search
+		ScopeWholeSubtree, NeverDerefAliases, 0, 0, false,
+		"(&(objectClass=organizationalPerson))", // The filter to apply
+		[]string{"dn", "cn"},                    // A list attributes to retrieve
+		nil,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mode := SyncRequestModeRefreshAndPersist
+	var cookie []byte = nil
+	r := l.Syncrepl(ctx, searchRequest, 64, mode, cookie, false)
+	for r.Next() {
+		entry := r.Entry()
+		if entry != nil {
+			fmt.Printf("%s has DN %s\n", entry.GetAttributeValue("cn"), entry.DN)
+		}
+		controls := r.Controls()
+		if len(controls) != 0 {
+			fmt.Printf("%s", controls)
+		}
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 // This example demonstrates how to start a TLS connection
 func ExampleConn_StartTLS() {
 	l, err := DialURL("ldap://ldap.example.com:389")
@@ -426,6 +463,49 @@ func ExampleConn_DirSync() {
 			entry.Print()
 		}
 		time.Sleep(15 * time.Second)
+	}
+}
+
+// This example demonstrates how to use DirSync search asynchronously
+func ExampleConn_DirSyncAsync() {
+	conn, err := Dial("tcp", "ad.example.org:389")
+	if err != nil {
+		log.Fatalf("Failed to connect: %s\n", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.SimpleBind(&SimpleBindRequest{
+		Username: "cn=Some User,ou=people,dc=example,dc=org",
+		Password: "MySecretPass",
+	})
+	if err != nil {
+		log.Fatalf("failed to bind: %s", err)
+	}
+
+	req := &SearchRequest{
+		BaseDN:     `DC=example,DC=org`,
+		Filter:     `(&(objectClass=person)(!(objectClass=computer)))`,
+		Attributes: []string{"*"},
+		Scope:      ScopeWholeSubtree,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var cookie []byte = nil
+	r := conn.DirSyncAsync(ctx, req, 64, DirSyncObjectSecurity, 1000, cookie)
+	for r.Next() {
+		entry := r.Entry()
+		if entry != nil {
+			entry.Print()
+		}
+		controls := r.Controls()
+		if len(controls) != 0 {
+			fmt.Printf("%s", controls)
+		}
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
 	}
 }
 

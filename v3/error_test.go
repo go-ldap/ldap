@@ -2,6 +2,8 @@ package ldap
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -9,6 +11,84 @@ import (
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
+
+// TestWrappedError tests that match the result code when an error is wrapped.
+func TestWrappedError(t *testing.T) {
+	resultCodes := []uint16{
+		LDAPResultProtocolError,
+		LDAPResultBusy,
+		ErrorNetwork,
+	}
+
+	tests := []struct {
+		name     string
+		err      error
+		codes    []uint16
+		expected bool
+	}{
+		// success
+		{
+			name: "a normal error",
+			err: &Error{
+				ResultCode: ErrorNetwork,
+			},
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		{
+			name: "a wrapped error",
+			err: fmt.Errorf("wrap: %w", &Error{
+				ResultCode: LDAPResultBusy,
+			}),
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		{
+			name: "multiple wrapped error",
+			err: fmt.Errorf("second: %w",
+				fmt.Errorf("first: %w",
+					&Error{
+						ResultCode: LDAPResultProtocolError,
+					},
+				),
+			),
+			codes:    resultCodes,
+			expected: true,
+		},
+
+		// failure
+		{
+			name: "not match a normal error",
+			err: &Error{
+				ResultCode: LDAPResultSuccess,
+			},
+			codes:    resultCodes,
+			expected: false,
+		},
+
+		{
+			name: "not match a wrapped error",
+			err: fmt.Errorf("wrap: %w", &Error{
+				ResultCode: LDAPResultNoSuchObject,
+			}),
+			codes:    resultCodes,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			actual := IsErrorAnyOf(tt.err, tt.codes...)
+			if tt.expected != actual {
+				t.Errorf("expected %t, but got %t", tt.expected, actual)
+			}
+		})
+	}
+}
 
 // TestNilPacket tests that nil packets don't cause a panic.
 func TestNilPacket(t *testing.T) {
@@ -79,6 +159,45 @@ func TestGetLDAPError(t *testing.T) {
 	}
 	if ldapError.Err.Error() != diagnosticMessage {
 		t.Errorf("Got incorrect error message in LDAP error; got %v, expected %v", ldapError.Err.Error(), diagnosticMessage)
+	}
+}
+
+// TestGetLDAPErrorInvalidResponse tests that responses with an unexpected ordering or combination of children
+// don't cause a panic.
+func TestGetLDAPErrorInvalidResponse(t *testing.T) {
+	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
+	packet := ber.NewSequence("LDAPMessage")
+	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
+	packet.AppendChild(bindResponse)
+	err := GetLDAPError(packet)
+	if err == nil {
+		t.Errorf("Did not get error response")
+	}
+
+	ldapError := err.(*Error)
+	if ldapError.ResultCode != ErrorNetwork {
+		t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, ErrorNetwork)
+	}
+}
+
+func TestErrorIs(t *testing.T) {
+	err := NewError(ErrorNetwork, io.EOF)
+	if !errors.Is(err, io.EOF) {
+		t.Errorf("Expected an io.EOF error: %v", err)
+	}
+}
+
+func TestErrorAs(t *testing.T) {
+	var netErr net.InvalidAddrError = "invalid addr"
+	err := NewError(ErrorNetwork, netErr)
+
+	var target net.InvalidAddrError
+	ok := errors.As(err, &target)
+	if !ok {
+		t.Error("Expected an InvalidAddrError")
 	}
 }
 
