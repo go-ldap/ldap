@@ -18,6 +18,9 @@ const (
 	ScopeBaseObject   = 0
 	ScopeSingleLevel  = 1
 	ScopeWholeSubtree = 2
+	// ScopeChildren is an OpenLDAP extension that may not be supported by another directory server.
+	// See: https://github.com/openldap/openldap/blob/7c55484ee153047efd0e562fc1638c1a2525f320/include/ldap.h#L598
+	ScopeChildren = 3
 )
 
 // ScopeMap contains human readable descriptions of scope choices
@@ -25,6 +28,7 @@ var ScopeMap = map[int]string{
 	ScopeBaseObject:   "Base Object",
 	ScopeSingleLevel:  "Single Level",
 	ScopeWholeSubtree: "Whole Subtree",
+	ScopeChildren:     "Children",
 }
 
 // derefAliases
@@ -42,6 +46,10 @@ var DerefMap = map[int]string{
 	DerefFindingBaseObj: "DerefFindingBaseObj",
 	DerefAlways:         "DerefAlways",
 }
+
+// ErrSizeLimitExceeded will be returned if the search result is exceeding the defined SizeLimit
+// and enforcing the requested limit is enabled in the search request (EnforceSizeLimit)
+var ErrSizeLimitExceeded = NewError(ErrorNetwork, errors.New("ldap: size limit exceeded"))
 
 // NewEntry returns an Entry object with the specified distinguished name and attribute key-value pairs.
 // The map of attributes is accessed in alphabetical order of the keys in order to ensure that, for the
@@ -187,8 +195,8 @@ func readTag(f reflect.StructField) (string, bool) {
 // Unmarshal parses the Entry in the value pointed to by i
 //
 // Currently, this methods only supports struct fields of type
-// string, []string, int, int64, []byte, *DN, []*DN or time.Time. Other field types
-// will not be regarded. If the field type is a string or int but multiple
+// string, *string, []string, int, int64, []byte, *DN, []*DN or time.Time.
+// Other field types will not be regarded. If the field type is a string or int but multiple
 // attribute values are returned, the first value will be used to fill the field.
 //
 // Example:
@@ -220,6 +228,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //
 //		// Time is parsed with the generalizedTime spec into a time.Time
 //		Created time.Time `ldap:"createdTimestamp"`
+//
 //		// *DN is parsed with the ParseDN
 //		Owner *ldap.DN `ldap:"owner"`
 //
@@ -232,6 +241,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //		UserAccountControl uint32 `ldap:"userPrincipalName"`
 //	}
 //	user := UserEntry{}
+//
 //	if err := result.Unmarshal(&user); err != nil {
 //		// ...
 //	}
@@ -277,6 +287,8 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 			}
 		case string:
 			fv.SetString(values[0])
+		case *string:
+			fv.Set(reflect.ValueOf(&values[0]))
 		case []byte:
 			fv.SetBytes([]byte(values[0]))
 		case int, int64:
@@ -306,7 +318,7 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 				fv.Set(reflect.Append(fv, reflect.ValueOf(dn)))
 			}
 		default:
-			return fmt.Errorf("ldap: expected field to be of type string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
+			return fmt.Errorf("ldap: expected field to be of type string, *string, []string, int, int64, []byte, *DN, []*DN or time.Time, got %v", ft.Type)
 		}
 	}
 	return
@@ -376,7 +388,7 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Controls = append(r.Controls, s.Controls...)
 }
 
-// SearchSingleResult holds the server's single response to a search request
+// SearchSingleResult holds the server's single entry response to a search request
 type SearchSingleResult struct {
 	// Entry is the returned entry
 	Entry *Entry
@@ -409,6 +421,11 @@ type SearchRequest struct {
 	Filter       string
 	Attributes   []string
 	Controls     []Control
+
+	// EnforceSizeLimit will hard limit the maximum number of entries parsed, in case the directory
+	// server returns more results than requested. This setting is disabled by default and does not
+	// work in async search requests.
+	EnforceSizeLimit bool
 }
 
 func (req *SearchRequest) appendTo(envelope *ber.Packet) error {
@@ -556,6 +573,12 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 
 		switch packet.Children[1].Tag {
 		case 4:
+			if searchRequest.EnforceSizeLimit &&
+				searchRequest.SizeLimit > 0 &&
+				len(result.Entries) >= searchRequest.SizeLimit {
+				return result, ErrSizeLimitExceeded
+			}
+
 			entry := &Entry{
 				DN:         packet.Children[1].Children[0].Value.(string),
 				Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
@@ -585,9 +608,24 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 // SearchAsync performs a search request and returns all search results asynchronously.
 // This means you get all results until an error happens (or the search successfully finished),
 // e.g. for size / time limited requests all are recieved until the limit is reached.
-// To stop the search, call cancel function returned context.
+// To stop the search, call cancel function of the context.
 func (l *Conn) SearchAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
+	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
+}
+
+// Syncrepl is a short name for LDAP Sync Replication engine that works on the
+// consumer-side. This can perform a persistent search and returns an entry
+// when the entry is updated on the server side.
+// To stop the search, call cancel function of the context.
+func (l *Conn) Syncrepl(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
+	mode ControlSyncRequestMode, cookie []byte, reloadHint bool,
+) Response {
+	control := NewControlSyncRequest(mode, cookie, reloadHint)
+	searchRequest.Controls = append(searchRequest.Controls, control)
 	r := newSearchResponse(l, bufferSize)
 	r.start(ctx, searchRequest)
 	return r
@@ -618,55 +656,56 @@ func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
 }
 
 // DirSync does a Search with dirSync Control.
-func (l *Conn) DirSync(searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte) (*SearchResult, error) {
-	var dirSyncControl *ControlDirSync
-
+func (l *Conn) DirSync(
+	searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte,
+) (*SearchResult, error) {
 	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
 	if control == nil {
-		dirSyncControl = NewControlDirSync(flags, maxAttrCount, cookie)
-		searchRequest.Controls = append(searchRequest.Controls, dirSyncControl)
+		c := NewRequestControlDirSync(flags, maxAttrCount, cookie)
+		searchRequest.Controls = append(searchRequest.Controls, c)
 	} else {
-		castControl, ok := control.(*ControlDirSync)
-		if !ok {
-			return nil, fmt.Errorf("Expected DirSync control to be of type *ControlDirSync, got %v", control)
+		c := control.(*ControlDirSync)
+		if c.Flags != flags {
+			return nil, fmt.Errorf("flags given in search request (%d) conflicts with flags given in search call (%d)", c.Flags, flags)
 		}
-		if castControl.Flags != flags {
-			return nil, fmt.Errorf("flags given in search request (%d) conflicts with flags given in search call (%d)", castControl.Flags, flags)
+		if c.MaxAttrCount != maxAttrCount {
+			return nil, fmt.Errorf("MaxAttrCnt given in search request (%d) conflicts with maxAttrCount given in search call (%d)", c.MaxAttrCount, maxAttrCount)
 		}
-		if castControl.MaxAttrCnt != maxAttrCount {
-			return nil, fmt.Errorf("MaxAttrCnt given in search request (%d) conflicts with maxAttrCount given in search call (%d)", castControl.MaxAttrCnt, maxAttrCount)
-		}
-		dirSyncControl = castControl
 	}
-	searchResult := new(SearchResult)
-	result, err := l.Search(searchRequest)
+	searchResult, err := l.Search(searchRequest)
 	l.Debug.Printf("Looking for result...")
 	if err != nil {
-		return searchResult, err
+		return nil, err
 	}
-	if result == nil {
-		return searchResult, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
+	if searchResult == nil {
+		return nil, NewError(ErrorNetwork, errors.New("ldap: packet not received"))
 	}
-
-	searchResult.Entries = append(searchResult.Entries, result.Entries...)
-	searchResult.Referrals = append(searchResult.Referrals, result.Referrals...)
-	searchResult.Controls = append(searchResult.Controls, result.Controls...)
 
 	l.Debug.Printf("Looking for DirSync Control...")
-	dirSyncResult := FindControl(result.Controls, ControlTypeDirSync)
-	if dirSyncResult == nil {
-		dirSyncControl = nil
+	resultControl := FindControl(searchResult.Controls, ControlTypeDirSync)
+	if resultControl == nil {
 		l.Debug.Printf("Could not find dirSyncControl control.  Breaking...")
 		return searchResult, nil
 	}
 
-	cookie = dirSyncResult.(*ControlDirSync).Cookie
+	cookie = resultControl.(*ControlDirSync).Cookie
 	if len(cookie) == 0 {
-		dirSyncControl = nil
 		l.Debug.Printf("Could not find cookie.  Breaking...")
 		return searchResult, nil
 	}
-	dirSyncControl.SetCookie(cookie)
 
 	return searchResult, nil
+}
+
+// DirSyncDirSyncAsync performs a search request and returns all search results
+// asynchronously. This is efficient when the server returns lots of entries.
+func (l *Conn) DirSyncAsync(
+	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
+	flags, maxAttrCount int64, cookie []byte,
+) Response {
+	control := NewRequestControlDirSync(flags, maxAttrCount, cookie)
+	searchRequest.Controls = append(searchRequest.Controls, control)
+	r := newSearchResponse(l, bufferSize)
+	r.start(ctx, searchRequest)
+	return r
 }

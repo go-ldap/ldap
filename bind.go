@@ -614,7 +614,7 @@ func (l *Conn) GSSAPIBind(client GSSAPIClient, servicePrincipal, authzid string)
 
 // GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.
 func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) error {
-	// nolint:errcheck
+	//nolint:errcheck
 	defer client.DeleteSecContext()
 
 	var err error

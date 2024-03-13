@@ -44,8 +44,8 @@ func TestControlString(t *testing.T) {
 }
 
 func TestControlDirSync(t *testing.T) {
-	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil))
-	runControlTest(t, NewControlDirSync(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
+	runControlTest(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, nil))
+	runControlTest(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
 }
 
 func runControlTest(t *testing.T, originalControl Control) {
@@ -122,7 +122,7 @@ func TestDescribeControlString(t *testing.T) {
 }
 
 func TestDescribeControlDirSync(t *testing.T) {
-	runAddControlDescriptions(t, NewControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
+	runAddControlDescriptions(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
 }
 
 func runAddControlDescriptions(t *testing.T, originalControl Control, childDescriptions ...string) {
@@ -217,5 +217,58 @@ func TestDecodeControl(t *testing.T) {
 				t.Errorf("DecodeControl() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestControlServerSideSortingDecoding(t *testing.T) {
+	control := NewControlServerSideSortingWithSortKeys([]*SortKey{{
+		MatchingRule:  "foo",
+		AttributeType: "foobar",
+		Reverse:       true,
+	}, {
+		MatchingRule:  "foo",
+		AttributeType: "foobar",
+		Reverse:       false,
+	}, {
+		MatchingRule:  "",
+		AttributeType: "",
+		Reverse:       false,
+	}, {
+		MatchingRule:  "totoRule",
+		AttributeType: "",
+		Reverse:       false,
+	}, {
+		MatchingRule:  "",
+		AttributeType: "totoType",
+		Reverse:       false,
+	}})
+
+	controlDecoded, err := NewControlServerSideSorting(control.Encode())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if control.GetControlType() != controlDecoded.GetControlType() {
+		t.Fatalf("control type mismatch: control:%s - decoded:%s", control.GetControlType(), controlDecoded.GetControlType())
+	}
+
+	if len(control.SortKeys) != len(controlDecoded.SortKeys) {
+		t.Fatalf("sort keys length mismatch (control: %d - decoded: %d)", len(control.SortKeys), len(controlDecoded.SortKeys))
+	}
+
+	for i, sk := range control.SortKeys {
+		dsk := controlDecoded.SortKeys[i]
+
+		if sk.AttributeType != dsk.AttributeType {
+			t.Fatalf("attribute type mismatch for sortkey %d", i)
+		}
+
+		if sk.MatchingRule != dsk.MatchingRule {
+			t.Fatalf("matching rule mismatch for sortkey %d", i)
+		}
+
+		if sk.Reverse != dsk.Reverse {
+			t.Fatalf("reverse mismtach for sortkey %d", i)
+		}
 	}
 }
