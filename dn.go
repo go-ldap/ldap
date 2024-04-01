@@ -149,7 +149,7 @@ func (d *DN) String() string {
 func decodeString(str string) (string, error) {
 	s := []rune(strings.TrimSpace(str))
 	// Re-add the trailing space if the last character was an escaped space character
-	if len(s) > 0 && s[len(s)-1] == '\\' && str[len(str)-2] == ' ' {
+	if len(s) > 0 && s[len(s)-1] == '\\' && str[len(str)-1] == ' ' {
 		s = append(s, ' ')
 	}
 
@@ -234,7 +234,7 @@ func decodeEncodedString(str string) (string, error) {
 // The function respects https://tools.ietf.org/html/rfc4514
 func ParseDN(str string) (*DN, error) {
 	var dn = &DN{RDNs: make([]*RelativeDN, 0)}
-	if str = strings.TrimSpace(str); len(str) == 0 {
+	if strings.TrimSpace(str) == "" {
 		return dn, nil
 	}
 
