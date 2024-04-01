@@ -98,6 +98,7 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 
 		foundSearchSingleResultDone := false
 		for !foundSearchSingleResultDone {
+			r.conn.Debug.Printf("%d: waiting for response", msgCtx.id)
 			select {
 			case <-ctx.Done():
 				r.conn.Debug.Printf("%d: %s", msgCtx.id, ctx.Err().Error())
