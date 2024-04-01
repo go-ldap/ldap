@@ -265,7 +265,12 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 	return l
 }
 
-// Start initializes goroutines to read responses and process messages
+// Start initialises goroutines to read replies and process messages.
+//
+// Deprecated: It is usually not necessary to call this function
+// manually. It is public for compatibility reasons and may
+// cause a race condition when processing messages.
+// See: https://github.com/go-ldap/ldap/issues/356
 func (l *Conn) Start() {
 	go l.reader()
 	go l.processMessages()
