@@ -1,18 +1,22 @@
 [![GoDoc](https://godoc.org/github.com/go-ldap/ldap?status.svg)](https://godoc.org/github.com/go-ldap/ldap)
-[![Build Status](https://travis-ci.org/go-ldap/ldap.svg)](https://travis-ci.org/go-ldap/ldap)
 
 # Basic LDAP v3 functionality for the GO programming language.
 
 The library implements the following specifications:
- - https://tools.ietf.org/html/rfc4511 for basic operations
- - https://tools.ietf.org/html/rfc3062 for password modify operation
- - https://tools.ietf.org/html/rfc4514 for distinguished names parsing
+ - https://datatracker.ietf.org/doc/html/rfc4511 for basic operations
+ - https://datatracker.ietf.org/doc/html/rfc3062 for password modify operation
+ - https://datatracker.ietf.org/doc/html/rfc4514 for distinguished names parsing
+ - https://datatracker.ietf.org/doc/html/rfc4533 for Content Synchronization Operation
+ - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02 for Tree Delete Control
+ - https://datatracker.ietf.org/doc/html/rfc2891 for Server Side Sorting of Search Results
+ - https://datatracker.ietf.org/doc/html/rfc4532 for WhoAmI requests
 
 ## Features:
 
- - Connecting to LDAP server (non-TLS, TLS, STARTTLS)
- - Binding to LDAP server
- - Searching for entries
+ - Connecting to LDAP server (non-TLS, TLS, STARTTLS, through a custom dialer)
+ - Binding to LDAP server (Simple Bind, GSSAPI, SASL)
+ - "Who Am I" Requests / Responses
+ - Searching for entries (normal and asynchronous)
  - Filter Compile / Decompile
  - Paging Search Results
  - Modify Requests / Responses
