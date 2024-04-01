@@ -102,9 +102,7 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 			case <-ctx.Done():
 				r.conn.Debug.Printf("%d: %s", msgCtx.id, ctx.Err().Error())
 				return
-			default:
-				r.conn.Debug.Printf("%d: waiting for response", msgCtx.id)
-				packetResponse, ok := <-msgCtx.responses
+			case packetResponse, ok := <-msgCtx.responses:
 				if !ok {
 					err := NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
 					r.ch <- &SearchSingleResult{Error: err}
