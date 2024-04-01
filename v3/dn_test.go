@@ -82,21 +82,21 @@ func TestSuccessfulDNParsing(t *testing.T) {
 	for test, answer := range testcases {
 		dn, err := ParseDN(test)
 		if err != nil {
-			t.Errorf(err.Error())
+			t.Errorf("ParseDN failed for DN test '%s': %s", test, err)
 			continue
 		}
 		if !reflect.DeepEqual(dn, &answer) {
-			t.Errorf("Parsed DN %s is not equal to the expected structure", test)
+			t.Errorf("Parsed DN '%s' is not equal to the expected structure", test)
 			t.Logf("Expected:")
 			for _, rdn := range answer.RDNs {
-				for _, attribs := range rdn.Attributes {
-					t.Logf("#%v\n", attribs)
+				for _, attribute := range rdn.Attributes {
+					t.Logf("	#%v\n", attribute)
 				}
 			}
 			t.Logf("Actual:")
 			for _, rdn := range dn.RDNs {
-				for _, attribs := range rdn.Attributes {
-					t.Logf("#%v\n", attribs)
+				for _, attribute := range rdn.Attributes {
+					t.Logf("	#%v\n", attribute)
 				}
 			}
 		}
@@ -107,7 +107,7 @@ func TestErrorDNParsing(t *testing.T) {
 	testcases := map[string]string{
 		"*":                       "DN ended with incomplete type, value pair",
 		"cn=Jim\\0Test":           "failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
-		"cn=Jim\\0":               "got corrupted escaped character",
+		"cn=Jim\\0":               "failed to decode escaped character: encoding/hex: invalid byte: 0",
 		"DC=example,=net":         "DN ended with incomplete type, value pair",
 		"1=#0402486":              "failed to decode BER encoding: encoding/hex: odd length hex string",
 		"test,DC=example,DC=com":  "incomplete type, value pair",
@@ -117,9 +117,9 @@ func TestErrorDNParsing(t *testing.T) {
 	for test, answer := range testcases {
 		_, err := ParseDN(test)
 		if err == nil {
-			t.Errorf("Expected %s to fail parsing but succeeded\n", test)
+			t.Errorf("Expected '%s' to fail parsing but succeeded\n", test)
 		} else if err.Error() != answer {
-			t.Errorf("Unexpected error on %s:\n%s\nvs.\n%s\n", test, answer, err.Error())
+			t.Errorf("Unexpected error on: '%s':\nExpected:	%s\nGot:		%s\n", test, answer, err.Error())
 		}
 	}
 }
