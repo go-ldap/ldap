@@ -3,22 +3,7 @@
 
 package ldap
 
-import (
-	"os"
-	"testing"
-
-	ber "github.com/go-asn1-ber/asn1-ber"
-)
-
-func TestMain(m *testing.M) {
-	// For fuzz tests
-	// See https://github.com/go-asn1-ber/asn1-ber/blob/04301b4b1c5ff66221f8f8a394f814a9917d678a/fuzz_test.go#L33-L37
-	// for why this limitation is necessary
-	ber.MaxPacketLengthBytes = 65536
-
-	code := m.Run()
-	os.Exit(code)
-}
+import "testing"
 
 func FuzzParseDN(f *testing.F) {
 	f.Add("*")
@@ -33,7 +18,6 @@ func FuzzParseDN(f *testing.F) {
 }
 
 func FuzzDecodeEscapedSymbols(f *testing.F) {
-
 	f.Add([]byte("a\u0100\x80"))
 	f.Add([]byte(`start\d`))
 	f.Add([]byte(`\`))
@@ -46,7 +30,6 @@ func FuzzDecodeEscapedSymbols(f *testing.F) {
 }
 
 func FuzzEscapeDN(f *testing.F) {
-
 	f.Add("test,user")
 	f.Add("#test#user#")
 	f.Add("\\test\\user\\")
