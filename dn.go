@@ -144,8 +144,6 @@ func (d *DN) String() string {
 
 // Remove leading and trailing spaces from the attribute type and value
 // and unescape any escaped characters in these fields
-// Remove leading and trailing spaces from the attribute type and value
-// and unescape any escaped characters in these fields
 //
 // decodeString is based on https://github.com/inteon/cert-manager/blob/ed280d28cd02b262c5db46054d88e70ab518299c/pkg/util/pki/internal/dn.go#L170
 func decodeString(str string) (string, error) {
