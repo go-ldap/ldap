@@ -22,8 +22,8 @@ func TestSuccessfulDNParsing(t *testing.T) {
 		}},
 		"OU=Sales+CN=J. Smith,DC=example,DC=net": {[]*RelativeDN{
 			{[]*AttributeTypeAndValue{
-				{"CN", "J. Smith"},
 				{"OU", "Sales"},
+				{"CN", "J. Smith"},
 			}},
 			{[]*AttributeTypeAndValue{{"DC", "example"}}},
 			{[]*AttributeTypeAndValue{{"DC", "net"}}},
@@ -114,7 +114,7 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"OU", "Foo===Long"}}},
 			{[]*AttributeTypeAndValue{{"ou", "Ba # rq"}}},
 			{[]*AttributeTypeAndValue{{"ou", "Baz"}}},
-			{[]*AttributeTypeAndValue{{"c", "US"}, {"o", "C; orp."}}},
+			{[]*AttributeTypeAndValue{{"o", "C; orp."}, {"c", "US"}}},
 		}},
 	}
 

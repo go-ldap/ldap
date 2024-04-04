@@ -1,7 +1,6 @@
 package ldap
 
 import (
-	"bytes"
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
@@ -72,29 +71,12 @@ type RelativeDN struct {
 // String returns a normalized string representation of this relative DN which
 // is the a join of all attributes (sorted in increasing order) with a "+".
 func (r *RelativeDN) String() string {
-	builder := strings.Builder{}
-	sortedAttributes := make([]*AttributeTypeAndValue, len(r.Attributes))
-	copy(sortedAttributes, r.Attributes)
-	sortAttributes(sortedAttributes)
-	for i, atv := range sortedAttributes {
-		builder.WriteString(atv.String())
-		if i < len(sortedAttributes)-1 {
-			builder.WriteByte('+')
-		}
+	attrs := make([]string, len(r.Attributes))
+	for i := range r.Attributes {
+		attrs[i] = r.Attributes[i].String()
 	}
-	return builder.String()
-}
-
-func sortAttributes(atvs []*AttributeTypeAndValue) {
-	sort.Slice(atvs, func(i, j int) bool {
-		ti := foldString(atvs[i].Type)
-		tj := foldString(atvs[j].Type)
-		if ti != tj {
-			return ti < tj
-		}
-
-		return atvs[i].Value < atvs[j].Value
-	})
+	sort.Strings(attrs)
+	return strings.Join(attrs, "+")
 }
 
 // DN represents a distinguishedName from https://tools.ietf.org/html/rfc4514
@@ -105,14 +87,11 @@ type DN struct {
 // String returns a normalized string representation of this DN which is the
 // join of all relative DNs with a ",".
 func (d *DN) String() string {
-	builder := strings.Builder{}
-	for i, rdn := range d.RDNs {
-		builder.WriteString(rdn.String())
-		if i < len(d.RDNs)-1 {
-			builder.WriteByte(',')
-		}
+	rdns := make([]string, len(d.RDNs))
+	for i := range d.RDNs {
+		rdns[i] = d.RDNs[i].String()
 	}
-	return builder.String()
+	return strings.Join(rdns, ",")
 }
 
 func stripLeadingAndTrailingSpaces(inVal string) string {
@@ -194,18 +173,21 @@ func decodeString(str string) (string, error) {
 
 // Escape a string according to RFC 4514
 func encodeString(value string, isValue bool) string {
-	encodedBuf := bytes.Buffer{}
+	builder := strings.Builder{}
 
 	escapeChar := func(c byte) {
-		encodedBuf.WriteByte('\\')
-		encodedBuf.WriteByte(c)
+		builder.WriteByte('\\')
+		builder.WriteByte(c)
 	}
 
 	escapeHex := func(c byte) {
-		encodedBuf.WriteByte('\\')
-		encodedBuf.WriteString(hex.EncodeToString([]byte{c}))
+		builder.WriteByte('\\')
+		builder.WriteString(hex.EncodeToString([]byte{c}))
 	}
 
+	// Loop through each byte and escape as necessary.
+	// Runes that take up more than one byte are escaped
+	// byte by byte (since both bytes are non-ASCII).
 	for i := 0; i < len(value); i++ {
 		char := value[i]
 		if i == 0 && (char == ' ' || char == '#') {
@@ -242,10 +224,10 @@ func encodeString(value string, isValue bool) string {
 		}
 
 		// Any other character does not require escaping.
-		encodedBuf.WriteByte(char)
+		builder.WriteByte(char)
 	}
 
-	return encodedBuf.String()
+	return builder.String()
 }
 
 func decodeEncodedString(str string) (string, error) {
@@ -283,13 +265,16 @@ func ParseDN(str string) (*DN, error) {
 			rdn.Attributes = append(rdn.Attributes, attr)
 			attr = &AttributeTypeAndValue{}
 			if end {
-				sortAttributes(rdn.Attributes)
 				dn.RDNs = append(dn.RDNs, rdn)
 				rdn = &RelativeDN{}
 			}
 		}
 	)
 
+	// Loop through each character in the string and
+	// build up the attribute type and value pairs.
+	// We only check for ascii characters here, which
+	// allows us to iterate over the string byte by byte.
 	for i := 0; i < len(str); i++ {
 		char := str[i]
 		switch {

@@ -22,8 +22,8 @@ func TestSuccessfulDNParsing(t *testing.T) {
 		}},
 		"OU=Sales+CN=J. Smith,DC=example,DC=net": {[]*RelativeDN{
 			{[]*AttributeTypeAndValue{
-				{"CN", "J. Smith"},
 				{"OU", "Sales"},
+				{"CN", "J. Smith"},
 			}},
 			{[]*AttributeTypeAndValue{{"DC", "example"}}},
 			{[]*AttributeTypeAndValue{{"DC", "net"}}},
@@ -114,7 +114,7 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"OU", "Foo===Long"}}},
 			{[]*AttributeTypeAndValue{{"ou", "Ba # rq"}}},
 			{[]*AttributeTypeAndValue{{"ou", "Baz"}}},
-			{[]*AttributeTypeAndValue{{"c", "US"}, {"o", "C; orp."}}},
+			{[]*AttributeTypeAndValue{{"o", "C; orp."}, {"c", "US"}}},
 		}},
 	}
 
@@ -382,5 +382,37 @@ func TestRoundTripLiteralSubject(t *testing.T) {
 		}
 
 		assert.Equal(t, subjOut, newRDNSeq.String())
+	}
+}
+
+func TestDecodeString(t *testing.T) {
+	successTestcases := map[string]string{
+		"foo-long.com":      "foo-long.com",
+		"foo-lon❤️\\,g.com": "foo-lon❤️,g.com",
+		"fo\x00o-long.com":  "fo\x00o-long.com",
+		"fo\\00o-long.com":  "fo\x00o-long.com",
+	}
+
+	for encoded, decoded := range successTestcases {
+		t.Logf("Testing encoded string: %s", encoded)
+		decodedString, err := decodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, decoded, decodedString)
+	}
+
+	errorTestcases := map[string]string{
+		"fo\\":              "got corrupted escaped character: 'fo\\'",
+		"fo\\0":             "failed to decode escaped character: encoding/hex: invalid byte: 0",
+		"fo\\UU️o-long.com": "failed to decode escaped character: encoding/hex: invalid byte: U+0055 'U'",
+		"fo\\0❤️o-long.com": "failed to decode escaped character: invalid byte: 0❤",
+	}
+
+	for encoded, expectedError := range errorTestcases {
+		t.Logf("Testing encoded string: %s", encoded)
+		_, err := decodeString(encoded)
+		assert.EqualError(t, err, expectedError)
 	}
 }
