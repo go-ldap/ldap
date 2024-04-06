@@ -3,6 +3,8 @@ package ldap
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSuccessfulDNParsing(t *testing.T) {
@@ -59,11 +61,25 @@ func TestSuccessfulDNParsing(t *testing.T) {
 				{"  B  ", "  2  "},
 			}},
 		}},
-
+		"A = 88  \t": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{
+				{"A", "88  \t"},
+			}},
+		}},
+		"A = 88  \n": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{
+				{"A", "88  \n"},
+			}},
+		}},
 		`cn=john.doe;dc=example,dc=net`: {[]*RelativeDN{
 			{[]*AttributeTypeAndValue{{"cn", "john.doe"}}},
 			{[]*AttributeTypeAndValue{{"dc", "example"}}},
 			{[]*AttributeTypeAndValue{{"dc", "net"}}},
+		}},
+		`cn=⭐;dc=❤️=\==,dc=❤️\\`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "⭐"}}},
+			{[]*AttributeTypeAndValue{{"dc", "❤️==="}}},
+			{[]*AttributeTypeAndValue{{"dc", "❤️\\"}}},
 		}},
 
 		// Escaped `;` should not be treated as RDN
@@ -76,6 +92,29 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"cn", "ZXhhbXBsZVRleHQ="}}},
 			{[]*AttributeTypeAndValue{{"dc", "dummy"}}},
 			{[]*AttributeTypeAndValue{{"dc", "com"}}},
+		}},
+		`1.3.6.1.4.1.1466.0=test`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", "test"}}},
+		}},
+		`1=#04024869`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1", "Hi"}}},
+		}},
+		`CN=James \"Jim\" Smith\, III,DC=example,DC=net`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"CN", "James \"Jim\" Smith, III"}}},
+			{[]*AttributeTypeAndValue{{"DC", "example"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}},
+		}},
+		`CN=Before\0dAfter,DC=example,DC=net`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"CN", "Before\x0dAfter"}}},
+			{[]*AttributeTypeAndValue{{"DC", "example"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}},
+		}},
+		`cn=foo-lon\e2\9d\a4\ef\b8\8f\,g.com,OU=Foo===Long;ou=Ba # rq,ou=Baz,o=C\; orp.+c=US`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "foo-lon❤️,g.com"}}},
+			{[]*AttributeTypeAndValue{{"OU", "Foo===Long"}}},
+			{[]*AttributeTypeAndValue{{"ou", "Ba # rq"}}},
+			{[]*AttributeTypeAndValue{{"ou", "Baz"}}},
+			{[]*AttributeTypeAndValue{{"o", "C; orp."}, {"c", "US"}}},
 		}},
 	}
 
@@ -105,13 +144,17 @@ func TestSuccessfulDNParsing(t *testing.T) {
 
 func TestErrorDNParsing(t *testing.T) {
 	testcases := map[string]string{
-		"*":                       "DN ended with incomplete type, value pair",
-		"cn=Jim\\0Test":           "failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
-		"cn=Jim\\0":               "failed to decode escaped character: encoding/hex: invalid byte: 0",
-		"DC=example,=net":         "DN ended with incomplete type, value pair",
-		"1=#0402486":              "failed to decode BER encoding: encoding/hex: odd length hex string",
-		"test,DC=example,DC=com":  "incomplete type, value pair",
-		"=test,DC=example,DC=com": "incomplete type, value pair",
+		"*":                         "DN ended with incomplete type, value pair",
+		"cn=Jim\\0Test":             "failed to decode escaped character: encoding/hex: invalid byte: U+0054 'T'",
+		"cn=Jim\\0":                 "failed to decode escaped character: encoding/hex: invalid byte: 0",
+		"DC=example,=net":           "DN ended with incomplete type, value pair",
+		"1=#0402486":                "failed to decode BER encoding: encoding/hex: odd length hex string",
+		"test,DC=example,DC=com":    "incomplete type, value pair",
+		"=test,DC=example,DC=com":   "incomplete type, value pair",
+		"1.3.6.1.4.1.1466.0=test+":  "DN ended with incomplete type, value pair",
+		`1.3.6.1.4.1.1466.0=test;`:  "DN ended with incomplete type, value pair",
+		"1.3.6.1.4.1.1466.0=test+,": "incomplete type, value pair",
+		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "failed to unmarshal hex-encoded string: asn1: syntax error: data truncated",
 	}
 
 	for test, answer := range testcases {
@@ -288,5 +331,88 @@ func TestDNAncestor(t *testing.T) {
 			t.Errorf("%d: when comparing '%s' and '%s' expected %v, got %v", i, tc.A, tc.B, expected, actual)
 			continue
 		}
+	}
+}
+
+func BenchmarkParseSubject(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		_, err := ParseDN("DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF")
+		if err == nil {
+			b.Fatal("expected error, but got none")
+		}
+	}
+}
+
+func TestMustKeepOrderInRawDerBytes(t *testing.T) {
+	subject := "cn=foo-long.com,ou=FooLong,ou=Barq,ou=Baz,ou=Dept.,o=Corp.,c=US"
+	rdnSeq, err := ParseDN(subject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedRdnSeq := &DN{
+		[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{Type: "cn", Value: "foo-long.com"}}},
+			{[]*AttributeTypeAndValue{{Type: "ou", Value: "FooLong"}}},
+			{[]*AttributeTypeAndValue{{Type: "ou", Value: "Barq"}}},
+			{[]*AttributeTypeAndValue{{Type: "ou", Value: "Baz"}}},
+			{[]*AttributeTypeAndValue{{Type: "ou", Value: "Dept."}}},
+			{[]*AttributeTypeAndValue{{Type: "o", Value: "Corp."}}},
+			{[]*AttributeTypeAndValue{{Type: "c", Value: "US"}}},
+		},
+	}
+
+	assert.Equal(t, expectedRdnSeq, rdnSeq)
+	assert.Equal(t, subject, rdnSeq.String())
+}
+
+func TestRoundTripLiteralSubject(t *testing.T) {
+	rdnSequences := map[string]string{
+		"cn=foo-long.com,ou=FooLong,ou=Barq,ou=Baz,ou=Dept.,o=Corp.,c=US":       "cn=foo-long.com,ou=FooLong,ou=Barq,ou=Baz,ou=Dept.,o=Corp.,c=US",
+		"cn=foo-lon❤️\\,g.com,ou=Foo===Long,ou=Ba # rq,ou=Baz,o=C\\; orp.,c=US": "cn=foo-lon\\e2\\9d\\a4\\ef\\b8\\8f\\,g.com,ou=Foo===Long,ou=Ba # rq,ou=Baz,o=C\\; orp.,c=US",
+		"cn=fo\x00o-long.com,ou=\x04FooLong":                                    "cn=fo\\00o-long.com,ou=\\04FooLong",
+	}
+
+	for subjIn, subjOut := range rdnSequences {
+		t.Logf("Testing subject: %s", subjIn)
+
+		newRDNSeq, err := ParseDN(subjIn)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, subjOut, newRDNSeq.String())
+	}
+}
+
+func TestDecodeString(t *testing.T) {
+	successTestcases := map[string]string{
+		"foo-long.com":      "foo-long.com",
+		"foo-lon❤️\\,g.com": "foo-lon❤️,g.com",
+		"fo\x00o-long.com":  "fo\x00o-long.com",
+		"fo\\00o-long.com":  "fo\x00o-long.com",
+	}
+
+	for encoded, decoded := range successTestcases {
+		t.Logf("Testing encoded string: %s", encoded)
+		decodedString, err := decodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, decoded, decodedString)
+	}
+
+	errorTestcases := map[string]string{
+		"fo\\":              "got corrupted escaped character: 'fo\\'",
+		"fo\\0":             "failed to decode escaped character: encoding/hex: invalid byte: 0",
+		"fo\\UU️o-long.com": "failed to decode escaped character: encoding/hex: invalid byte: U+0055 'U'",
+		"fo\\0❤️o-long.com": "failed to decode escaped character: invalid byte: 0❤",
+	}
+
+	for encoded, expectedError := range errorTestcases {
+		t.Logf("Testing encoded string: %s", encoded)
+		_, err := decodeString(encoded)
+		assert.EqualError(t, err, expectedError)
 	}
 }
