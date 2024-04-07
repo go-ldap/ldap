@@ -35,9 +35,6 @@ func (a *AttributeTypeAndValue) setValue(s string) error {
 	// AttributeValue is represented by an number sign ('#' U+0023)
 	// character followed by the hexadecimal encoding of each of the octets
 	// of the BER encoding of the X.500 AttributeValue.
-	//
-	// WARNING: we only support hex-encoded ASN.1 DER values here, not
-	// BER encoding. This is a deviation from the RFC.
 	if len(s) > 0 && s[0] == '#' {
 		decodedString, err := decodeEncodedString(s[1:])
 		if err != nil {
