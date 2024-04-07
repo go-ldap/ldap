@@ -154,7 +154,7 @@ func TestErrorDNParsing(t *testing.T) {
 		"1.3.6.1.4.1.1466.0=test+":  "DN ended with incomplete type, value pair",
 		`1.3.6.1.4.1.1466.0=test;`:  "DN ended with incomplete type, value pair",
 		"1.3.6.1.4.1.1466.0=test+,": "incomplete type, value pair",
-		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "failed to unmarshal hex-encoded string: asn1: syntax error: data truncated",
+		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "failed to decode BER encoding: unexpected EOF",
 	}
 
 	for test, answer := range testcases {
