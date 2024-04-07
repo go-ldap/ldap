@@ -1,10 +1,10 @@
 package ldap
 
 import (
-	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	ber "github.com/go-asn1-ber/asn1-ber"
 	"sort"
 	"strings"
 	"unicode"
@@ -233,19 +233,15 @@ func encodeString(value string, isValue bool) string {
 func decodeEncodedString(str string) (string, error) {
 	decoded, err := hex.DecodeString(str)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode BER encoding: %s", err)
+		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
 	}
 
-	var rawValue asn1.RawValue
-	result, err := asn1.Unmarshal(decoded, &rawValue)
+	packet, err := ber.DecodePacketErr(decoded)
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal hex-encoded string: %s", err)
-	}
-	if len(result) != 0 {
-		return "", errors.New("trailing data after unmarshalling hex-encoded string")
+		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
 	}
 
-	return string(rawValue.Bytes), nil
+	return packet.Data.String(), nil
 }
 
 // ParseDN returns a distinguishedName or an error.
