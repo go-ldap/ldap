@@ -39,7 +39,7 @@ https://tools.ietf.org/html/rfc4511
 For more info, please visit the pull request that updated to modules.
 https://github.com/go-ldap/ldap/pull/247
 
-To install with `GOMODULE111=off`, use `go get github.com/go-ldap/ldap/v3`
+To install with `GOMODULE111=off`, use `go get github.com/go-ldap/ldap`
 https://golang.org/cmd/go/#hdr-Legacy_GOPATH_go_get
 
 As always, we are looking for contributors with great ideas on how to best move forward.
