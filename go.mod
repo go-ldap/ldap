@@ -1,4 +1,4 @@
-module github.com/gustavoluvizotto/ldap-fork
+module github.com/go-ldap/ldap
 
 go 1.14
 

@@ -6,7 +6,7 @@ package ldap
 import (
 	"log"
 
-	"github.com/gustavoluvizotto/ldap-fork/gssapi"
+	"github.com/go-ldap/ldap/gssapi"
 )
 
 // This example demonstrates passwordless bind using the current process' user
