@@ -266,10 +266,9 @@ func NewConn(conn net.Conn, isTLS bool) *Conn {
 }
 
 // Start initialises goroutines to read replies and process messages.
+// Warning: Calling this function in addition to Dial or DialURL
+// may cause race conditions.
 //
-// Deprecated: It is usually not necessary to call this function
-// manually. It is public for compatibility reasons and may
-// cause a race condition when processing messages.
 // See: https://github.com/go-ldap/ldap/issues/356
 func (l *Conn) Start() {
 	go l.reader()
