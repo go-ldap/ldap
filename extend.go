@@ -27,10 +27,10 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	// Despite the RFC documentation stating otherwise, the requestName field needs to be
 	// of class application and type EOC, otherwise the directory server will terminate
 	// the connection right away (tested against OpenLDAP, Active Directory).
-	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extend Request")
+	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extended Request")
 	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extension Name"))
 	if er.Value != "" {
-		pkt.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, er.Value, "Extension Value"))
+		pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Value, "Extension Value"))
 	}
 	envelope.AppendChild(pkt)
 	return nil
@@ -58,7 +58,7 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendResponse, error) {
 	}
 	if len(packet.Children) < 2 || len(packet.Children[1].Children) < 4 {
 		return nil, fmt.Errorf(
-			"ldap: malformed extended response: expected 4 children, got: %d",
+			"ldap: malformed extended response: expected 4 children, got %d",
 			len(packet.Children),
 		)
 	}
