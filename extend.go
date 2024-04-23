@@ -9,10 +9,10 @@ import (
 // See: https://www.rfc-editor.org/rfc/rfc4511#section-4.12
 type ExtendedRequest struct {
 	Name  string
-	Value string
+	Value *ber.Packet
 }
 
-func NewExtendedRequest(name, value string) *ExtendedRequest {
+func NewExtendedRequest(name string, value *ber.Packet) *ExtendedRequest {
 	return &ExtendedRequest{
 		Name:  name,
 		Value: value,
@@ -27,10 +27,11 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	// Despite the RFC documentation stating otherwise, the requestName field needs to be
 	// of class application and type EOC, otherwise the directory server will terminate
 	// the connection right away (tested against OpenLDAP, Active Directory).
+
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extended Request")
-	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extension Name"))
-	if er.Value != "" {
-		pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Value, "Extension Value"))
+	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extended Request Name"))
+	if er.Value != nil {
+		pkt.AppendChild(er.Value)
 	}
 	envelope.AppendChild(pkt)
 	return nil
