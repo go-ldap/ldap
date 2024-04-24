@@ -39,7 +39,7 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 
 type ExtendResponse struct {
 	Name  string
-	Value string
+	Value *ber.Packet
 }
 
 func (l *Conn) Extended(er *ExtendedRequest) (*ExtendResponse, error) {
@@ -57,7 +57,11 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(packet.Children) < 2 || len(packet.Children[1].Children) < 4 {
+	if err = GetLDAPError(packet); err != nil {
+		return nil, err
+	}
+
+	if len(packet.Children[1].Children) < 4 {
 		return nil, fmt.Errorf(
 			"ldap: malformed extended response: expected 4 children, got %d",
 			len(packet.Children),
@@ -67,7 +71,7 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendResponse, error) {
 	response := new(ExtendResponse)
 	response.Name = packet.Children[1].Children[3].Data.String()
 	if len(packet.Children) == 4 {
-		response.Value = packet.Children[1].Children[4].Data.String()
+		response.Value = packet.Children[1].Children[4]
 	}
 
 	return response, nil
