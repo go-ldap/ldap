@@ -36,6 +36,10 @@ func TestControlSubtreeDelete(t *testing.T) {
 	runControlTest(t, NewControlSubtreeDelete())
 }
 
+func TestControlFastBind(t *testing.T) {
+	runControlTest(t, NewControlFastBind())
+}
+
 func TestControlString(t *testing.T) {
 	runControlTest(t, NewControlString("x", true, "y"))
 	runControlTest(t, NewControlString("x", true, ""))
