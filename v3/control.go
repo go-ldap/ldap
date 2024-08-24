@@ -46,6 +46,9 @@ const (
 	ControlTypeSyncDone = "1.3.6.1.4.1.4203.1.9.1.3"
 	// ControlTypeSyncInfo - https://www.ietf.org/rfc/rfc4533.txt
 	ControlTypeSyncInfo = "1.3.6.1.4.1.4203.1.9.1.4"
+
+	// ControlFastConcurrentBin - https://msdn.microsoft.com/en-us/library/dc4eb502-fb94-470c-9ab8-ad09fa720ea6
+	ControlTypeFastBind = "1.2.840.113556.1.4.1781"
 )
 
 // Flags for DirSync control
@@ -72,6 +75,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeSyncState:               "Sync State",
 	ControlTypeSyncDone:                "Sync Done",
 	ControlTypeSyncInfo:                "Sync Info",
+	ControlTypeFastBind:                "Fast Bind",
 }
 
 // Control defines an interface controls provide to encode and describe themselves
@@ -556,6 +560,8 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
 		}
 		return NewControlSyncInfo(valueChildren)
+	case ControlTypeFastBind:
+		return NewControlFastBind(), nil
 	default:
 		c := new(ControlString)
 		c.ControlType = ControlType
@@ -1291,4 +1297,30 @@ func (c *ControlSyncInfo) String() string {
 		c.RefreshPresent,
 		c.SyncIdSet,
 	)
+}
+
+// ControlFastBind implements the Active Directory specific
+// LDAP_SERVER_FAST_BIND_OID control.
+// https://msdn.microsoft.com/en-us/library/58bbd5c4-b5c4-41e2-b12c-cdaad1223d6a
+type ControlFastBind struct{}
+
+func NewControlFastBind() *ControlFastBind {
+	return &ControlFastBind{}
+}
+
+// GetControlType returns the OID
+func (c *ControlFastBind) GetControlType() string {
+	return ControlTypeFastBind
+}
+
+// Encode encodes the control
+func (c *ControlFastBind) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeFastBind, "Control Type ("+ControlTypeMap[ControlTypeFastBind]+")"))
+	return packet
+}
+
+// String returns a human-readable description
+func (c *ControlFastBind) String() string {
+	return fmt.Sprintf("Control Type: %s (%q)", ControlTypeMap[ControlTypeFastBind], ControlTypeFastBind)
 }
