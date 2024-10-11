@@ -579,9 +579,13 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				return result, ErrSizeLimitExceeded
 			}
 
+			attr := make([]*ber.Packet, 0)
+			if len(packet.Children[1].Children) > 1 {
+				attr = packet.Children[1].Children[1].Children
+			}
 			entry := &Entry{
 				DN:         packet.Children[1].Children[0].Value.(string),
-				Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
+				Attributes: unpackAttributes(attr),
 			}
 			result.Entries = append(result.Entries, entry)
 		case 5:
