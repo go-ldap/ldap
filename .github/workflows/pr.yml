@@ -10,6 +10,7 @@ jobs:
     strategy:
       matrix:
         go: [
+          '1.23',
           '1.22',
           '1.21',
           '1.20',
@@ -24,10 +25,10 @@ jobs:
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.branch }} (Modules)
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go }}
 
@@ -46,9 +47,9 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.50.0
+          version: latest
           only-new-issues: true
