@@ -32,7 +32,7 @@ func TestExtendedRequest_FastBind(t *testing.T) {
 	}
 	defer conn.Close()
 
-	request := NewExtendedRequest(`1.3.6.1.4.1.4203.1.11.3`)
+	request := NewExtendedRequest("1.3.6.1.4.1.4203.1.11.3", nil)
 	_, err = conn.Extended(request)
 	if err != nil {
 		t.Errorf("%s failed: %v", t.Name(), err)
