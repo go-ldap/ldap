@@ -12,8 +12,9 @@ type ExtendedRequest struct {
 	// 	requestName      [0] LDAPOID,
 	// 	requestValue     [1] OCTET STRING OPTIONAL }
 
-	Name  string
-	Value *ber.Packet
+	Name     string
+	Value    *ber.Packet
+	Controls []Control
 }
 
 // NewExtendedRequest returns a new ExtendedRequest. The value can be
@@ -32,6 +33,9 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 		pkt.AppendChild(er.Value)
 	}
 	envelope.AppendChild(pkt)
+	if len(er.Controls) > 0 {
+		envelope.AppendChild(encodeControls(er.Controls))
+	}
 	return nil
 }
 
@@ -44,8 +48,9 @@ type ExtendedResponse struct {
 	//   responseName     [10] LDAPOID OPTIONAL,
 	//   responseValue    [11] OCTET STRING OPTIONAL }
 
-	Name  string
-	Value *ber.Packet
+	Name     string
+	Value    *ber.Packet
+	Controls []Control
 }
 
 // Extended performs an extended request. The resulting
@@ -72,8 +77,20 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		)
 	}
 
-	response := new(ExtendedResponse)
-	response.Name = packet.Children[1].Children[3].Data.String()
+	response := &ExtendedResponse{
+		Name:     packet.Children[1].Children[3].Data.String(),
+		Controls: make([]Control, 0),
+	}
+
+	if len(packet.Children) == 3 {
+		for _, child := range packet.Children[2].Children {
+			decodedChild, decodeErr := DecodeControl(child)
+			if decodeErr != nil {
+				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)
+			}
+			response.Controls = append(response.Controls, decodedChild)
+		}
+	}
 
 	if len(packet.Children[1].Children) == 5 {
 		response.Value = packet.Children[1].Children[4]
