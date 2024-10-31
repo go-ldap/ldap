@@ -5,7 +5,7 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-// ExtendedRequest TODO
+// ExtendedRequest represents an extended request to send to the server
 // See: https://www.rfc-editor.org/rfc/rfc4511#section-4.12
 type ExtendedRequest struct {
 	// ExtendedRequest ::= [APPLICATION 23] SEQUENCE {
@@ -16,6 +16,8 @@ type ExtendedRequest struct {
 	Value *ber.Packet
 }
 
+// NewExtendedRequest returns a new ExtendedRequest. The value can be
+// nil depending on the type of request
 func NewExtendedRequest(name string, value *ber.Packet) *ExtendedRequest {
 	return &ExtendedRequest{
 		Name:  name,
@@ -33,6 +35,9 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	return nil
 }
 
+// ExtendedResponse represents the response from the directory server
+// after sending an extended request
+// See: https://www.rfc-editor.org/rfc/rfc4511#section-4.12
 type ExtendedResponse struct {
 	// ExtendedResponse ::= [APPLICATION 24] SEQUENCE {
 	//   COMPONENTS OF LDAPResult,
@@ -43,6 +48,8 @@ type ExtendedResponse struct {
 	Value *ber.Packet
 }
 
+// Extended performs an extended request. The resulting
+// ExtendedResponse may return a value in the form of a *ber.Packet
 func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	msgCtx, err := l.doRequest(er)
 	if err != nil {
