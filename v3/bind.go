@@ -606,10 +606,13 @@ type GSSAPIBindRequest struct {
 
 // GSSAPIBind performs the GSSAPI SASL bind using the provided GSSAPI client.
 func (l *Conn) GSSAPIBind(client GSSAPIClient, servicePrincipal, authzid string) error {
-	return l.GSSAPIBindRequest(client, &GSSAPIBindRequest{
-		ServicePrincipalName: servicePrincipal,
-		AuthZID:              authzid,
-	})
+	return l.GSSAPIBindRequest(
+		client,
+		&GSSAPIBindRequest{
+			ServicePrincipalName: servicePrincipal,
+			AuthZID:              authzid,
+		},
+	)
 }
 
 // GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.

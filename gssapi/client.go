@@ -1,6 +1,10 @@
 package gssapi
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/jcmturner/gokrb5/v8/client"
@@ -24,6 +28,8 @@ type Client struct {
 
 	ekey   types.EncryptionKey
 	Subkey types.EncryptionKey
+
+	APOptions []int
 }
 
 // NewClientWithKeytab creates a new client from a keytab credential.
@@ -110,7 +116,7 @@ func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool,
 		}
 		client.ekey = ekey
 
-		token, err := spnego.NewKRB5TokenAPREQ(client.Client, tkt, ekey, gssapiFlags, []int{})
+		token, err := spnego.NewKRB5TokenAPREQ(client.Client, tkt, ekey, gssapiFlags, client.APOptions)
 		if err != nil {
 			return nil, false, err
 		}
@@ -160,7 +166,7 @@ func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool,
 // See RFC 4752 section 3.1.
 func (client *Client) NegotiateSaslAuth(input []byte, authzid string) ([]byte, error) {
 	token := &gssapi.WrapToken{}
-	err := token.Unmarshal(input, true)
+	err := unmarshalWrapToken(token, input, true)
 	if err != nil {
 		return nil, err
 	}
@@ -211,4 +217,49 @@ func (client *Client) NegotiateSaslAuth(input []byte, authzid string) ([]byte, e
 	}
 
 	return output, nil
+}
+
+func unmarshalWrapToken(wt *gssapi.WrapToken, data []byte, expectFromAcceptor bool) error {
+	// Check if we can read a whole header
+	if len(data) < 16 {
+		return errors.New("bytes shorter than header length")
+	}
+
+	// Is the Token ID correct?
+	expectedWrapTokenId := [2]byte{0x05, 0x04}
+	if !bytes.Equal(expectedWrapTokenId[:], data[0:2]) {
+		return fmt.Errorf("wrong Token ID. Expected %s, was %s", hex.EncodeToString(expectedWrapTokenId[:]), hex.EncodeToString(data[0:2]))
+	}
+
+	// Check the acceptor flag
+	flags := data[2]
+	isFromAcceptor := flags&0x01 == 1
+	if isFromAcceptor && !expectFromAcceptor {
+		return errors.New("unexpected acceptor flag is set: not expecting a token from the acceptor")
+	}
+	if !isFromAcceptor && expectFromAcceptor {
+		return errors.New("expected acceptor flag is not set: expecting a token from the acceptor, not the initiator")
+	}
+
+	// Check the filler byte
+	if data[3] != gssapi.FillerByte {
+		return fmt.Errorf("unexpected filler byte: expecting 0xFF, was %s ", hex.EncodeToString(data[3:4]))
+	}
+	checksumL := binary.BigEndian.Uint16(data[4:6])
+
+	// Sanity check on the checksum length
+	if int(checksumL) > len(data)-gssapi.HdrLen {
+		return fmt.Errorf("inconsistent checksum length: %d bytes to parse, checksum length is %d", len(data), checksumL)
+	}
+
+	payloadStart := 16 + checksumL
+
+	wt.Flags = flags
+	wt.EC = checksumL
+	wt.RRC = binary.BigEndian.Uint16(data[6:8])
+	wt.SndSeqNum = binary.BigEndian.Uint64(data[8:16])
+	wt.CheckSum = data[16:payloadStart]
+	wt.Payload = data[payloadStart:]
+
+	return nil
 }
