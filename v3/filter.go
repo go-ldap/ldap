@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -25,6 +26,10 @@ const (
 	FilterPresent         = 7
 	FilterApproxMatch     = 8
 	FilterExtensibleMatch = 9
+)
+
+var (
+	isAlphaNumeric = regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString
 )
 
 // FilterMap contains human readable descriptions of Filter choices
@@ -72,6 +77,16 @@ var MatchingRuleAssertionMap = map[uint64]string{
 }
 
 var _SymbolAny = []byte{'*'}
+
+// CompileEscapeFilter will take a raw filter string, without any \xx hex input, and convert it into a BER-encoded packet
+// All filter values will be placed through EscapeFilter, which cannot handle \xx hex input, nor * wildcards (will be translated to literal *)
+func CompileEscapeFilter(filter string) (*ber.Packet, error) {
+	filter, err := ParseFilter(filter)
+	if err != nil {
+		return nil, NewError(ErrorFilterCompile, err)
+	}
+	return CompileFilter(filter)
+}
 
 // CompileFilter converts a string representation of a filter into a BER-encoded packet
 func CompileFilter(filter string) (*ber.Packet, error) {
@@ -483,4 +498,81 @@ func decodeEscapedSymbols(src []byte) (string, error) {
 
 		offset += runeSize
 	}
+}
+
+// ParseFilter will take the filter string, and escape each value
+func ParseFilter(filter string) (parsedFilter string, err error) {
+	var startRecording bool
+	var value string
+	var balance []string
+	for i, val := range filter {
+		switch string(val) {
+		case "=":
+			if !startRecording {
+				startRecording = true
+			} else {
+				// we've run into a 2nd = symbol in the statement.  Reset the value
+				parsedFilter += value
+				value = ""
+			}
+			parsedFilter += string(val)
+		case ")":
+			if startRecording {
+				balance, err = checkBalance("(", filter, balance)
+				if err != nil {
+					err = nil
+					startRecording = false
+					parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, EscapeFilter(value), string(val))
+					value = ""
+				} else {
+					value += string(val)
+				}
+			} else {
+				parsedFilter += string(val)
+			}
+		case "(":
+			if startRecording {
+				balance = append(balance, "(")
+				value += string(val)
+			} else {
+				parsedFilter += string(val)
+			}
+		case ",":
+			if !startRecording {
+				return "", fmt.Errorf("ldap: invalid filter string: %s", filter)
+			}
+			if len(balance) != 0 {
+				return "", fmt.Errorf("ldap: unbalanced filter: %s", filter)
+			}
+			startRecording = false
+			parsedFilter = fmt.Sprintf("%s%s%s", parsedFilter, EscapeFilter(value), string(val))
+			value = ""
+		default:
+			currentRune, _ := utf8.DecodeRuneInString(string(val))
+			if currentRune == utf8.RuneError {
+				return "", fmt.Errorf("ldap: error reading rune at position %d", i)
+			}
+			if startRecording {
+				value += string(val)
+			} else {
+				parsedFilter += string(val)
+			}
+		}
+	}
+	if len(balance) != 0 {
+		return "", fmt.Errorf("ldap: unbalanced filter: %s", filter)
+	}
+	return
+}
+
+// checkBalance will check if a recorded value within the filter is balanced and adjust the balance queue.  If not, reset the balance queue and produce an error
+func checkBalance(checkElement string, filter string, balance []string) (newBalance []string, err error) {
+	if len(balance) == 0 {
+		err = fmt.Errorf("ldap: unbalanced filter string: %s", filter)
+	} else if !strings.EqualFold(balance[len(balance)-1], checkElement) {
+		err = fmt.Errorf("ldap: unbalanced filter string: %s", filter)
+	} else {
+		newBalance = balance[:len(balance)-1]
+	}
+	return
 }
