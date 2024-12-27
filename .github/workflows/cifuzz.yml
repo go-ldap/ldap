@@ -13,6 +13,7 @@ jobs:
         with:
           oss-fuzz-project-name: "go-ldap"
           language: go
+          project-src-path: ldap/v3
       - name: Run Fuzzers
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
         with:
