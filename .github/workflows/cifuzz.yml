@@ -3,7 +3,6 @@ on: [pull_request]
 permissions: {}
 jobs:
   Fuzzing:
-    if: false # Until go-fuzz project is updated to use v3 directory
     runs-on: ubuntu-latest
     permissions:
       security-events: write
