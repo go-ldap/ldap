@@ -3,15 +3,19 @@ package ldap
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/binary"
+	"encoding/hex"
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/Azure/go-ntlmssp"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	"golang.org/x/crypto/md4" //nolint:staticcheck
 )
 
 // SimpleBindRequest represents a username/password bind operation
@@ -406,17 +410,36 @@ type NTLMBindRequest struct {
 	Hash string
 	// Controls are optional controls to send with the bind request
 	Controls []Control
+	// Negotiator allows to specify a custom NTLM negotiator.
+	Negotiator NTLMNegotiator
 }
 
-func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) error {
+// NTLMNegotiator is an abstraction of an NTLM implementation that produces and
+// processes NTLM binary tokens.
+type NTLMNegotiator interface {
+	Negotiate(domain string, workstation string) ([]byte, error)
+	ChallengeResponse(challenge []byte, username string, hash string) ([]byte, error)
+}
+
+func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) (err error) {
 	request := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindRequest, nil, "Bind Request")
 	request.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 3, "Version"))
 	request.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "User Name"))
 
+	var negMessage []byte
+
 	// generate an NTLMSSP Negotiation message for the  specified domain (it can be blank)
-	negMessage, err := ntlmssp.NewNegotiateMessage(req.Domain, "")
-	if err != nil {
-		return fmt.Errorf("err creating negmessage: %s", err)
+	switch {
+	case req.Negotiator == nil:
+		negMessage, err = ntlmssp.NewNegotiateMessage(req.Domain, "")
+		if err != nil {
+			return fmt.Errorf("negotiate: %s", err)
+		}
+	default:
+		negMessage, err = req.Negotiator.Negotiate(req.Domain, "")
+		if err != nil {
+			return fmt.Errorf("negotiate: %s", err)
+		}
 	}
 
 	// append the generated NTLMSSP message as a TagEnumerated BER value
@@ -514,15 +537,25 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 	if ntlmsspChallenge != nil {
 		var err error
 		var responseMessage []byte
-		// generate a response message to the challenge with the given Username/Password if password is provided
-		if ntlmBindRequest.Hash != "" {
+
+		switch {
+		case ntlmBindRequest.Hash == "" && ntlmBindRequest.Password == "" && !ntlmBindRequest.AllowEmptyPassword:
+			err = fmt.Errorf("need a password or hash to generate reply")
+		case ntlmBindRequest.Negotiator == nil && ntlmBindRequest.Hash != "":
 			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
-		} else if ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword {
+		case ntlmBindRequest.Negotiator == nil && (ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword):
+			// generate a response message to the challenge with the given Username/Password if password is provided
 			_, _, domainNeeded := ntlmssp.GetDomain(ntlmBindRequest.Username)
 			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, domainNeeded)
-		} else {
-			err = fmt.Errorf("need a password or hash to generate reply")
+		default:
+			hash := ntlmBindRequest.Hash
+			if len(hash) == 0 {
+				hash = ntHash(ntlmBindRequest.Password)
+			}
+
+			responseMessage, err = ntlmBindRequest.Negotiator.ChallengeResponse(ntlmsspChallenge, ntlmBindRequest.Username, hash)
 		}
+
 		if err != nil {
 			return result, fmt.Errorf("parsing ntlm-challenge: %s", err)
 		}
@@ -557,6 +590,18 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 
 	err = GetLDAPError(packet)
 	return result, err
+}
+
+func ntHash(pass string) string {
+	runes := utf16.Encode([]rune(pass))
+
+	b := bytes.Buffer{}
+	_ = binary.Write(&b, binary.LittleEndian, &runes)
+
+	hash := md4.New()
+	_, _ = hash.Write(b.Bytes())
+
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 // GSSAPIClient interface is used as the client-side implementation for the
