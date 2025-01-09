@@ -216,7 +216,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		}
 	}
 
-	if params != nil {
+	if len(params) > 0 {
 		resp := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
