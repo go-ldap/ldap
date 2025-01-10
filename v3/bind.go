@@ -433,12 +433,12 @@ func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) (err error) {
 	case req.Negotiator == nil:
 		negMessage, err = ntlmssp.NewNegotiateMessage(req.Domain, "")
 		if err != nil {
-			return fmt.Errorf("negotiate: %s", err)
+			return fmt.Errorf("create NTLM negotiate message: %s", err)
 		}
 	default:
 		negMessage, err = req.Negotiator.Negotiate(req.Domain, "")
 		if err != nil {
-			return fmt.Errorf("negotiate: %s", err)
+			return fmt.Errorf("create NTLM negotiate message with custom negotiator: %s", err)
 		}
 	}
 
@@ -557,8 +557,9 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		}
 
 		if err != nil {
-			return result, fmt.Errorf("parsing ntlm-challenge: %s", err)
+			return result, fmt.Errorf("process NTLM challenge: %s", err)
 		}
+
 		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 
