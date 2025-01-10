@@ -220,7 +220,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		}
 	}
 
-	if params != nil {
+	if len(params) > 0 {
 		resp := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
@@ -252,6 +252,34 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 		if err != nil {
 			return nil, fmt.Errorf("read packet: %s", err)
+		}
+
+		if len(packet.Children) == 2 {
+			response := packet.Children[1]
+			if response == nil {
+				return result, GetLDAPError(packet)
+			}
+			if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
+				if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
+					resultCode := uint16(response.Children[0].Value.(int64))
+					if resultCode == 14 {
+						msgCtx, err := l.doRequest(digestMD5BindRequest)
+						if err != nil {
+							return nil, err
+						}
+						defer l.finishMessage(msgCtx)
+						packetResponse, ok := <-msgCtx.responses
+						if !ok {
+							return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+						}
+						packet, err = packetResponse.ReadPacket()
+						l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+						if err != nil {
+							return nil, fmt.Errorf("read packet: %s", err)
+						}
+					}
+				}
+			}
 		}
 	}
 
