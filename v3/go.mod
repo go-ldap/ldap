@@ -9,5 +9,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/stretchr/testify v1.8.1
+	golang.org/x/crypto v0.31.0
 	golang.org/x/net v0.33.0 // indirect
 )
