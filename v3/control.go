@@ -867,7 +867,10 @@ func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSorti
 	control := new(ControlServerSideSortingResult)
 
 	if pkt == nil || len(pkt.Children) == 0 {
-		// Фикс бага, наличие Children для OpenLdap не обязательно.
+		// This is currently not compliant with the ServerSideSorting RFC (see https://datatracker.ietf.org/doc/html/rfc2891#section-1.2).
+		// but it's necessary because there seems to be a bug in the implementation of the popular OpenLDAP server. 
+		//
+		// See: https://github.com/go-ldap/ldap/pull/546
 		return control, nil
 	}
 
