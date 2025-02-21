@@ -100,6 +100,13 @@ func (client *Client) DeleteSecContext() error {
 // GSS-API between the client and server.
 // See RFC 4752 section 3.1.
 func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool, error) {
+	return client.InitSecContextWithOptions(target, input, []int{})
+}
+
+// InitSecContextWithOptions initiates the establishment of a security context for
+// GSS-API between the client and server.
+// See RFC 4752 section 3.1.
+func (client *Client) InitSecContextWithOptions(target string, input []byte, APOptions []int) ([]byte, bool, error) {
 	gssapiFlags := []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf, gssapi.ContextFlagMutual}
 
 	switch input {
@@ -110,7 +117,7 @@ func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool,
 		}
 		client.ekey = ekey
 
-		token, err := spnego.NewKRB5TokenAPREQ(client.Client, tkt, ekey, gssapiFlags, []int{})
+		token, err := spnego.NewKRB5TokenAPREQ(client.Client, tkt, ekey, gssapiFlags, APOptions)
 		if err != nil {
 			return nil, false, err
 		}
