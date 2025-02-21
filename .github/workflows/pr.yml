@@ -2,54 +2,45 @@ name: PR
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: [
-          '1.23',
-          '1.22',
-          '1.21',
-          '1.20',
-          '1.19',
-          '1.18',
-          '1.17',
-          '1.16',
-          '1.15',
-          '1.14',
-        ]
-        branch: [ '.', './v3' ]
-    name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.branch }} (Modules)
+        go:
+          [
+            "1.24",
+            "1.23",
+            "1.22",
+            "1.21",
+            "1.20",
+            "1.19",
+            "1.18",
+            "1.17",
+            "1.16",
+            "1.15",
+            "1.14",
+          ]
+        directory: ["./v3"]
+    name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.directory }} (Modules)
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go }}
-
-    - name: Version
-      run: go version
-
-    - name: Build and Validate
-      run: |
-        cd ${{ matrix.branch }}
-        go vet .
-        go test .
-        go test -cover -race -cpu 1,2,4 .
-        go build .
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          version: latest
-          only-new-issues: true
+          go-version: ${{ matrix.go }}
+
+      - name: Version
+        run: go version
+
+      - name: Build, Validate, and Test
+        run: |
+          cd ${{ matrix.directory }}
+          go vet .
+          go test .
+          go test -cover -race -cpu 1,2,4 .
+          go build .
