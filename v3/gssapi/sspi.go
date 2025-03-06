@@ -71,6 +71,13 @@ func (c *SSPIClient) DeleteSecContext() error {
 // GSS-API between the client and server.
 // See RFC 4752 section 3.1.
 func (c *SSPIClient) InitSecContext(target string, token []byte) ([]byte, bool, error) {
+	return c.InitSecContextWithOptions(target, token, []int{})
+}
+
+// InitSecContextWithOptions initiates the establishment of a security context for
+// GSS-API between the client and server.
+// See RFC 4752 section 3.1.
+func (c *SSPIClient) InitSecContextWithOptions(target string, token []byte, APOptions []int) ([]byte, bool, error) {
 	sspiFlags := uint32(sspi.ISC_REQ_INTEGRITY | sspi.ISC_REQ_CONFIDENTIALITY | sspi.ISC_REQ_MUTUAL_AUTH)
 
 	switch token {
