@@ -11,7 +11,7 @@ import (
 
 // This example demonstrates passwordless bind using the current process' user
 // credentials on Windows (SASL GSSAPI mechanism bind with SSPI client).
-func ExampleConn_SSPIClient_GSSAPIBind() {
+func ExampleConn_GSSAPIBind() {
 	// Windows only: Create a GSSAPIClient using Windows built-in SSPI lib
 	// (secur32.dll).
 	// This will use the credentials of the current process' user.
