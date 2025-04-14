@@ -415,7 +415,7 @@ func ExampleControlPaging_manualPaging() {
 // This example demonstrates how to use DirSync to manually execute a
 // DirSync search request
 func ExampleConn_DirSync() {
-	conn, err := Dial("tcp", "ad.example.org:389")
+	conn, err := DialURL("ldap://ad.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
 	}
@@ -468,7 +468,7 @@ func ExampleConn_DirSync() {
 
 // This example demonstrates how to use DirSync search asynchronously
 func ExampleConn_DirSyncAsync() {
-	conn, err := Dial("tcp", "ad.example.org:389")
+	conn, err := DialURL("ldap://ad.example.org:389")
 	if err != nil {
 		log.Fatalf("Failed to connect: %s\n", err)
 	}
