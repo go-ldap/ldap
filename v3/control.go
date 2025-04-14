@@ -709,7 +709,7 @@ func (c *ControlDirSync) Encode() *ber.Packet {
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
-	packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
+	packet.AppendChild(ber.NewLDAPBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
 
 	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
 	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control Value")
@@ -868,7 +868,7 @@ func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSorti
 
 	if pkt == nil || len(pkt.Children) == 0 {
 		// This is currently not compliant with the ServerSideSorting RFC (see https://datatracker.ietf.org/doc/html/rfc2891#section-1.2).
-		// but it's necessary because there seems to be a bug in the implementation of the popular OpenLDAP server. 
+		// but it's necessary because there seems to be a bug in the implementation of the popular OpenLDAP server.
 		//
 		// See: https://github.com/go-ldap/ldap/pull/546
 		return control, nil
