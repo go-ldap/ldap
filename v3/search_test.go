@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -217,5 +218,63 @@ func TestEntry_Unmarshal(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Equal(t, expect, result)
+	})
+}
+
+func TestEntry_UnmarshalFunc(t *testing.T) {
+	conn, err := DialURL(ldapServer)
+	if err != nil {
+		t.Fatalf("Failed to connect: %s\n", err)
+	}
+	defer conn.Close()
+
+	searchResult, err := conn.Search(&SearchRequest{
+		BaseDN:     baseDN,
+		Scope:      ScopeWholeSubtree,
+		Filter:     "(cn=cis-fac)",
+		Attributes: []string{"cn", "objectClass"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to search: %s\n", err)
+	}
+
+	type user struct {
+		ObjectClass string `custom_tag:"objectClass"`
+		CN          string `custom_tag:"cn"`
+	}
+
+	t.Run("expect custom unmarshal function to be successfull", func(t *testing.T) {
+		for _, entry := range searchResult.Entries {
+			var u user
+			if err := entry.UnmarshalFunc(&u, func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error {
+				tagData, ok := fieldType.Tag.Lookup("custom_tag")
+				if !ok {
+					return nil
+				}
+
+				value := entry.GetAttributeValue(tagData)
+				// log.Printf("Marshaling field %s with tag %s and value '%s'", fieldType.Name, tagData, value)
+				fieldValue.SetString(value)
+				return nil
+			}); err != nil {
+				t.Errorf("Failed to unmarshal entry: %s\n", err)
+			}
+
+			if u.CN != entry.GetAttributeValue("cn") {
+				t.Errorf("UnmarshalFunc did not set the field correctly. Expected: %s, got: %s", entry.GetAttributeValue("cn"), u.CN)
+			}
+		}
+	})
+
+	t.Run("expect an error within the custom unmarshal function", func(t *testing.T) {
+		for _, entry := range searchResult.Entries {
+			var u user
+			err := entry.UnmarshalFunc(&u, func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error {
+				return fmt.Errorf("error from custom unmarshal func on field: %s", fieldType.Name)
+			})
+			if err == nil {
+				t.Errorf("UnmarshalFunc should have returned an error")
+			}
+		}
 	})
 }
