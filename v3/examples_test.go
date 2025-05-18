@@ -446,7 +446,7 @@ func ExampleConn_DirSync() {
 		for _, entry := range res.Entries {
 			entry.Print()
 		}
-		ctrl := FindControl(res.Controls, ControlTypeDirSync)
+		ctrl := FindControl(res.Controls, ControlTypeMicrosoftDirSync)
 		if ctrl == nil || ctrl.(*ControlDirSync).Flags == 0 {
 			doMore = false
 		}

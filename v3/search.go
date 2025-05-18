@@ -305,7 +305,7 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 	})
 }
 
-// UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values. 
+// UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values.
 // A custom unmarshaler can be found in the Unmarshal function or in the test files.
 func (e *Entry) UnmarshalFunc(i interface{},
 	fn func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error) error {
@@ -675,7 +675,7 @@ func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
 func (l *Conn) DirSync(
 	searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte,
 ) (*SearchResult, error) {
-	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
+	control := FindControl(searchRequest.Controls, ControlTypeMicrosoftDirSync)
 	if control == nil {
 		c := NewRequestControlDirSync(flags, maxAttrCount, cookie)
 		searchRequest.Controls = append(searchRequest.Controls, c)
@@ -698,7 +698,7 @@ func (l *Conn) DirSync(
 	}
 
 	l.Debug.Printf("Looking for DirSync Control...")
-	resultControl := FindControl(searchResult.Controls, ControlTypeDirSync)
+	resultControl := FindControl(searchResult.Controls, ControlTypeMicrosoftDirSync)
 	if resultControl == nil {
 		l.Debug.Printf("Could not find dirSyncControl control.  Breaking...")
 		return searchResult, nil
