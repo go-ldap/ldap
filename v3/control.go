@@ -192,7 +192,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeMicrosoftPolicyHints:           "Policy Hints - Microsoft",
 	ControlTypeMicrosoftSetOwner:              "Set Owner - Microsoft",
 	ControlTypeMicrosoftBypassQuota:           "Bypass Quota - Microsoft",
-	ControlTypeMicrosoftLinkTTL:               "Link TTL - Microsoft",
+	ControlTypeMicrosoftLinkTTL:               "Return TTL-DNs for link values with associated expiry times - Microsoft",
 	ControlTypeMicrosoftSetCorrelationID:      "Set Correlation ID - Microsoft",
 	ControlTypeMicrosoftThreadTraceOverride:   "Thread Trace Override - Microsoft",
 
