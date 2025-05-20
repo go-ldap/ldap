@@ -162,7 +162,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeServerSideSortingResult: "Server Side Sorting Result",
 
 	ControlTypeMicrosoftCrossDomainMoveTarget: "Cross Domain Move Target - Microsoft",
-	ControlTypeDirSync:                        "DirSync - Microsoft",
+	ControlTypeDirSync:                        "DirSync",
 	ControlTypeMicrosoftDomainScope:           "Domain Scope - Microsoft",
 	ControlTypeMicrosoftExtendedDN:            "Extended DN - Microsoft",
 	ControlTypeMicrosoftGetStats:              "Get Stats - Microsoft",
