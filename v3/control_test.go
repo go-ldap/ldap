@@ -122,7 +122,7 @@ func TestDescribeControlString(t *testing.T) {
 }
 
 func TestDescribeControlDirSync(t *testing.T) {
-	runAddControlDescriptions(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync - Microsoft)", "Criticality", "Control Value")
+	runAddControlDescriptions(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, nil), "Control Type (DirSync)", "Criticality", "Control Value")
 }
 
 func runAddControlDescriptions(t *testing.T, originalControl Control, childDescriptions ...string) {

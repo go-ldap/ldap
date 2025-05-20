@@ -675,7 +675,7 @@ func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
 func (l *Conn) DirSync(
 	searchRequest *SearchRequest, flags int64, maxAttrCount int64, cookie []byte,
 ) (*SearchResult, error) {
-	control := FindControl(searchRequest.Controls, ControlTypeMicrosoftDirSync)
+	control := FindControl(searchRequest.Controls, ControlTypeDirSync)
 	if control == nil {
 		c := NewRequestControlDirSync(flags, maxAttrCount, cookie)
 		searchRequest.Controls = append(searchRequest.Controls, c)
@@ -698,7 +698,7 @@ func (l *Conn) DirSync(
 	}
 
 	l.Debug.Printf("Looking for DirSync Control...")
-	resultControl := FindControl(searchResult.Controls, ControlTypeMicrosoftDirSync)
+	resultControl := FindControl(searchResult.Controls, ControlTypeDirSync)
 	if resultControl == nil {
 		l.Debug.Printf("Could not find dirSyncControl control.  Breaking...")
 		return searchResult, nil

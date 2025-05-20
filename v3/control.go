@@ -33,8 +33,8 @@ const (
 	ControlTypeMicrosoftPagedResults = "1.2.840.113556.1.4.319"
 	// ControlTypeMicrosoftCrossDomainMoveTarget - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
 	ControlTypeMicrosoftCrossDomainMoveTarget = "1.2.840.113556.1.4.521"
-	// ControlTypeMicrosoftDirSync - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
-	ControlTypeMicrosoftDirSync = "1.2.840.113556.1.4.841"
+	// ControlTypeDirSync - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeDirSync = "1.2.840.113556.1.4.841"
 	// ControlTypeMicrosoftDomainScope - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
 	ControlTypeMicrosoftDomainScope = "1.2.840.113556.1.4.1339"
 	// ControlTypeMicrosoftExtendedDN - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
@@ -103,8 +103,8 @@ const (
 	ControlTypeMicrosoftSetOwner = "1.2.840.113556.1.4.2255"
 	// ControlTypeMicrosoftBypassQuota - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
 	ControlTypeMicrosoftBypassQuota = "1.2.840.113556.1.4.2256"
-	// ControlTypeMicrosoftLinkTTL - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
-	ControlTypeMicrosoftLinkTTL = "1.2.840.113556.1.4.2309"
+	// ControlTypeMicrosoftServerLinkTTL - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
+	ControlTypeMicrosoftServerLinkTTL = "1.2.840.113556.1.4.2309"
 	// ControlTypeMicrosoftSetCorrelationID - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
 	ControlTypeMicrosoftSetCorrelationID = "1.2.840.113556.1.4.2330"
 	// ControlTypeMicrosoftThreadTraceOverride - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea
@@ -162,7 +162,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeServerSideSortingResult: "Server Side Sorting Result",
 
 	ControlTypeMicrosoftCrossDomainMoveTarget: "Cross Domain Move Target - Microsoft",
-	ControlTypeMicrosoftDirSync:               "DirSync - Microsoft",
+	ControlTypeDirSync:                        "DirSync - Microsoft",
 	ControlTypeMicrosoftDomainScope:           "Domain Scope - Microsoft",
 	ControlTypeMicrosoftExtendedDN:            "Extended DN - Microsoft",
 	ControlTypeMicrosoftGetStats:              "Get Stats - Microsoft",
@@ -192,7 +192,7 @@ var ControlTypeMap = map[string]string{
 	ControlTypeMicrosoftPolicyHints:           "Policy Hints - Microsoft",
 	ControlTypeMicrosoftSetOwner:              "Set Owner - Microsoft",
 	ControlTypeMicrosoftBypassQuota:           "Bypass Quota - Microsoft",
-	ControlTypeMicrosoftLinkTTL:               "Return TTL-DNs for link values with associated expiry times - Microsoft",
+	ControlTypeMicrosoftServerLinkTTL:         "Return TTL-DNs for link values with associated expiry times - Microsoft",
 	ControlTypeMicrosoftSetCorrelationID:      "Set Correlation ID - Microsoft",
 	ControlTypeMicrosoftThreadTraceOverride:   "Thread Trace Override - Microsoft",
 
@@ -478,13 +478,13 @@ type ControlMicrosoftServerLinkTTL struct{}
 
 // GetControlType returns the OID
 func (c *ControlMicrosoftServerLinkTTL) GetControlType() string {
-	return ControlTypeMicrosoftLinkTTL
+	return ControlTypeMicrosoftServerLinkTTL
 }
 
 // Encode returns the ber packet representation
 func (c *ControlMicrosoftServerLinkTTL) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
-	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeMicrosoftLinkTTL, "Control Type ("+ControlTypeMap[ControlTypeMicrosoftLinkTTL]+")"))
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeMicrosoftServerLinkTTL, "Control Type ("+ControlTypeMap[ControlTypeMicrosoftServerLinkTTL]+")"))
 
 	return packet
 }
@@ -493,8 +493,8 @@ func (c *ControlMicrosoftServerLinkTTL) Encode() *ber.Packet {
 func (c *ControlMicrosoftServerLinkTTL) String() string {
 	return fmt.Sprintf(
 		"Control Type: %s (%q)",
-		ControlTypeMap[ControlTypeMicrosoftLinkTTL],
-		ControlTypeMicrosoftLinkTTL)
+		ControlTypeMap[ControlTypeMicrosoftServerLinkTTL],
+		ControlTypeMicrosoftServerLinkTTL)
 }
 
 // NewControlMicrosoftServerLinkTTL returns a ControlMicrosoftServerLinkTTL control
@@ -652,7 +652,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlMicrosoftNotification(), nil
 	case ControlTypeMicrosoftShowDeleted:
 		return NewControlMicrosoftShowDeleted(), nil
-	case ControlTypeMicrosoftLinkTTL:
+	case ControlTypeMicrosoftServerLinkTTL:
 		return NewControlMicrosoftServerLinkTTL(), nil
 	case ControlTypeSubtreeDelete:
 		return NewControlSubtreeDelete(), nil
@@ -660,7 +660,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlServerSideSorting(value)
 	case ControlTypeServerSideSortingResult:
 		return NewControlServerSideSortingResult(value)
-	case ControlTypeMicrosoftDirSync:
+	case ControlTypeDirSync:
 		value.Description += " (DirSync)"
 		return NewResponseControlDirSync(value)
 	case ControlTypeSyncState:
@@ -812,15 +812,15 @@ func NewResponseControlDirSync(value *ber.Packet) (*ControlDirSync, error) {
 
 // GetControlType returns the OID
 func (c *ControlDirSync) GetControlType() string {
-	return ControlTypeMicrosoftDirSync
+	return ControlTypeDirSync
 }
 
 // String returns a human-readable description
 func (c *ControlDirSync) String() string {
 	return fmt.Sprintf(
 		"ControlType: %s (%q) Criticality: %t ControlValue: Flags: %d MaxAttrCount: %d",
-		ControlTypeMap[ControlTypeMicrosoftDirSync],
-		ControlTypeMicrosoftDirSync,
+		ControlTypeMap[ControlTypeDirSync],
+		ControlTypeDirSync,
 		c.Criticality,
 		c.Flags,
 		c.MaxAttrCount,
@@ -836,7 +836,7 @@ func (c *ControlDirSync) Encode() *ber.Packet {
 	}
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
-	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeMicrosoftDirSync, "Control Type ("+ControlTypeMap[ControlTypeMicrosoftDirSync]+")"))
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeDirSync, "Control Type ("+ControlTypeMap[ControlTypeDirSync]+")"))
 	packet.AppendChild(ber.NewLDAPBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality")) // must be true always
 
 	val := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (DirSync)")
