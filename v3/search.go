@@ -305,7 +305,7 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 	})
 }
 
-// UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values. 
+// UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values.
 // A custom unmarshaler can be found in the Unmarshal function or in the test files.
 func (e *Entry) UnmarshalFunc(i interface{},
 	fn func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error) error {
