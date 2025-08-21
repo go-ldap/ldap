@@ -673,6 +673,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		c := &ControlVChuPasswordMustChange{MustChange: true}
 		return c, nil
 	case ControlTypeVChuPasswordWarning:
+		if value == nil || value.Data == nil {
+			return nil, fmt.Errorf("invalid value for Control Type ControlTypeVChuPasswordWarning: %v", value)
+		}
 		c := &ControlVChuPasswordWarning{Expire: -1}
 		expireStr := ber.DecodeString(value.Data.Bytes())
 
