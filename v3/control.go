@@ -929,6 +929,9 @@ func (c *ControlServerSideSorting) GetControlType() string {
 }
 
 func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, error) {
+	if value == nil || len(value.Children) < 2 {
+		return new(ControlServerSideSorting), nil
+	}
 	sortKeys := []*SortKey{}
 
 	val := value.Children[1].Children
