@@ -1,0 +1,21 @@
+dn: cn=DoeJo,ou=people,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: DoeJo
+sn: Doe
+displayName: Doe, John
+givenName: John
+mail: John.Doe@example.com
+
+dn: cn=MustermannMa,ou=people,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: MustermannMa
+sn: Mustermann
+displayName: Mustermann, Max
+givenName: Max
+mail: Max.Mustermann@example.com

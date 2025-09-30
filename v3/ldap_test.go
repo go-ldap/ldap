@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	ldapServer  = "ldap://ldap.itd.umich.edu:389"
-	ldapsServer = "ldaps://ldap.itd.umich.edu:636"
-	baseDN      = "dc=umich,dc=edu"
+	ldapServer  = "ldap://127.0.0.1:3389"
+	ldapsServer = "ldaps://127.0.0.1:3636"
+	baseDN      = "dc=example,dc=com"
 )
 
 var filter = []string{
-	"(cn=cis-fac)",
-	"(&(owner=*)(cn=cis-fac))",
-	"(&(objectclass=rfc822mailgroup)(cn=*Computer*))",
-	"(&(objectclass=rfc822mailgroup)(cn=*Mathematics*))",
+	"(cn=DoeJo)",
+	"(&(sn=Doe)(givenName=John))",
+	"(|(sn=Doe)(givenName=Max*))",
+	"(objectClass=inetOrgPerson)",
 }
 
 var attributes = []string{
@@ -258,9 +258,9 @@ func TestCompare(t *testing.T) {
 	}
 	defer l.Close()
 
-	const dn = "cn=math mich,ou=User Groups,ou=Groups,dc=umich,dc=edu"
+	const dn = "cn=DoeJo,ou=people,dc=example,dc=com"
 	const attribute = "cn"
-	const value = "math mich"
+	const value = "DoeJo"
 
 	sr, err := l.Compare(dn, attribute, value)
 	if err != nil {

@@ -24,6 +24,9 @@ jobs:
       - name: Version
         run: go version
 
+      - name: Setup local directory server
+        run: make local-server
+
       - name: Build, Validate, and Test
         run: |
           cd ${{ matrix.directory }}
