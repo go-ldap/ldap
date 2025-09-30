@@ -1,0 +1,7 @@
+dn: cn=DistributionList,ou=groups,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: DistributionList
+member:
+member: cn=DoeJo,ou=people,dc=example,dc=com
+member: cn=MustermannMa,ou=people,dc=example,dc=com

@@ -1,47 +1,16 @@
-.PHONY: default install build test quicktest fmt vet lint 
-
-# List of all release tags "supported" by our current Go version
-# E.g. ":go1.1:go1.2:go1.3:go1.4:go1.5:go1.6:go1.7:go1.8:go1.9:go1.10:go1.11:go1.12:"
-GO_RELEASE_TAGS := $(shell go list -f ':{{join (context.ReleaseTags) ":"}}:' runtime)
-
-# Only use the `-race` flag on newer versions of Go (version 1.3 and newer)
-ifeq (,$(findstring :go1.3:,$(GO_RELEASE_TAGS)))
-	RACE_FLAG :=
-else
-	RACE_FLAG := -race -cpu 1,2,4
-endif
-
-# Run `go vet` on Go 1.12 and newer. For Go 1.5-1.11, use `go tool vet`
-ifneq (,$(findstring :go1.12:,$(GO_RELEASE_TAGS)))
-	GO_VET := go vet \
-		-atomic \
-		-bool \
-		-copylocks \
-		-nilfunc \
-		-printf \
-		-rangeloops \
-		-unreachable \
-		-unsafeptr \
-		-unusedresult \
-		.
-else ifneq (,$(findstring :go1.5:,$(GO_RELEASE_TAGS)))
-	GO_VET := go tool vet \
-		-atomic \
-		-bool \
-		-copylocks \
-		-nilfunc \
-		-printf \
-		-shadow \
-		-rangeloops \
-		-unreachable \
-		-unsafeptr \
-		-unusedresult \
-		.
-else
-	GO_VET := @echo "go vet skipped -- not supported on this version of Go"
-endif
+.PHONY: default install build test quicktest fmt vet lint
 
 default: fmt vet lint build quicktest
+
+CONTAINER_CMD := $(shell command -v podman 2>/dev/null)
+ifeq ($(CONTAINER_CMD),)
+    CONTAINER_CMD := $(shell command -v docker 2>/dev/null)
+endif
+
+# Check if we found either command
+ifeq ($(CONTAINER_CMD),)
+    $(error Neither podman nor docker found in PATH)
+endif
 
 install:
 	go get -t -v ./...
@@ -49,8 +18,41 @@ install:
 build:
 	go build -v ./...
 
-test:
-	go test -v $(RACE_FLAG) -cover ./...
+LDAP_ADMIN_DN := cn=admin,dc=example,dc=com
+LDAP_ADMIN_PASSWORD := admin123
+LDAP_BASE_DN := dc=example,dc=com
+LDAP_URL := ldap://127.0.0.1:389
+CONTAINER_NAME := go-ldap-test
+
+local-server:
+	-$(CONTAINER_CMD) rm -f -t 10 $(CONTAINER_NAME)
+	$(CONTAINER_CMD) \
+	   run \
+	   --rm \
+	   -d \
+	   --name $(CONTAINER_NAME) \
+	   --hostname "$(CONTAINER_NAME).example.com" \
+	   -p "127.0.0.1:3389:389" \
+	   -p "127.0.0.1:3636:636" \
+	   -e LDAP_ORGANISATION="Example Inc" \
+	   -e LDAP_DOMAIN="example.com" \
+	   -e LDAP_ADMIN_PASSWORD="$(LDAP_ADMIN_PASSWORD)" \
+	   -e LDAP_TLS_VERIFY_CLIENT="never" \
+	   docker.io/osixia/openldap:1.5.0
+
+	@echo "Waiting for LDAP server to be ready..."
+	@$(CONTAINER_CMD) exec $(CONTAINER_NAME) /bin/sh -c 'until ldapsearch -x -H $(LDAP_URL) -b "$(LDAP_BASE_DN)" -D "$(LDAP_ADMIN_DN)" -w $(LDAP_ADMIN_PASSWORD) > /dev/null 2>&1; do echo "LDAP server not ready yet, waiting..."; sleep 2; done'
+	@echo "LDAP server is ready!"
+
+	@echo "Configuring anonymous access..."
+	@$(CONTAINER_CMD) exec $(CONTAINER_NAME) /bin/sh -c 'echo "dn: olcDatabase={1}mdb,cn=config\nchangetype: modify\nreplace: olcAccess\nolcAccess: {0}to * by * read" | ldapmodify -Y EXTERNAL -H ldapi:///'
+
+	$(CONTAINER_CMD) cp -a ./testdata $(CONTAINER_NAME):/
+	@echo "Loading LDIF files..."
+	@$(CONTAINER_CMD) exec $(CONTAINER_NAME) /bin/sh -c 'for file in /testdata/*.ldif; do echo "Processing $$file..."; cat "$$file" | ldapadd -v -x -H $(LDAP_URL) -D "$(LDAP_ADMIN_DN)" -w $(LDAP_ADMIN_PASSWORD); done'
+
+delete-container:
+	-$(CONTAINER_CMD) rm -f -t 10 $(CONTAINER_NAME)
 
 quicktest:
 	go test ./...
@@ -71,7 +73,17 @@ fmt:
 	fi
 
 vet:
-	$(GO_VET)
+	go vet \
+    	-atomic \
+    	-bool \
+    	-copylocks \
+    	-nilfunc \
+    	-printf \
+    	-rangeloops \
+    	-unreachable \
+    	-unsafeptr \
+    	-unusedresult \
+    	./...
 
 # https://github.com/golang/lint
 # go get github.com/golang/lint/golint
