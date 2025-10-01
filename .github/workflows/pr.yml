@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.24", "1.23"]
+        go: ["1.25", "1.24"]
         directory: ["./v3"]
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.directory }} (Modules)
     steps:
