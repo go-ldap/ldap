@@ -444,6 +444,42 @@ func NewControlMicrosoftNotification() *ControlMicrosoftNotification {
 	return &ControlMicrosoftNotification{}
 }
 
+type ControlMicrosoftSDFlags struct {
+	Criticality  bool
+	ControlValue int32
+}
+
+func (c *ControlMicrosoftSDFlags) GetControlType() string {
+	// Source: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3888c2b7-35b9-45b7-afeb-b772aa932dd0
+	return ControlTypeMicrosoftSDFlags
+}
+
+func (c *ControlMicrosoftSDFlags) Encode() *ber.Packet {
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeMicrosoftSDFlags, "Control Type ("+ControlTypeMap[ControlTypeMicrosoftSDFlags]+")"))
+	if c.Criticality {
+		packet.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, c.Criticality, "Criticality"))
+	}
+	p2 := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value(SDFlags)")
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SDFlags")
+	seq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, c.ControlValue, "Flags"))
+	p2.AppendChild(seq)
+	packet.AppendChild(p2)
+	return packet
+}
+
+func (c *ControlMicrosoftSDFlags) String() string {
+	return fmt.Sprintf(
+		"Control Type: %s (%q)",
+		ControlTypeMap[ControlTypeMicrosoftSDFlags],
+		ControlTypeMicrosoftSDFlags)
+}
+
+// NewControlMicrosoftSDFlags returns a ControlMicrosoftSDFlags control
+func NewControlMicrosoftSDFlags() *ControlMicrosoftSDFlags {
+	return &ControlMicrosoftSDFlags{}
+}
+
 // ControlMicrosoftShowDeleted implements the control described in https://msdn.microsoft.com/en-us/library/aa366989(v=vs.85).aspx
 type ControlMicrosoftShowDeleted struct{}
 
@@ -637,6 +673,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		c := &ControlVChuPasswordMustChange{MustChange: true}
 		return c, nil
 	case ControlTypeVChuPasswordWarning:
+		if value == nil || value.Data == nil {
+			return nil, fmt.Errorf("invalid value for Control Type ControlTypeVChuPasswordWarning: %v", value)
+		}
 		c := &ControlVChuPasswordWarning{Expire: -1}
 		expireStr := ber.DecodeString(value.Data.Bytes())
 

@@ -5,6 +5,8 @@ package gssapi
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 
@@ -15,8 +17,9 @@ import (
 // SSPIClient implements ldap.GSSAPIClient interface.
 // Depends on secur32.dll.
 type SSPIClient struct {
-	creds *sspi.Credentials
-	ctx   *kerberos.ClientContext
+	creds           *sspi.Credentials
+	ctx             *kerberos.ClientContext
+	channelBindings []byte
 }
 
 // NewSSPIClient returns a client with credentials of the current user.
@@ -46,6 +49,26 @@ func NewSSPIClientWithUserCredentials(domain, username, password string) (*SSPIC
 
 	return &SSPIClient{
 		creds: creds,
+	}, nil
+}
+
+// NewSSPIClientWithChannelBinding creates an RFC 5929 compliant client.
+func NewSSPIClientWithChannelBinding(cert *x509.Certificate) (*SSPIClient, error) {
+	creds, err := kerberos.AcquireCurrentUserCredentials()
+	if err != nil {
+		return nil, err
+	}
+
+	certHash := calculateCertificateHash(cert)
+	if certHash == nil {
+		return nil, fmt.Errorf("failed to calculate certificate hash")
+	}
+
+	tlsChannelBinding := append([]byte("tls-server-end-point:"), certHash...)
+
+	return &SSPIClient{
+		creds:           creds,
+		channelBindings: createChannelBindingsStructure(tlsChannelBinding),
 	}, nil
 }
 
@@ -82,7 +105,18 @@ func (c *SSPIClient) InitSecContextWithOptions(target string, token []byte, APOp
 
 	switch token {
 	case nil:
-		ctx, completed, output, err := kerberos.NewClientContextWithFlags(c.creds, target, sspiFlags)
+		// Use channel bindings if available, otherwise fall back to the standard method.
+		var ctx *kerberos.ClientContext
+		var completed bool
+		var output []byte
+		var err error
+
+		if len(c.channelBindings) > 0 {
+			ctx, completed, output, err = kerberos.NewClientContextWithChannelBindings(c.creds, target, sspiFlags, c.channelBindings)
+		} else {
+			ctx, completed, output, err = kerberos.NewClientContextWithFlags(c.creds, target, sspiFlags)
+		}
+
 		if err != nil {
 			return nil, false, err
 		}
@@ -90,7 +124,6 @@ func (c *SSPIClient) InitSecContextWithOptions(target string, token []byte, APOp
 
 		return output, !completed, nil
 	default:
-
 		completed, output, err := c.ctx.Update(token)
 		if err != nil {
 			return nil, false, err
@@ -99,7 +132,6 @@ func (c *SSPIClient) InitSecContextWithOptions(target string, token []byte, APOp
 			return nil, false, fmt.Errorf("error verifying flags: %v", err)
 		}
 		return output, !completed, nil
-
 	}
 }
 
@@ -195,4 +227,62 @@ func handshakePayload(secLayer byte, maxSize uint32, authzid []byte) []byte {
 	payload = append(payload, []byte(authzid)...)
 
 	return payload
+}
+
+// createChannelBindingsStructure creates a Windows SEC_CHANNEL_BINDINGS structure.
+// This is the format that Windows SSPI expects for channel binding tokens.
+// https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-sec_channel_bindings
+func createChannelBindingsStructure(applicationData []byte) []byte {
+	const headerSize = 32 // 8 DWORDs * 4 bytes each
+	appDataLen := uint32(len(applicationData))
+	appDataOffset := uint32(headerSize)
+
+	buf := make([]byte, headerSize+len(applicationData))
+
+	// All initiator and acceptor fields are 0 for TLS channel binding.
+	binary.LittleEndian.PutUint32(buf[24:], appDataLen)    // cbApplicationDataLength
+	binary.LittleEndian.PutUint32(buf[28:], appDataOffset) // dwApplicationDataOffset
+
+	copy(buf[headerSize:], applicationData)
+
+	return buf
+}
+
+// calculateCertificateHash implements RFC 5929 certificate hash calculation.
+// https://www.rfc-editor.org/rfc/rfc5929.html#section-4.1
+func calculateCertificateHash(cert *x509.Certificate) []byte {
+	var hashFunc crypto.Hash
+
+	switch cert.SignatureAlgorithm {
+	case x509.SHA256WithRSA,
+		x509.SHA256WithRSAPSS,
+		x509.ECDSAWithSHA256,
+		x509.DSAWithSHA256:
+
+		hashFunc = crypto.SHA256
+	case x509.SHA384WithRSA,
+		x509.SHA384WithRSAPSS,
+		x509.ECDSAWithSHA384:
+
+		hashFunc = crypto.SHA384
+	case x509.SHA512WithRSA,
+		x509.SHA512WithRSAPSS,
+		x509.ECDSAWithSHA512:
+
+		hashFunc = crypto.SHA512
+	case x509.MD5WithRSA,
+		x509.SHA1WithRSA,
+		x509.ECDSAWithSHA1,
+		x509.DSAWithSHA1:
+
+		hashFunc = crypto.SHA256
+	default:
+		return nil
+	}
+
+	hasher := hashFunc.New()
+
+	// Important to hash cert in DER format.
+	hasher.Write(cert.Raw)
+	return hasher.Sum(nil)
 }
