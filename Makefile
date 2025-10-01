@@ -1,6 +1,6 @@
-.PHONY: default install build test quicktest fmt vet lint
+.PHONY: default install build test test fmt vet lint
 
-default: fmt vet lint build quicktest
+default: fmt vet lint build test
 
 CONTAINER_CMD := $(shell command -v podman 2>/dev/null)
 ifeq ($(CONTAINER_CMD),)
@@ -13,7 +13,7 @@ ifeq ($(CONTAINER_CMD),)
 endif
 
 install:
-	go get -t -v ./...
+	go get -t -x ./...
 
 build:
 	go build -v ./...
@@ -51,11 +51,11 @@ local-server:
 	@echo "Loading LDIF files..."
 	@$(CONTAINER_CMD) exec $(CONTAINER_NAME) /bin/sh -c 'for file in /testdata/*.ldif; do echo "Processing $$file..."; cat "$$file" | ldapadd -v -x -H $(LDAP_URL) -D "$(LDAP_ADMIN_DN)" -w $(LDAP_ADMIN_PASSWORD); done'
 
-delete-container:
+stop-local-server:
 	-$(CONTAINER_CMD) rm -f -t 10 $(CONTAINER_NAME)
 
-quicktest:
-	go test ./...
+test:
+	go test -v -cover -race -count=1 .
 
 fuzz:
 	go test -fuzz=FuzzParseDN				-fuzztime=600s .

@@ -15,15 +15,20 @@ The library implements the following specifications:
 ## Features:
 
 - Connecting to LDAP server (non-TLS, TLS, STARTTLS, through a custom dialer)
-- Binding to LDAP server (Simple Bind, GSSAPI, SASL)
+- Bind Requests / Responses (Simple Bind, GSSAPI, SASL)
 - "Who Am I" Requests / Responses
-- Searching for entries (normal and asynchronous)
-- Filter Compile / Decompile
-- Paging Search Results
+- Search Requests / Responses (normal, paging and asynchronous)
 - Modify Requests / Responses
 - Add Requests / Responses
 - Delete Requests / Responses
 - Modify DN Requests / Responses
+- Unbind Requests / Responses
+- Password Modify Requests / Responses
+- Content Synchronization Requests / Responses
+- LDAPv3 Filter Compile / Decompile
+- Server Side Sorting of Search Results
+- LDAPv3 Extended Operations
+- LDAPv3 Control Support
 
 ## Go Modules:
 
@@ -36,13 +41,16 @@ Bug reports and pull requests are welcome!
 Before submitting a pull request, please make sure tests and verification scripts pass:
 
 ```
-make all
-```
+# Setup local directory server using Docker or Podman
+make local-server
 
-To set up a pre-push hook to run the tests and verify scripts before pushing:
+# Run gofmt, go vet and go test
+cd ./v3
+make -f ../Makefile
 
-```
-ln -s ../../.githooks/pre-push .git/hooks/pre-push
+# (Optionally) Stop and delete the directory server container afterwards
+cd ..
+make stop-local-server
 ```
 
 ---

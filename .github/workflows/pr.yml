@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.24", "1.23"]
+        go: ["1.25", "1.24"]
         directory: ["./v3"]
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.directory }} (Modules)
     steps:
@@ -31,6 +31,5 @@ jobs:
         run: |
           cd ${{ matrix.directory }}
           go vet .
-          go test .
-          go test -cover -race -cpu 1,2,4 .
+          go test -v -cover -race -count=1 .
           go build .

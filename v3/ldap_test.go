@@ -27,6 +27,18 @@ var attributes = []string{
 	"description",
 }
 
+func getTestConnection(withBind bool) (*Conn, error) {
+	l, err := DialURL(ldapServer)
+	if err != nil {
+		return nil, err
+	}
+	if withBind {
+		err = l.Bind("cn=admin,"+baseDN, "admin123")
+	}
+
+	return l, err
+}
+
 func TestUnsecureDialURL(t *testing.T) {
 	l, err := DialURL(ldapServer)
 	if err != nil {
