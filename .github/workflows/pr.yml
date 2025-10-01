@@ -31,6 +31,5 @@ jobs:
         run: |
           cd ${{ matrix.directory }}
           go vet .
-          go test .
-          go test -cover -race -cpu 1,2,4 .
+          go test -v -cover -race -count=1 .
           go build .

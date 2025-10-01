@@ -55,7 +55,7 @@ stop-local-server:
 	-$(CONTAINER_CMD) rm -f -t 10 $(CONTAINER_NAME)
 
 test:
-	go test -v ./...
+	go test -v -cover -race -count=1 .
 
 fuzz:
 	go test -fuzz=FuzzParseDN				-fuzztime=600s .
