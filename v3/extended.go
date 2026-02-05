@@ -50,9 +50,11 @@ type ExtendedResponse struct {
 	//   responseName     [10] LDAPOID OPTIONAL,
 	//   responseValue    [11] OCTET STRING OPTIONAL }
 
-	Name     string
-	Value    *ber.Packet
-	Controls []Control
+	Name       string
+	ResultCode int
+	Referral   string
+	Value      *ber.Packet
+	Controls   []Control
 }
 
 // Extended performs an extended request. The resulting
@@ -76,24 +78,28 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		return nil, err
 	}
 
-	if len(packet.Children[1].Children) < 3 {
+	extResp := packet.Children[1]
+	if len(extResp.Children) < 3 {
 		return nil, fmt.Errorf(
 			"ldap: malformed extended response: expected at least 3 children, got %d",
 			len(packet.Children),
 		)
 	}
 
-	var name string
-
-	if len(packet.Children[1].Children) < 4 {
-		name = er.Name
-	} else {
-		name = packet.Children[1].Children[3].Data.String()
+	response := &ExtendedResponse{
+		ResultCode: int(extResp.Children[0].Value.(int64)),
+		Controls:   make([]Control, 0),
 	}
 
-	response := &ExtendedResponse{
-		Name:     name,
-		Controls: make([]Control, 0),
+	for _, child := range extResp.Children {
+		switch child.Tag {
+		case ber.TagBitString:
+			response.Referral = child.Value.(string)
+		case ber.TagEnumerated:
+			response.Name = child.Data.String()
+		case ber.TagEmbeddedPDV:
+			response.Value = child
+		}
 	}
 
 	if len(packet.Children) == 3 {
@@ -104,10 +110,6 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 			}
 			response.Controls = append(response.Controls, decodedChild)
 		}
-	}
-
-	if len(packet.Children[1].Children) == 5 {
-		response.Value = packet.Children[1].Children[4]
 	}
 
 	return response, nil

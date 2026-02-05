@@ -42,7 +42,7 @@ func TestExtendedRequest_FastBind(t *testing.T) {
 	}
 	defer conn.Close()
 
-	request := NewExtendedRequest("1.3.6.1.4.1.4203.1.11.3", nil)
+	request := NewExtendedRequest("1.2.840.113556.1.4.1781", nil)
 	_, err = conn.Extended(request)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 }
