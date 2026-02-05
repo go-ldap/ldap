@@ -52,7 +52,6 @@ type ExtendedResponse struct {
 
 	Name       string
 	ResultCode int
-	Referral   string
 	Value      *ber.Packet
 	Controls   []Control
 }
@@ -93,8 +92,6 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 
 	for _, child := range extResp.Children {
 		switch child.Tag {
-		case ber.TagBitString:
-			response.Referral = child.Value.(string)
 		case ber.TagEnumerated:
 			response.Name = child.Data.String()
 		case ber.TagEmbeddedPDV:
