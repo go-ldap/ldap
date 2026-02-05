@@ -50,10 +50,9 @@ type ExtendedResponse struct {
 	//   responseName     [10] LDAPOID OPTIONAL,
 	//   responseValue    [11] OCTET STRING OPTIONAL }
 
-	Name       string
-	ResultCode int
-	Value      *ber.Packet
-	Controls   []Control
+	Name     string
+	Value    *ber.Packet
+	Controls []Control
 }
 
 // Extended performs an extended request. The resulting
@@ -86,8 +85,7 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	}
 
 	response := &ExtendedResponse{
-		ResultCode: int(extResp.Children[0].Value.(int64)),
-		Controls:   make([]Control, 0),
+		Controls: make([]Control, 0),
 	}
 
 	for _, child := range extResp.Children {
