@@ -2,12 +2,7 @@
 
 default: fmt vet lint build test
 
-CONTAINER_CMD := $(shell command -v podman 2>/dev/null)
-ifeq ($(CONTAINER_CMD),)
-    CONTAINER_CMD := $(shell command -v docker 2>/dev/null)
-endif
-
-# Check if we found either command
+CONTAINER_CMD := $(shell command -v docker 2>/dev/null || shell command -v podman 2>/dev/null)
 ifeq ($(CONTAINER_CMD),)
     $(error Neither podman nor docker found in PATH)
 endif
@@ -25,7 +20,7 @@ LDAP_URL := ldap://127.0.0.1:389
 CONTAINER_NAME := go-ldap-test
 
 local-server:
-	-$(CONTAINER_CMD) rm -f -t 10 $(CONTAINER_NAME)
+	-$(CONTAINER_CMD) rm -f $(CONTAINER_NAME)
 	$(CONTAINER_CMD) \
 	   run \
 	   --rm \
