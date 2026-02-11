@@ -1,6 +1,9 @@
 package ldap
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // PostalAddress represents an RFC 4517 Postal Address
 // A postal address is a sequence of strings of one or more arbitrary UCS
@@ -83,9 +86,10 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 					builder.WriteRune('$')
 					i += 2
 				default:
-					// Unknown escape sequence, just add the character
-					builder.WriteByte(char)
+					return nil, fmt.Errorf("invalid escape sequence: \\%s at position %d", escapeSeq, i)
 				}
+			} else if char == '\\' {
+				return nil, fmt.Errorf("incomplete escape sequence at position %d", i)
 			} else {
 				builder.WriteByte(char)
 			}
@@ -94,4 +98,23 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 	}
 
 	return &PostalAddress{lines: parsedLines}, nil
+}
+
+func (p *PostalAddress) Equals(other *PostalAddress) bool {
+	if p == other {
+		return true
+	}
+	if p == nil || other == nil {
+		return false
+	}
+
+	if len(p.lines) != len(other.lines) {
+		return false
+	}
+	for i := range p.lines {
+		if p.lines[i] != other.lines[i] {
+			return false
+		}
+	}
+	return true
 }
