@@ -9,20 +9,15 @@ type PostalAddress struct {
 	lines []string
 }
 
-// NewPostalAddress creates a new PostalAddress from a slice of unescaped lines
-// skipping empty lines and preventing external mutations.
+// NewPostalAddress creates a new PostalAddress by copying non-empty lines from the provided slice of strings.
 func NewPostalAddress(lines []string) *PostalAddress {
-	copiedLines := make([]string, len(lines))
-	for i, line := range lines {
+	copiedLines := make([]string, 0, len(lines))
+	for _, line := range lines {
 		if line == "" {
-			// Skip empty lines
 			continue
 		}
-
-		// Make a copy of the slice to prevent outside modifications
-		copiedLines[i] = line
+		copiedLines = append(copiedLines, line)
 	}
-
 	return &PostalAddress{lines: copiedLines}
 }
 
@@ -81,7 +76,7 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 			if char == '\\' && i+totalEscapeLen <= len(line) {
 				escapeSeq := line[i+1 : i+totalEscapeLen]
 				switch escapeSeq {
-				case "5C":
+				case "5C", "5c":
 					builder.WriteRune('\\')
 					i += 2
 				case "24":

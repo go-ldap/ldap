@@ -12,6 +12,10 @@ func TestPostalAddressRoundTrip(t *testing.T) {
 		Expected string
 	}{
 		{
+			Escaped:  "AAAAA\\5cBBBBB$",
+			Expected: "AAAAA\\BBBBB",
+		},
+		{
 			Escaped:  "1234 Main St.$Anytown, CA 12345$USA",
 			Expected: "1234 Main St.\nAnytown, CA 12345\nUSA",
 		},
