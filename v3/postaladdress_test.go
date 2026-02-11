@@ -31,3 +31,55 @@ func TestPostalAddressRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestPostalAddressUTF8Handling(t *testing.T) {
+	testCases := []struct {
+		name     string
+		lines    []string
+		expected string
+	}{
+		{
+			name:     "emoji characters",
+			lines:    []string{"123 Main St 🏠", "Tokyo 🗾", "Japan 🇯🇵"},
+			expected: "123 Main St 🏠$Tokyo 🗾$Japan 🇯🇵$",
+		},
+		{
+			name:     "cyrillic characters",
+			lines:    []string{"Красная площадь", "Москва 101000", "Россия"},
+			expected: "Красная площадь$Москва 101000$Россия$",
+		},
+		{
+			name:     "chinese characters",
+			lines:    []string{"北京市东城区", "天安门广场", "中国"},
+			expected: "北京市东城区$天安门广场$中国$",
+		},
+		{
+			name:     "arabic characters",
+			lines:    []string{"شارع الملك فهد", "الرياض", "المملكة العربية السعودية"},
+			expected: "شارع الملك فهد$الرياض$المملكة العربية السعودية$",
+		},
+		{
+			name:     "mixed scripts with special chars",
+			lines:    []string{"Café René ☕", "Zürich $1000\\month", "Schweiz 🇨🇭"},
+			expected: "Café René ☕$Zürich \\241000\\5Cmonth$Schweiz 🇨🇭$",
+		},
+		{
+			name:     "mathematical symbols",
+			lines:    []string{"∑ ∫ ∂", "π ≈ 3.14159", "∞ ≠ 0"},
+			expected: "∑ ∫ ∂$π ≈ 3.14159$∞ ≠ 0$",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			addr := NewPostalAddress(tc.lines)
+			escaped := addr.Escape()
+			assert.Equal(t, tc.expected, escaped, "UTF-8 characters should be preserved in escaped output")
+
+			// Round-trip test
+			parsed, err := ParsePostalAddress(escaped)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.lines, parsed.Lines(), "UTF-8 characters should survive round-trip")
+		})
+	}
+}

@@ -43,16 +43,14 @@ func (p *PostalAddress) Escape() string {
 	builder := &strings.Builder{}
 
 	for _, line := range p.lines {
-		for i := range line {
-			char := line[i]
-
+		for _, char := range line {
 			switch char {
 			case '\\':
 				builder.WriteString("\\5C")
 			case '$':
 				builder.WriteString("\\24")
 			default:
-				builder.WriteByte(char)
+				builder.WriteRune(char)
 			}
 		}
 
@@ -65,8 +63,9 @@ func (p *PostalAddress) Escape() string {
 // ParsePostalAddress parses an RFC 4517 escaped postal address string into a PostalAddress object or returns an error.
 func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 	lines := strings.Split(escaped, "$")
+	var parsedLines []string
 
-	for lineIndex, line := range lines {
+	for _, line := range lines {
 		if line == "" {
 			// Skip empty lines
 			continue
@@ -92,8 +91,8 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 				builder.WriteByte(char)
 			}
 		}
-		lines[lineIndex] = builder.String()
+		parsedLines = append(parsedLines, builder.String())
 	}
 
-	return &PostalAddress{lines: lines}, nil
+	return &PostalAddress{lines: parsedLines}, nil
 }
