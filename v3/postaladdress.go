@@ -64,6 +64,10 @@ func (p *PostalAddress) Escape() string {
 func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 	lines := strings.Split(escaped, "$")
 	var parsedLines []string
+	const (
+		escapeLen      = 2
+		totalEscapeLen = 3
+	)
 
 	for _, line := range lines {
 		if line == "" {
@@ -74,8 +78,8 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 		builder := &strings.Builder{}
 		for i := 0; i < len(line); i++ {
 			char := line[i]
-			if char == '\\' && i+2 < len(line) {
-				escapeSeq := line[i+1 : i+3]
+			if char == '\\' && i+totalEscapeLen <= len(line) {
+				escapeSeq := line[i+1 : i+totalEscapeLen]
 				switch escapeSeq {
 				case "5C":
 					builder.WriteRune('\\')
