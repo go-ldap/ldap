@@ -34,10 +34,16 @@ func TestPostalAddressRoundTrip(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, str.Expected, escaped.String())
 
-			addr := NewPostalAddress([]string{str.Expected})
+			addr, err := NewPostalAddress([]string{str.Expected})
+			assert.NoError(t, err)
 			assert.Equal(t, str.Expected, addr.String(), "PostalAddress.String() should round-trip")
 		})
 	}
+}
+
+func TestPostalAddressEmptyLines(t *testing.T) {
+	_, err := NewPostalAddress([]string{""})
+	assert.Equal(t, err, ErrEmptyPostalAddress)
 }
 
 func TestPostalAddressUTF8Handling(t *testing.T) {
@@ -80,7 +86,8 @@ func TestPostalAddressUTF8Handling(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			addr := NewPostalAddress(tc.lines)
+			addr, err := NewPostalAddress(tc.lines)
+			assert.NoError(t, err)
 			escaped := addr.Escape()
 			assert.Equal(t, tc.expected, escaped, "UTF-8 characters should be preserved in escaped output")
 
@@ -92,7 +99,7 @@ func TestPostalAddressUTF8Handling(t *testing.T) {
 	}
 }
 
-func TestPostalAddressEquals(t *testing.T) {
+func TestPostalAddressEqual(t *testing.T) {
 	testCases := []struct {
 		name     string
 		addr1    *PostalAddress
@@ -108,103 +115,85 @@ func TestPostalAddressEquals(t *testing.T) {
 		{
 			name:     "first nil",
 			addr1:    nil,
-			addr2:    NewPostalAddress([]string{"line1"}),
+			addr2:    mustNewPostalAddress(t, []string{"line1"}),
 			expected: false,
 		},
 		{
 			name:     "second nil",
-			addr1:    NewPostalAddress([]string{"line1"}),
+			addr1:    mustNewPostalAddress(t, []string{"line1"}),
 			addr2:    nil,
 			expected: false,
 		},
 		{
-			name:     "both empty",
-			addr1:    NewPostalAddress([]string{}),
-			addr2:    NewPostalAddress([]string{}),
-			expected: true,
-		},
-		{
 			name:     "same single line",
-			addr1:    NewPostalAddress([]string{"123 Main St"}),
-			addr2:    NewPostalAddress([]string{"123 Main St"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St"}),
+			addr2:    mustNewPostalAddress(t, []string{"123 Main St"}),
 			expected: true,
 		},
 		{
 			name:     "different single line",
-			addr1:    NewPostalAddress([]string{"123 Main St"}),
-			addr2:    NewPostalAddress([]string{"456 Oak Ave"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St"}),
+			addr2:    mustNewPostalAddress(t, []string{"456 Oak Ave"}),
 			expected: false,
 		},
 		{
 			name:     "same multi-line",
-			addr1:    NewPostalAddress([]string{"123 Main St", "Anytown, CA", "USA"}),
-			addr2:    NewPostalAddress([]string{"123 Main St", "Anytown, CA", "USA"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St", "Anytown, CA", "USA"}),
+			addr2:    mustNewPostalAddress(t, []string{"123 Main St", "Anytown, CA", "USA"}),
 			expected: true,
 		},
 		{
 			name:     "different multi-line content",
-			addr1:    NewPostalAddress([]string{"123 Main St", "Anytown, CA", "USA"}),
-			addr2:    NewPostalAddress([]string{"123 Main St", "Othertown, CA", "USA"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St", "Anytown, CA", "USA"}),
+			addr2:    mustNewPostalAddress(t, []string{"123 Main St", "Othertown, CA", "USA"}),
 			expected: false,
 		},
 		{
 			name:     "different line count",
-			addr1:    NewPostalAddress([]string{"123 Main St", "Anytown, CA"}),
-			addr2:    NewPostalAddress([]string{"123 Main St", "Anytown, CA", "USA"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St", "Anytown, CA"}),
+			addr2:    mustNewPostalAddress(t, []string{"123 Main St", "Anytown, CA", "USA"}),
 			expected: false,
 		},
 		{
 			name:     "same order matters",
-			addr1:    NewPostalAddress([]string{"line1", "line2"}),
-			addr2:    NewPostalAddress([]string{"line2", "line1"}),
+			addr1:    mustNewPostalAddress(t, []string{"line1", "line2"}),
+			addr2:    mustNewPostalAddress(t, []string{"line2", "line1"}),
 			expected: false,
 		},
 		{
 			name:     "whitespace differences",
-			addr1:    NewPostalAddress([]string{"123 Main St"}),
-			addr2:    NewPostalAddress([]string{"123  Main St"}),
+			addr1:    mustNewPostalAddress(t, []string{"123 Main St"}),
+			addr2:    mustNewPostalAddress(t, []string{"123  Main St"}),
 			expected: false,
 		},
 		{
 			name:     "case sensitive",
-			addr1:    NewPostalAddress([]string{"Main Street"}),
-			addr2:    NewPostalAddress([]string{"main street"}),
+			addr1:    mustNewPostalAddress(t, []string{"Main Street"}),
+			addr2:    mustNewPostalAddress(t, []string{"main street"}),
 			expected: false,
 		},
 		{
 			name:     "with special characters",
-			addr1:    NewPostalAddress([]string{"Café René", "$1000\\month"}),
-			addr2:    NewPostalAddress([]string{"Café René", "$1000\\month"}),
+			addr1:    mustNewPostalAddress(t, []string{"Café René", "$1000\\month"}),
+			addr2:    mustNewPostalAddress(t, []string{"Café René", "$1000\\month"}),
 			expected: true,
 		},
 		{
 			name:     "with UTF-8 characters",
-			addr1:    NewPostalAddress([]string{"北京市东城区", "中国 🇨🇳"}),
-			addr2:    NewPostalAddress([]string{"北京市东城区", "中国 🇨🇳"}),
-			expected: true,
-		},
-		{
-			name:     "empty vs nil lines",
-			addr1:    NewPostalAddress([]string{}),
-			addr2:    NewPostalAddress([]string{""}),
-			expected: true,
-		},
-		{
-			name:     "same empty string line",
-			addr1:    NewPostalAddress([]string{""}),
-			addr2:    NewPostalAddress([]string{""}),
+			addr1:    mustNewPostalAddress(t, []string{"北京市东城区", "中国 🇨🇳"}),
+			addr2:    mustNewPostalAddress(t, []string{"北京市东城区", "中国 🇨🇳"}),
 			expected: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := tc.addr1.Equals(tc.addr2)
+			result := tc.addr1.Equal(tc.addr2)
 			assert.Equal(t, tc.expected, result)
 
 			// Test symmetry (except for nil cases where calling on nil would panic)
 			if tc.addr1 != nil && tc.addr2 != nil {
-				reverseResult := tc.addr2.Equals(tc.addr1)
+				reverseResult := tc.addr2.Equal(tc.addr1)
 				assert.Equal(t, tc.expected, reverseResult, "Equals should be symmetric")
 			}
 		})
@@ -221,4 +210,13 @@ func TestParsePostalAddress_Escape(t *testing.T) {
 		_, err := ParsePostalAddress("AAAAAAAAAA\\5XAAAAA")
 		assert.Error(t, err)
 	})
+}
+
+func mustNewPostalAddress(t *testing.T, lines []string) *PostalAddress {
+	t.Helper()
+	addr, err := NewPostalAddress(lines)
+	if err != nil {
+		t.Fatalf("NewPostalAddress failed: %v", err)
+	}
+	return addr
 }

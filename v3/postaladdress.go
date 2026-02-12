@@ -1,9 +1,12 @@
 package ldap
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
+
+var ErrEmptyPostalAddress = errors.New("ldap: postal address cannot be empty")
 
 // PostalAddress represents an RFC 4517 Postal Address
 // A postal address is a sequence of strings of one or more arbitrary UCS
@@ -13,7 +16,7 @@ type PostalAddress struct {
 }
 
 // NewPostalAddress creates a new PostalAddress by copying non-empty lines from the provided slice of strings.
-func NewPostalAddress(lines []string) *PostalAddress {
+func NewPostalAddress(lines []string) (*PostalAddress, error) {
 	copiedLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if line == "" {
@@ -21,7 +24,12 @@ func NewPostalAddress(lines []string) *PostalAddress {
 		}
 		copiedLines = append(copiedLines, line)
 	}
-	return &PostalAddress{lines: copiedLines}
+
+	if len(copiedLines) == 0 {
+		return nil, ErrEmptyPostalAddress
+	}
+
+	return &PostalAddress{lines: copiedLines}, nil
 }
 
 // Lines returns a copy of the address lines as a slice of strings.
@@ -61,11 +69,8 @@ func (p *PostalAddress) Escape() string {
 // ParsePostalAddress parses an RFC 4517 escaped postal address string into a PostalAddress object or returns an error.
 func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 	lines := strings.Split(escaped, "$")
-	var parsedLines []string
-	const (
-		escapeLen      = 2
-		totalEscapeLen = 3
-	)
+	parsedLines := make([]string, 0, len(lines))
+	const totalEscapeLen = 3
 
 	for _, line := range lines {
 		if line == "" {
@@ -97,10 +102,15 @@ func ParsePostalAddress(escaped string) (*PostalAddress, error) {
 		parsedLines = append(parsedLines, builder.String())
 	}
 
+	if len(parsedLines) == 0 {
+		return nil, ErrEmptyPostalAddress
+	}
+
 	return &PostalAddress{lines: parsedLines}, nil
 }
 
-func (p *PostalAddress) Equals(other *PostalAddress) bool {
+// Equal compares the current PostalAddress with another PostalAddress and returns true if they are identical.
+func (p *PostalAddress) Equal(other *PostalAddress) bool {
 	if p == other {
 		return true
 	}
