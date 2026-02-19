@@ -120,7 +120,6 @@ func TestConnReadErr(t *testing.T) {
 
 type testCorpusErrorEntry struct {
 	packet             *ber.Packet
-	expectedError      error
 	expectedResultCode uint16
 	expectedMessage    string
 	shouldError        bool
