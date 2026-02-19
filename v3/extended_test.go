@@ -38,7 +38,7 @@ func TestExtendedRequest_WhoAmI(t *testing.T) {
 func TestExtendedRequest_FastBind(t *testing.T) {
 	conn, err := DialURL(ldapServer)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer conn.Close()
 
