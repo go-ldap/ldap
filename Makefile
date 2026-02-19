@@ -2,7 +2,7 @@
 
 default: fmt vet lint build test
 
-CONTAINER_CMD := $(shell command -v docker 2>/dev/null || shell command -v podman 2>/dev/null)
+CONTAINER_CMD := $(shell (command -v docker 2>/dev/null || command -v podman 2>/dev/null))
 ifeq ($(CONTAINER_CMD),)
     $(error Neither podman nor docker found in PATH)
 endif

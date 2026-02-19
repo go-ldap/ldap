@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -90,27 +91,6 @@ func TestWrappedError(t *testing.T) {
 	}
 }
 
-// TestNilPacket tests that nil packets don't cause a panic.
-func TestNilPacket(t *testing.T) {
-	// Test for nil packet
-	err := GetLDAPError(nil)
-	if !IsErrorWithCode(err, ErrorUnexpectedResponse) {
-		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", err)
-	}
-
-	// Test for nil result
-	kids := []*ber.Packet{
-		{},  // Unused
-		nil, // Can't be nil
-	}
-	pack := &ber.Packet{Children: kids}
-	err = GetLDAPError(pack)
-
-	if !IsErrorWithCode(err, ErrorUnexpectedResponse) {
-		t.Errorf("Should have an 'ErrorUnexpectedResponse' error in nil packets, got: %v", err)
-	}
-}
-
 // TestConnReadErr tests that an unexpected error reading from underlying
 // connection bubbles up to the goroutine which makes a request.
 func TestConnReadErr(t *testing.T) {
@@ -138,8 +118,17 @@ func TestConnReadErr(t *testing.T) {
 	}
 }
 
-// TestGetLDAPError tests parsing of result with a error response.
-func TestGetLDAPError(t *testing.T) {
+type testCorpusErrorEntry struct {
+	packet             *ber.Packet
+	expectedError      error
+	expectedResultCode uint16
+	expectedMessage    string
+	shouldError        bool
+}
+
+func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
+	corpus := make(map[string]testCorpusErrorEntry)
+
 	diagnosticMessage := "Detailed error message"
 	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
 	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
@@ -148,39 +137,131 @@ func TestGetLDAPError(t *testing.T) {
 	packet := ber.NewSequence("LDAPMessage")
 	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
 	packet.AppendChild(bindResponse)
-	err := GetLDAPError(packet)
-	if err == nil {
-		t.Errorf("Did not get error response")
+	corpus["detailed errror message"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: LDAPResultInvalidCredentials,
+		expectedMessage:    diagnosticMessage,
+		shouldError:        true,
 	}
 
-	ldapError := err.(*Error)
-	if ldapError.ResultCode != LDAPResultInvalidCredentials {
-		t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, LDAPResultInvalidCredentials)
+	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+	packet = ber.NewSequence("LDAPMessage")
+	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
+	packet.AppendChild(bindResponse)
+	corpus["no error"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorNetwork,
+		expectedMessage:    "",
 	}
-	if ldapError.Err.Error() != diagnosticMessage {
-		t.Errorf("Got incorrect error message in LDAP error; got %v, expected %v", ldapError.Err.Error(), diagnosticMessage)
-	}
-}
 
-// TestGetLDAPErrorInvalidResponse tests that responses with an unexpected ordering or combination of children
-// don't cause a panic.
-func TestGetLDAPErrorInvalidResponse(t *testing.T) {
-	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	// Test that responses with an unexpected ordering or combination of children
+	// don't cause a panic.
+	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
 	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
 	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
 	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
-	packet := ber.NewSequence("LDAPMessage")
+	packet = ber.NewSequence("LDAPMessage")
 	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
 	packet.AppendChild(bindResponse)
-	err := GetLDAPError(packet)
-	if err == nil {
-		t.Errorf("Did not get error response")
+	corpus["unexpected ordering"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorNetwork,
+		expectedMessage:    "Invalid packet format",
+		shouldError:        true,
 	}
 
-	ldapError := err.(*Error)
-	if ldapError.ResultCode != ErrorNetwork {
-		t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, ErrorNetwork)
+	// Test that a nil ber Packet errors correctly and does not cause a panic.
+	corpus["nil packet"] = testCorpusErrorEntry{
+		packet:             nil,
+		expectedResultCode: ErrorUnexpectedResponse,
+		expectedMessage:    "Empty packet",
+		shouldError:        true,
 	}
+
+	// Test that a nil first child errors correctly and does not cause a panic.
+	kids := []*ber.Packet{
+		{},  // Unused
+		nil, // Can't be nil
+	}
+	packet = &ber.Packet{Children: kids}
+	corpus["nil first child"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorUnexpectedResponse,
+		expectedMessage:    "Empty response in packet",
+		shouldError:        true,
+	}
+
+	// Test that if the result code is nil, we get an appropriate error instead of a panic.
+	// Panic message would be "interface conversion: interface {} is nil, not int64"
+	diagnosticMessage = "Invalid result code in packet"
+	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, nil, "resultCode"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, diagnosticMessage, "diagnosticMessage"))
+	packet = ber.NewSequence("LDAPMessage")
+	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
+	packet.AppendChild(bindResponse)
+	corpus["nil result code"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorNetwork,
+		expectedMessage:    diagnosticMessage,
+		shouldError:        true,
+	}
+
+	return corpus
+}
+
+func TestGetLDAPError(t *testing.T) {
+	corpus := generateGetLDAPErrorCorpus()
+
+	for name, entry := range corpus {
+		t.Run(name, func(t *testing.T) {
+			err := GetLDAPError(entry.packet)
+
+			if !entry.shouldError {
+				if err != nil {
+					t.Errorf("Did not expect an error, but got: %v", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Errorf("Expected an error response")
+			}
+
+			ldapError, ok := err.(*Error)
+			if !ok {
+				t.Fatalf("Expected error of type *Error, got %T", err)
+			}
+
+			if ldapError.ResultCode != entry.expectedResultCode {
+				t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, entry.expectedResultCode)
+			}
+			if ldapError.Err.Error() != entry.expectedMessage {
+				t.Errorf("Got incorrect error message in LDAP error; got %v, expected %v", ldapError.Err.Error(), entry.expectedMessage)
+			}
+		})
+	}
+}
+
+func FuzzGetLDAPError(f *testing.F) {
+	corpus := generateGetLDAPErrorCorpus()
+	for _, entry := range corpus {
+		if entry.packet != nil {
+			f.Add(entry.packet.ByteValue)
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		packet, err := ber.ReadPacket(bytes.NewReader(data))
+		if err != nil {
+			return
+		}
+		_ = GetLDAPError(packet)
+	})
 }
 
 func TestErrorIs(t *testing.T) {
@@ -198,21 +279,6 @@ func TestErrorAs(t *testing.T) {
 	ok := errors.As(err, &target)
 	if !ok {
 		t.Error("Expected an InvalidAddrError")
-	}
-}
-
-// TestGetLDAPErrorSuccess tests parsing of a result with no error (resultCode == 0).
-func TestGetLDAPErrorSuccess(t *testing.T) {
-	bindResponse := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
-	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
-	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
-	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
-	packet := ber.NewSequence("LDAPMessage")
-	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
-	packet.AppendChild(bindResponse)
-	err := GetLDAPError(packet)
-	if err != nil {
-		t.Errorf("Successful responses should not produce an error, but got: %v", err)
 	}
 }
 
