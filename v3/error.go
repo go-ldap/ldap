@@ -221,6 +221,9 @@ func GetLDAPError(packet *ber.Packet) error {
 
 				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
 					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
+					if response.Children[1].Value == nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid matchedDN in packet"), Packet: packet}
+					}
 					return &Error{
 						ResultCode: resultCode,
 						MatchedDN:  response.Children[1].Value.(string),

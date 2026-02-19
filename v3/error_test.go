@@ -210,6 +210,20 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 		shouldError:        true,
 	}
 
+	// Test that if the matchedDN is nil, we get an appropriate error instead of a panic.
+	// Panic message would be "interface conversion: interface {} is nil, not string"
+	panic_data := []byte("07A\x010\x7f\xff00\x02\x010D\"0000000000000000000000000000000000D\x010A\x010A\x010")
+	packet, err := ber.ReadPacket(bytes.NewReader(panic_data))
+	if err != nil {
+		panic(fmt.Sprintf("failed to read packet for panic test: %s", err))
+	}
+	corpus["panic data"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorNetwork,
+		expectedMessage:    "Invalid matchedDN in packet",
+		shouldError:        true,
+	}
+
 	return corpus
 }
 
@@ -236,10 +250,10 @@ func TestGetLDAPError(t *testing.T) {
 			}
 
 			if ldapError.ResultCode != entry.expectedResultCode {
-				t.Errorf("Got incorrect error code in LDAP error; got %v, expected %v", ldapError.ResultCode, entry.expectedResultCode)
+				t.Errorf("Got incorrect error code in LDAP error; got '%v', expected '%v'", ldapError.ResultCode, entry.expectedResultCode)
 			}
 			if ldapError.Err.Error() != entry.expectedMessage {
-				t.Errorf("Got incorrect error message in LDAP error; got %v, expected %v", ldapError.Err.Error(), entry.expectedMessage)
+				t.Errorf("Got incorrect error message in LDAP error; got '%v', expected '%v'", ldapError.Err.Error(), entry.expectedMessage)
 			}
 		})
 	}
