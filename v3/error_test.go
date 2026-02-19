@@ -226,10 +226,9 @@ func TestGetLDAPError(t *testing.T) {
 					t.Errorf("Did not expect an error, but got: %v", err)
 				}
 				return
-			}
-
-			if err == nil {
+			} else if err == nil {
 				t.Errorf("Expected an error response")
+				return
 			}
 
 			ldapError, ok := err.(*Error)
