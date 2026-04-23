@@ -3,7 +3,7 @@ module github.com/go-ldap/ldap/v3
 go 1.25
 
 require (
-	github.com/Azure/go-ntlmssp v0.1.0
+	github.com/Azure/go-ntlmssp v0.1.1
 	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667
 	github.com/google/uuid v1.6.0
