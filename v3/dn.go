@@ -4,11 +4,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	ber "github.com/go-asn1-ber/asn1-ber"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 // AttributeTypeAndValue represents an attributeTypeAndValue from https://tools.ietf.org/html/rfc4514
@@ -116,6 +117,16 @@ func decodeString(str string) (string, error) {
 		// If the character is not an escape character, just add it to the
 		// builder and continue
 		if char != '\\' {
+			// RFC 4514 section 2.4: these characters must appear escaped
+			// (either as "\X" or as "\XX" hex) when present in an AttributeValue.
+			// Reject the raw form here so that callers don't silently accept
+			// input that violates the grammar.
+			switch char {
+			case '"', ';', '<', '>':
+				return "", fmt.Errorf("got unescaped character: '%s'", string(char))
+			case 0:
+				return "", fmt.Errorf("got unescaped NULL character")
+			}
 			builder.WriteRune(char)
 			continue
 		}
