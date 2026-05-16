@@ -116,6 +116,86 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"ou", "Baz"}}},
 			{[]*AttributeTypeAndValue{{"o", "C; orp."}, {"c", "US"}}},
 		}},
+
+		// RFC 4514 section 2.4: characters that require escaping in an AttributeValue.
+		// Each character is exercised with both the backslash-escape form (e.g. "\,")
+		// and the hex-escape form (e.g. "\2C"), except for the NULL character (U+0000)
+		// which only has the hex form.
+
+		// U+0020 (SPACE) — only requires escaping at the beginning or end of a value.
+		`cn=\ John Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", " John Doe"}}},
+		}},
+		`cn=John Doe\ `: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John Doe "}}},
+		}},
+		`cn=\20John Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", " John Doe"}}},
+		}},
+		`cn=John Doe\20`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John Doe "}}},
+		}},
+
+		// U+0022 (QUOTATION MARK)
+		`cn=John \"Doe\"`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", `John "Doe"`}}},
+		}},
+		`cn=John \22Doe\22`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", `John "Doe"`}}},
+		}},
+
+		// U+002B (PLUS SIGN)
+		`cn=John\+Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John+Doe"}}},
+		}},
+		`cn=John\2BDoe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John+Doe"}}},
+		}},
+
+		// U+002C (COMMA)
+		`cn=Doe\, John`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "Doe, John"}}},
+		}},
+		`cn=Doe\2C John`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "Doe, John"}}},
+		}},
+
+		// U+003B (SEMICOLON)
+		`cn=John\;Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John;Doe"}}},
+		}},
+		`cn=John\3BDoe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John;Doe"}}},
+		}},
+
+		// U+003C (LESS-THAN SIGN)
+		`cn=John\<Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John<Doe"}}},
+		}},
+		`cn=John\3CDoe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John<Doe"}}},
+		}},
+
+		// U+003E (GREATER-THAN SIGN)
+		`cn=John\>Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John>Doe"}}},
+		}},
+		`cn=John\3EDoe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John>Doe"}}},
+		}},
+
+		// U+005C (REVERSE SOLIDUS / BACKSLASH)
+		`cn=John\\Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", `John\Doe`}}},
+		}},
+		`cn=John\5CDoe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", `John\Doe`}}},
+		}},
+
+		// U+0000 (NULL) — RFC 4514 only allows the hex-escape form.
+		`cn=John\00Doe`: {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"cn", "John\x00Doe"}}},
+		}},
 	}
 
 	for test, answer := range testcases {
@@ -155,12 +235,47 @@ func TestErrorDNParsing(t *testing.T) {
 		`1.3.6.1.4.1.1466.0=test;`:  "DN ended with incomplete type, value pair",
 		"1.3.6.1.4.1.1466.0=test+,": "incomplete type, value pair",
 		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "failed to decode BER encoding: unexpected EOF",
+
+		// RFC 4514 section 2.4: each of the following characters must be
+		// escaped when they appear in an AttributeValue. The cases below place
+		// the character in a position the spec disallows and expect a parse
+		// error. Some tests may currently fail because the parser does not yet
+		// reject every form of unescaped special character.
+
+		// U+0020 (SPACE) — leading/trailing space in a value must be escaped.
+		// however, the blow is ignored and trimmed for compatibility.
+		// ` cn=John,dc=com` => 'cn=John,dc=com'
+		// `cn=John ,dc=com` => 'cn=John,dc=com'
+
+		// U+0022 (QUOTATION MARK)
+		`cn=John "Doe",dc=com`: "got unescaped character: '\"'",
+
+		// U+002B (PLUS SIGN) — unescaped '+' acts as an RDN attribute separator.
+		"cn=John+": "DN ended with incomplete type, value pair",
+
+		// U+002C (COMMA) — unescaped ',' acts as an RDN separator.
+		"cn=John,": "DN ended with incomplete type, value pair",
+
+		// U+003B (SEMICOLON) — unescaped ';' acts as an RDN separator.
+		"cn=John;": "DN ended with incomplete type, value pair",
+
+		// U+003C (LESS-THAN SIGN)
+		"cn=John<Doe,dc=com": "got unescaped character: '<'",
+
+		// U+003E (GREATER-THAN SIGN)
+		"cn=John>Doe,dc=com": "got unescaped character: '>'",
+
+		// U+005C (REVERSE SOLIDUS) — a lone trailing backslash is a corrupted escape.
+		`cn=John\`: `got corrupted escaped character: 'John\'`,
+
+		// U+0000 (NULL)
+		"cn=John\x00Doe,dc=com": "got unescaped NULL character",
 	}
 
 	for test, answer := range testcases {
-		_, err := ParseDN(test)
+		dn, err := ParseDN(test)
 		if err == nil {
-			t.Errorf("Expected '%s' to fail parsing but succeeded\n", test)
+			t.Errorf("Expected '%s' to fail parsing but succeeded as '%s'\n", test, dn.String())
 		} else if err.Error() != answer {
 			t.Errorf("Unexpected error on: '%s':\nExpected:	%s\nGot:		%s\n", test, answer, err.Error())
 		}
@@ -370,7 +485,7 @@ func TestRoundTripLiteralSubject(t *testing.T) {
 	rdnSequences := map[string]string{
 		"cn=foo-long.com,ou=FooLong,ou=Barq,ou=Baz,ou=Dept.,o=Corp.,c=US":       "cn=foo-long.com,ou=FooLong,ou=Barq,ou=Baz,ou=Dept.,o=Corp.,c=US",
 		"cn=foo-lon❤️\\,g.com,ou=Foo===Long,ou=Ba # rq,ou=Baz,o=C\\; orp.,c=US": "cn=foo-lon\\e2\\9d\\a4\\ef\\b8\\8f\\,g.com,ou=Foo===Long,ou=Ba # rq,ou=Baz,o=C\\; orp.,c=US",
-		"cn=fo\x00o-long.com,ou=\x04FooLong":                                    "cn=fo\\00o-long.com,ou=\\04FooLong",
+		"cn=fo\\00o-long.com,ou=\x04FooLong":                                    "cn=fo\\00o-long.com,ou=\\04FooLong",
 	}
 
 	for subjIn, subjOut := range rdnSequences {
@@ -389,7 +504,6 @@ func TestDecodeString(t *testing.T) {
 	successTestcases := map[string]string{
 		"foo-long.com":      "foo-long.com",
 		"foo-lon❤️\\,g.com": "foo-lon❤️,g.com",
-		"fo\x00o-long.com":  "fo\x00o-long.com",
 		"fo\\00o-long.com":  "fo\x00o-long.com",
 	}
 
@@ -408,6 +522,7 @@ func TestDecodeString(t *testing.T) {
 		"fo\\0":             "failed to decode escaped character: encoding/hex: invalid byte: 0",
 		"fo\\UU️o-long.com": "failed to decode escaped character: encoding/hex: invalid byte: U+0055 'U'",
 		"fo\\0❤️o-long.com": "failed to decode escaped character: invalid byte: 0❤",
+		"fo\x00o-long.com":  "got unescaped NULL character",
 	}
 
 	for encoded, expectedError := range errorTestcases {
