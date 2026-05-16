@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -217,6 +218,86 @@ func TestDecodeControl(t *testing.T) {
 				t.Errorf("DecodeControl() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDecodeControlInvalidTypes(t *testing.T) {
+	// Hand-built packets that previously panicked the caller's
+	// goroutine when DecodeControl cast Value to string or bool
+	// without checking. See #561.
+	intChild := func(n int64) *ber.Packet {
+		return ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, n, "")
+	}
+	strChild := func(s string) *ber.Packet {
+		return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, s, "")
+	}
+	boolChild := func(b bool) *ber.Packet {
+		return ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, b, "")
+	}
+
+	tests := []struct {
+		name     string
+		children []*ber.Packet
+		wantErr  string
+	}{
+		{
+			name:     "one child, type not a string",
+			children: []*ber.Packet{intChild(42)},
+			wantErr:  "control type is not a string",
+		},
+		{
+			name:     "two children, type not a string",
+			children: []*ber.Packet{intChild(42), boolChild(true)},
+			wantErr:  "control type is not a string",
+		},
+		{
+			name:     "three children, type not a string",
+			children: []*ber.Packet{intChild(42), boolChild(true), strChild("v")},
+			wantErr:  "control type is not a string",
+		},
+		{
+			name:     "three children, criticality not a bool",
+			children: []*ber.Packet{strChild("1.2.3"), intChild(1), strChild("v")},
+			wantErr:  "criticality is not a bool",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+			for _, child := range tt.children {
+				p.AppendChild(child)
+			}
+			_, err := DecodeControl(p)
+			if err == nil {
+				t.Fatalf("DecodeControl returned nil error, want one containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDecodeControlUnknownTypeNonStringValue(t *testing.T) {
+	// Unknown ControlType with a non-string value used to panic at
+	// value.Value.(string) in the default branch. Now we fall back
+	// to the raw value bytes instead. See #561.
+	p := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "1.2.3.4.5", ""))
+	p.AppendChild(ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, false, ""))
+	p.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(99), ""))
+
+	c, err := DecodeControl(p)
+	if err != nil {
+		t.Fatalf("DecodeControl returned error: %v", err)
+	}
+	cs, ok := c.(*ControlString)
+	if !ok {
+		t.Fatalf("DecodeControl returned %T, want *ControlString", c)
+	}
+	if cs.ControlType != "1.2.3.4.5" {
+		t.Errorf("ControlType = %q, want %q", cs.ControlType, "1.2.3.4.5")
 	}
 }
 
