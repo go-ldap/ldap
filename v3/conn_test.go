@@ -402,3 +402,40 @@ func (c *packetTranslatorConn) SetReadDeadline(t time.Time) error {
 func (c *packetTranslatorConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
+
+func TestParseLDAPURL(t *testing.T) {
+	tests := []struct {
+		in       string
+		wantHost string
+		wantPath string
+		wantErr  bool
+	}{
+		{"ldap://ldap.example.com:389", "ldap.example.com:389", "", false},
+		{"ldaps://ldap.example.com", "ldap.example.com", "", false},
+		{"ldapi://", "", "", false},
+		{"ldapi:///", "", "/", false},
+		{"ldapi:///var/run/slapd/ldapi", "", "/var/run/slapd/ldapi", false},
+		{"ldapi://%2Fvar%2Frun%2Fslapd%2Fldapi", "/var/run/slapd/ldapi", "", false},
+		{"ldapi://%2Fvar%2Frun%2Fslapd%2Fldapi/dc=example,dc=com", "/var/run/slapd/ldapi", "/dc=example,dc=com", false},
+		{"ldapi://%ZZ", "", "", true},
+	}
+	for _, tc := range tests {
+		u, err := parseLDAPURL(tc.in)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("parseLDAPURL(%q): expected error, got nil", tc.in)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("parseLDAPURL(%q): unexpected error: %v", tc.in, err)
+			continue
+		}
+		if u.Host != tc.wantHost {
+			t.Errorf("parseLDAPURL(%q) host = %q, want %q", tc.in, u.Host, tc.wantHost)
+		}
+		if u.Path != tc.wantPath {
+			t.Errorf("parseLDAPURL(%q) path = %q, want %q", tc.in, u.Path, tc.wantPath)
+		}
+	}
+}
