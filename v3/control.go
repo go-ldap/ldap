@@ -565,12 +565,20 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case 1:
 		// just type, no criticality or value
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-		ControlType = packet.Children[0].Value.(string)
+		ct, ok := packet.Children[0].Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+		}
+		ControlType = ct
 
 	case 2:
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
 		if packet.Children[0].Value != nil {
-			ControlType = packet.Children[0].Value.(string)
+			ct, ok := packet.Children[0].Value.(string)
+			if !ok {
+				return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+			}
+			ControlType = ct
 		} else if packet.Children[0].Data != nil {
 			ControlType = packet.Children[0].Data.String()
 		} else {
@@ -579,9 +587,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 		// Children[1] could be criticality or value (both are optional)
 		// duck-type on whether this is a boolean
-		if _, ok := packet.Children[1].Value.(bool); ok {
+		if crit, ok := packet.Children[1].Value.(bool); ok {
 			packet.Children[1].Description = "Criticality"
-			Criticality = packet.Children[1].Value.(bool)
+			Criticality = crit
 		} else {
 			packet.Children[1].Description = "Control Value"
 			value = packet.Children[1]
@@ -589,10 +597,18 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 	case 3:
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-		ControlType = packet.Children[0].Value.(string)
+		ct, ok := packet.Children[0].Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+		}
+		ControlType = ct
 
 		packet.Children[1].Description = "Criticality"
-		Criticality = packet.Children[1].Value.(bool)
+		crit, ok := packet.Children[1].Value.(bool)
+		if !ok {
+			return nil, fmt.Errorf("criticality is not a bool: %T", packet.Children[1].Value)
+		}
+		Criticality = crit
 
 		packet.Children[2].Description = "Control Value"
 		value = packet.Children[2]
@@ -729,7 +745,16 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		c.ControlType = ControlType
 		c.Criticality = Criticality
 		if value != nil {
-			c.ControlValue = value.Value.(string)
+			// A non-conforming or malicious server can send a non-string
+			// (or nil) value here; the previous unchecked cast panicked
+			// the calling goroutine, see #561. Fall back to the raw bytes
+			// when the value isn't a string so we surface an error
+			// instead of crashing.
+			if s, ok := value.Value.(string); ok {
+				c.ControlValue = s
+			} else if value.Data != nil {
+				c.ControlValue = value.Data.String()
+			}
 		}
 		return c, nil
 	}
