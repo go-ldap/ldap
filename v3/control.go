@@ -622,6 +622,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case ControlTypeManageDsaIT:
 		return NewControlManageDsaIT(Criticality), nil
 	case ControlTypePaging:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypePaging")
+		}
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
@@ -642,6 +645,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		value.Children[1].Value = c.Cookie
 		return c, nil
 	case ControlTypeBeheraPasswordPolicy:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypeBeheraPasswordPolicy")
+		}
 		value.Description += " (Password Policy - Behera)"
 		c := NewControlBeheraPasswordPolicy()
 		if value.Value != nil {
@@ -717,9 +723,15 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case ControlTypeServerSideSortingResult:
 		return NewControlServerSideSortingResult(value)
 	case ControlTypeDirSync:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypeDirSync")
+		}
 		value.Description += " (DirSync)"
 		return NewResponseControlDirSync(value)
 	case ControlTypeSyncState:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypeSyncState")
+		}
 		value.Description += " (Sync State)"
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
 		if err != nil {
@@ -727,6 +739,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		}
 		return NewControlSyncState(valueChildren)
 	case ControlTypeSyncDone:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypeSyncDone")
+		}
 		value.Description += " (Sync Done)"
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
 		if err != nil {
@@ -734,6 +749,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		}
 		return NewControlSyncDone(valueChildren)
 	case ControlTypeSyncInfo:
+		if value == nil {
+			return nil, fmt.Errorf("nil value for Control Type ControlTypeSyncInfo")
+		}
 		value.Description += " (Sync Info)"
 		valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
 		if err != nil {
@@ -946,6 +964,9 @@ func (c *ControlServerSideSorting) GetControlType() string {
 }
 
 func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, error) {
+	if value == nil || len(value.Children) < 2 {
+		return new(ControlServerSideSorting), nil
+	}
 	sortKeys := []*SortKey{}
 
 	val := value.Children[1].Children
