@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -160,10 +161,18 @@ type DialContext struct {
 
 func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 	if u.Scheme == "ldapi" {
-		if u.Path == "" || u.Path == "/" {
-			u.Path = "/var/run/slapd/ldapi"
+		// RFC 4516 (and draft-chu-ldap-ldapi) put the socket path in the
+		// host component, percent-encoded; the path is an optional DN.
+		// parseLDAPURL has already decoded the host. Accept the older
+		// ldapi:///path form too so existing callers keep working.
+		path := u.Host
+		if path == "" {
+			path = u.Path
 		}
-		return dc.dialer.Dial("unix", u.Path)
+		if path == "" || path == "/" {
+			path = "/var/run/slapd/ldapi"
+		}
+		return dc.dialer.Dial("unix", path)
 	}
 
 	host, port, err := net.SplitHostPort(u.Host)
@@ -222,12 +231,33 @@ func DialTLS(network, addr string, config *tls.Config) (*Conn, error) {
 	return conn, nil
 }
 
+// parseLDAPURL parses an LDAP URL. It defers to net/url for the common
+// ldap/ldaps/cldap schemes, but handles ldapi specially: the spec puts the
+// unix socket path in the host, percent-encoded with %2F, and net/url rejects
+// that as invalid. Pull the host out manually and decode it.
+func parseLDAPURL(addr string) (*url.URL, error) {
+	const ldapi = "ldapi://"
+	if !strings.HasPrefix(addr, ldapi) {
+		return url.Parse(addr)
+	}
+	rest := addr[len(ldapi):]
+	host, path := rest, ""
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		host, path = rest[:i], rest[i:]
+	}
+	decodedHost, err := url.PathUnescape(host)
+	if err != nil {
+		return nil, fmt.Errorf("ldapi: invalid host %q: %w", host, err)
+	}
+	return &url.URL{Scheme: "ldapi", Host: decodedHost, Path: path}, nil
+}
+
 // DialURL connects to the given ldap URL.
 // The following schemas are supported: ldap://, ldaps://, ldapi://,
 // and cldap:// (RFC1798, deprecated but used by Active Directory).
 // On success a new Conn for the connection is returned.
 func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
-	u, err := url.Parse(addr)
+	u, err := parseLDAPURL(addr)
 	if err != nil {
 		return nil, NewError(ErrorNetwork, err)
 	}
