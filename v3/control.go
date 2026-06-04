@@ -946,28 +946,39 @@ func (c *ControlServerSideSorting) GetControlType() string {
 }
 
 func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, error) {
-	sortKeys := []*SortKey{}
+	val, err := ber.DecodePacketErr(value.Data.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("decode packet err: %s", err)
+	}
 
-	val := value.Children[1].Children
-
-	if len(val) != 1 {
+	if len(val.Children) == 0 {
 		return nil, fmt.Errorf("no sequence value in packet")
 	}
 
-	sequences := val[0].Children
+	var sortKeys []*SortKey
 
-	for i, sequence := range sequences {
-		sortKey := new(SortKey)
-
-		if len(sequence.Children) < 2 {
-			return nil, fmt.Errorf("attributeType or matchingRule is missing from sequence %d", i)
+	for i, sequence := range val.Children {
+		if len(sequence.Children) < 1 || len(sequence.Children) > 3 {
+			return nil, fmt.Errorf("attributeType is missing from sequence %d", i)
 		}
 
-		sortKey.AttributeType = sequence.Children[0].Value.(string)
-		sortKey.MatchingRule = sequence.Children[1].Value.(string)
+		sortKey := new(SortKey)
 
-		if len(sequence.Children) == 3 {
-			sortKey.Reverse = sequence.Children[2].Value.(bool)
+		for _, child := range sequence.Children {
+			switch {
+			case child.ClassType == ber.ClassUniversal && child.Tag == ber.TagOctetString:
+				sortKey.AttributeType = child.Value.(string)
+
+			case child.ClassType == ber.ClassContext && child.Tag == 0:
+				sortKey.MatchingRule = child.Data.String()
+
+			case child.ClassType == ber.ClassContext && child.Tag == 1:
+				b := child.Data.Bytes()
+				sortKey.Reverse = len(b) > 0 && b[0] != 0
+			}
+		}
+		if sortKey.AttributeType == "" {
+			return nil, fmt.Errorf("attributeType is missing from sequence %d", i)
 		}
 
 		sortKeys = append(sortKeys, sortKey)
@@ -984,7 +995,6 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	control := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.GetControlType(), "Control Type")
 
-	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value")
 	seqs := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKeyList")
 
 	for _, f := range c.SortKeys {
@@ -993,9 +1003,11 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 		seq.AppendChild(
 			ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, f.AttributeType, "attributeType"),
 		)
-		seq.AppendChild(
-			ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
-		)
+		if f.MatchingRule != "" {
+			seq.AppendChild(
+				ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
+			)
+		}
 		if f.Reverse {
 			seq.AppendChild(
 				ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 1, f.Reverse, "reverseOrder"),
@@ -1005,7 +1017,7 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 		seqs.AppendChild(seq)
 	}
 
-	value.AppendChild(seqs)
+	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(seqs.Bytes()), "Control Value")
 
 	packet.AppendChild(control)
 	packet.AppendChild(value)

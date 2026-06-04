@@ -198,6 +198,10 @@ func TestDecodeControl(t *testing.T) {
 			name: "passwordInHistory", args: args{packet: ber.DecodePacket([]byte{0xa0, 0x24, 0x30, 0x22, 0x4, 0x19, 0x31, 0x2e, 0x33, 0x2e, 0x36, 0x2e, 0x31, 0x2e, 0x34, 0x2e, 0x31, 0x2e, 0x34, 0x32, 0x2e, 0x32, 0x2e, 0x32, 0x37, 0x2e, 0x38, 0x2e, 0x35, 0x2e, 0x31, 0x4, 0x5, 0x30, 0x3, 0x81, 0x1, 0x8})},
 			want: &ControlBeheraPasswordPolicy{Expire: -1, Grace: -1, Error: 8, ErrorString: "New password is in list of old passwords"}, wantErr: false,
 		},
+		{
+			name: "serverSideSort", args: args{packet: ber.DecodePacket([]byte{160, 36, 48, 34, 4, 22, 49, 46, 50, 46, 56, 52, 48, 46, 49, 49, 51, 53, 53, 54, 46, 49, 46, 52, 46, 52, 55, 51, 4, 8, 48, 6, 48, 4, 4, 2, 99, 110})},
+			want: &ControlServerSideSorting{SortKeys: []*SortKey{{Reverse: false, AttributeType: "cn", MatchingRule: ""}}}, wantErr: false,
+		},
 	}
 	for i := range tests {
 		err := addControlDescriptions(tests[i].args.packet)
@@ -312,11 +316,11 @@ func TestControlServerSideSortingDecoding(t *testing.T) {
 		Reverse:       false,
 	}, {
 		MatchingRule:  "",
-		AttributeType: "",
+		AttributeType: "cn",
 		Reverse:       false,
 	}, {
 		MatchingRule:  "totoRule",
-		AttributeType: "",
+		AttributeType: "cn",
 		Reverse:       false,
 	}, {
 		MatchingRule:  "",
@@ -324,7 +328,8 @@ func TestControlServerSideSortingDecoding(t *testing.T) {
 		Reverse:       false,
 	}})
 
-	controlDecoded, err := NewControlServerSideSorting(control.Encode())
+	// NewControlServerSideSorting need control's value, not the whole control
+	controlDecoded, err := NewControlServerSideSorting(control.Encode().Children[1])
 	if err != nil {
 		t.Fatal(err)
 	}
