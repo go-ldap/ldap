@@ -3,13 +3,13 @@ package ldap
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"strings"
 	"unicode/utf16"
 
@@ -221,12 +221,15 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 	}
 
 	if len(params) > 0 {
-		resp := computeResponse(
+		resp, err := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
 			digestMD5BindRequest.Username,
 			digestMD5BindRequest.Password,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("compute digest-md5 response: %s", err)
+		}
 		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 
@@ -335,10 +338,14 @@ func parseParams(str string) (map[string]string, error) {
 	return m, nil
 }
 
-func computeResponse(params map[string]string, uri, username, password string) string {
+func computeResponse(params map[string]string, uri, username, password string) (string, error) {
 	nc := "00000001"
 	qop := "auth"
-	cnonce := enchex.EncodeToString(randomBytes(16))
+	rb, err := randomBytes(16)
+	if err != nil {
+		return "", err
+	}
+	cnonce := enchex.EncodeToString(rb)
 	x := username + ":" + params["realm"] + ":" + password
 	y := md5Hash([]byte(x))
 
@@ -368,7 +375,7 @@ func computeResponse(params map[string]string, uri, username, password string) s
 		qop,
 		uri,
 		resp,
-	)
+	), nil
 }
 
 func md5Hash(b []byte) []byte {
@@ -377,12 +384,12 @@ func md5Hash(b []byte) []byte {
 	return hasher.Sum(nil)
 }
 
-func randomBytes(len int) []byte {
-	b := make([]byte, len)
-	for i := 0; i < len; i++ {
-		b[i] = byte(rand.Intn(256))
+func randomBytes(length int) ([]byte, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
 	}
-	return b
+	return b, nil
 }
 
 var externalBindRequest = requestFunc(func(envelope *ber.Packet) error {
