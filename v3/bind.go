@@ -368,14 +368,24 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	resp := enchex.EncodeToString(md5Hash([]byte(kd)))
 	return fmt.Sprintf(
 		`username="%s",realm="%s",nonce="%s",cnonce="%s",nc=00000001,qop=%s,digest-uri="%s",response=%s`,
-		username,
-		params["realm"],
-		params["nonce"],
+		quotedStringEscape(username),
+		quotedStringEscape(params["realm"]),
+		quotedStringEscape(params["nonce"]),
 		cnonce,
 		qop,
-		uri,
+		quotedStringEscape(uri),
 		resp,
 	), nil
+}
+
+// quotedStringEscape escapes the two characters that may not appear unescaped
+// inside a DIGEST-MD5 quoted string per RFC 2831 section 7.1: the backslash
+// and the double quote. The backslash is replaced first so the quotes escaped
+// afterwards are not doubled.
+func quotedStringEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 func md5Hash(b []byte) []byte {
