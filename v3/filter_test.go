@@ -258,6 +258,33 @@ func TestInvalidFilter(t *testing.T) {
 	}
 }
 
+func TestDecompileFilterEscapesAttribute(t *testing.T) {
+	eq := ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
+	eq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "uid)(uid=admin", "Attribute"))
+	eq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "x", "Condition"))
+
+	got, err := DecompileFilter(eq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `(uid\29\28uid=admin=x)`; got != want {
+		t.Errorf("equality attribute not escaped: got %q want %q", got, want)
+	}
+
+	em := ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
+	em.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, MatchingRuleAssertionMatchingRule, "1)(x=*", MatchingRuleAssertionMap[MatchingRuleAssertionMatchingRule]))
+	em.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, MatchingRuleAssertionType, "cn*evil", MatchingRuleAssertionMap[MatchingRuleAssertionType]))
+	em.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, MatchingRuleAssertionMatchValue, "v", MatchingRuleAssertionMap[MatchingRuleAssertionMatchValue]))
+
+	got, err = DecompileFilter(em)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `(cn\2aevil:1\29\28x=\2a:=v)`; got != want {
+		t.Errorf("extensible match attribute/rule not escaped: got %q want %q", got, want)
+	}
+}
+
 func BenchmarkFilterCompile(b *testing.B) {
 	b.StopTimer()
 	filters := make([]string, len(testFilters))
