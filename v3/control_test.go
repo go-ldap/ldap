@@ -358,3 +358,18 @@ func TestControlServerSideSortingDecoding(t *testing.T) {
 		}
 	}
 }
+
+func TestControlServerSideSortingResultDecoding(t *testing.T) {
+	for _, code := range ControlServerSideSortingCodes {
+		control := &ControlServerSideSortingResult{Result: code}
+
+		decoded, err := NewControlServerSideSortingResult(control.Encode())
+		if err != nil {
+			t.Fatalf("failed to decode result code %d: %s", code, err)
+		}
+
+		if decoded.Result != code {
+			t.Fatalf("result code mismatch: encoded %d - decoded %d", code, decoded.Result)
+		}
+	}
+}

@@ -1097,6 +1097,8 @@ func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSorti
 		return nil, err
 	}
 
+	control.Result = ControlServerSideSortingCode(codeInt)
+
 	return control, nil
 }
 
