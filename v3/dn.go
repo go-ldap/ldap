@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -244,9 +245,17 @@ func decodeEncodedString(str string) (string, error) {
 		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
 	}
 
-	packet, err := ber.DecodePacketErr(decoded)
+	// RFC 4514 section 2.4: the value following '#' is the hex encoding of the
+	// BER encoding of a single AttributeValue. Read exactly one element and
+	// reject any leftover octets, otherwise bytes appended after the value are
+	// silently dropped and two different DN strings decode to the same value.
+	reader := bytes.NewBuffer(decoded)
+	packet, err := ber.ReadPacket(reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
+	}
+	if reader.Len() != 0 {
+		return "", errors.New("failed to decode BER encoding: trailing bytes after value")
 	}
 
 	return packet.Data.String(), nil

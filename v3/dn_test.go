@@ -229,6 +229,8 @@ func TestErrorDNParsing(t *testing.T) {
 		"cn=Jim\\0":                 "failed to decode escaped character: encoding/hex: invalid byte: 0",
 		"DC=example,=net":           "DN ended with incomplete type, value pair",
 		"1=#0402486":                "failed to decode BER encoding: encoding/hex: odd length hex string",
+		"1=#0402486900":             "failed to decode BER encoding: trailing bytes after value",
+		"1=#04024869ffff,DC=net":    "failed to decode BER encoding: trailing bytes after value",
 		"test,DC=example,DC=com":    "incomplete type, value pair",
 		"=test,DC=example,DC=com":   "incomplete type, value pair",
 		"1.3.6.1.4.1.1466.0=test+":  "DN ended with incomplete type, value pair",
