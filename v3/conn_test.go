@@ -163,6 +163,51 @@ func TestFinishMessage(t *testing.T) {
 	conn.Close()
 }
 
+// TestConnErrorDataRace ensures the background goroutines that record the
+// connection's last error are synchronized with callers reading it through
+// GetLastError. Run under -race it fails when the writes bypass the mutex the
+// getter holds.
+func TestConnErrorDataRace(t *testing.T) {
+	ptc := newPacketTranslatorConn()
+	defer ptc.Close()
+
+	conn := NewConn(ptc, false)
+	conn.Start()
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				_ = conn.GetLastError()
+			}
+		}
+	}()
+
+	// Responses carrying message IDs with no outstanding request drive
+	// processMessages into the branch that records an unexpected-message error.
+	for i := 0; i < 100; i++ {
+		response := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Response")
+		response.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(900000+i), "MessageID"))
+		response.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, 0, "Response"))
+		if err := ptc.SendResponse(response); err != nil {
+			t.Fatalf("unable to send response packet: %s", err)
+		}
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	close(done)
+	wg.Wait()
+
+	conn.Close()
+}
+
 // See: https://github.com/go-ldap/ldap/issues/332
 func TestNilConnection(t *testing.T) {
 	var conn *Conn
