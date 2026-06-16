@@ -208,6 +208,54 @@ func TestConnErrorDataRace(t *testing.T) {
 	conn.Close()
 }
 
+// TestUnbindCloseDeadlock calls Unbind against a connection whose server
+// side disconnects immediately after receiving the unbind PDU. This
+// exercises the race between the reader goroutine (which stores closeErr
+// and calls Close from its defer) and Unbind's own Close call.
+//
+// Unbind previously discarded the messageContext returned by doRequest
+// without calling finishMessage. If the reader won the race, the
+// processMessages cleanup would block in sendResponse on the orphaned
+// context's unclosed done channel, deadlocking Close.
+//
+// Under normal execution the race window is narrow and the deadlock is
+// not guaranteed to trigger. To verify deterministically, widen the
+// window by adding a sleep in Unbind between doRequest and finishMessage
+// and commenting out finishMessage — see the commit message for details.
+func TestUnbindCloseDeadlock(t *testing.T) {
+	server, client := net.Pipe()
+
+	conn := NewConn(client, false)
+	conn.Start()
+
+	// Server: read the unbind PDU, then close to simulate disconnect.
+	go func() {
+		buf := make([]byte, 4096)
+		_, err := server.Read(buf)
+		if err != nil {
+			t.Errorf("unexpected error from concurrent server read: %v", err)
+		}
+		err = server.Close()
+		if err != nil {
+			t.Errorf("unexpected error from concurrent server close: %v", err)
+		}
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- conn.Unbind()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil && !IsErrorWithCode(err, ErrorNetwork) {
+			t.Fatalf("Unbind: unexpected error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Unbind deadlocked: orphaned messageContext blocked processMessages cleanup")
+	}
+}
+
 // See: https://github.com/go-ldap/ldap/issues/332
 func TestNilConnection(t *testing.T) {
 	var conn *Conn
