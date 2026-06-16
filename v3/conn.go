@@ -113,7 +113,11 @@ type Conn struct {
 	outstandingRequests uint
 	messageMutex        sync.Mutex
 
-	err error
+	// errMutex guards err only. It is a leaf lock: processMessages and reader
+	// record errors while another goroutine may hold messageMutex, so err must
+	// not share messageMutex or those writers could deadlock.
+	errMutex sync.Mutex
+	err      error
 }
 
 var _ Client = &Conn{}
@@ -368,9 +372,19 @@ func (l *Conn) nextMessageID() int64 {
 // GetLastError returns the last recorded error from goroutines like processMessages and reader.
 // Only the last recorded error will be returned.
 func (l *Conn) GetLastError() error {
-	l.messageMutex.Lock()
-	defer l.messageMutex.Unlock()
+	l.errMutex.Lock()
+	defer l.errMutex.Unlock()
 	return l.err
+}
+
+// setError records the connection's last error. The background goroutines that
+// call it (processMessages, reader, the per-request timeout helper and the
+// SearchAsync worker) run concurrently with callers of GetLastError, so the
+// write must take the mutex the getter reads under.
+func (l *Conn) setError(err error) {
+	l.errMutex.Lock()
+	defer l.errMutex.Unlock()
+	l.err = err
 }
 
 // StartTLS sends the command to start a TLS session and then creates a new TLS Client
@@ -521,7 +535,7 @@ func (l *Conn) sendProcessMessage(message *messagePacket) bool {
 func (l *Conn) processMessages() {
 	defer func() {
 		if err := recover(); err != nil {
-			l.err = fmt.Errorf("ldap: recovered panic in processMessages: %v", err)
+			l.setError(fmt.Errorf("ldap: recovered panic in processMessages: %v", err))
 		}
 		for messageID, msgCtx := range l.messageContexts {
 			// If we are closing due to an error, inform anyone who
@@ -571,7 +585,7 @@ func (l *Conn) processMessages() {
 						timer := time.NewTimer(time.Duration(requestTimeout))
 						defer func() {
 							if err := recover(); err != nil {
-								l.err = fmt.Errorf("ldap: recovered panic in RequestTimeout: %v", err)
+								l.setError(fmt.Errorf("ldap: recovered panic in RequestTimeout: %v", err))
 							}
 
 							timer.Stop()
@@ -593,7 +607,7 @@ func (l *Conn) processMessages() {
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
 					msgCtx.sendResponse(&PacketResponse{message.Packet, nil}, time.Duration(l.getTimeout()))
 				} else {
-					l.err = fmt.Errorf("ldap: received unexpected message %d, %v", message.MessageID, l.IsClosing())
+					l.setError(fmt.Errorf("ldap: received unexpected message %d, %v", message.MessageID, l.IsClosing()))
 					l.Debug.PrintPacket(message.Packet)
 				}
 			case MessageTimeout:
@@ -620,7 +634,7 @@ func (l *Conn) reader() {
 	cleanstop := false
 	defer func() {
 		if err := recover(); err != nil {
-			l.err = fmt.Errorf("ldap: recovered panic in reader: %v", err)
+			l.setError(fmt.Errorf("ldap: recovered panic in reader: %v", err))
 		}
 		if !cleanstop {
 			l.Close()

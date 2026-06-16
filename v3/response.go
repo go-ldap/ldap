@@ -71,7 +71,7 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 		defer func() {
 			close(r.ch)
 			if err := recover(); err != nil {
-				r.conn.err = fmt.Errorf("ldap: recovered panic in searchResponse: %v", err)
+				r.conn.setError(fmt.Errorf("ldap: recovered panic in searchResponse: %v", err))
 			}
 		}()
 
