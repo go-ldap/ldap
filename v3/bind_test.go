@@ -74,6 +74,18 @@ func TestComputeResponseQuotesServerRealm(t *testing.T) {
 	assert.Contains(t, resp, `realm="r\"x"`)
 }
 
+func TestParseParamsUnescapesQuotedPair(t *testing.T) {
+	// The DIGEST-MD5 challenge is sent by the server as comma-separated
+	// directives whose values are quoted strings. Per RFC 2831 section 7.1 a
+	// literal double quote or backslash inside such a value is sent as a
+	// quoted-pair (\" or \\), so the parser has to unescape it. Without that
+	// the value is truncated at the escaped quote and the bind fails.
+	params, err := parseParams(`realm="a\"b",nonce="c\\d"`)
+	assert.NoError(t, err)
+	assert.Equal(t, `a"b`, params["realm"])
+	assert.Equal(t, `c\d`, params["nonce"])
+}
+
 func TestConn_UnauthenticatedBind(t *testing.T) {
 	l, err := getTestConnection(false)
 	if err != nil {

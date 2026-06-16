@@ -294,6 +294,7 @@ func parseParams(str string) (map[string]string, error) {
 	m := make(map[string]string)
 	var key, value string
 	var state int
+	var escaped bool
 	for i := 0; i <= len(str); i++ {
 		switch state {
 		case 0: // reading key
@@ -328,10 +329,20 @@ func parseParams(str string) (map[string]string, error) {
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
 			}
-			if str[i] != '"' {
+			switch {
+			case escaped:
+				// RFC 2831 section 7.1 quoted-pair: a backslash escapes the
+				// following character, so the next byte is taken literally
+				// (this is how a server sends a literal " or \ in a realm or
+				// nonce).
 				value += string(str[i])
-			} else {
+				escaped = false
+			case str[i] == '\\':
+				escaped = true
+			case str[i] == '"':
 				state = 1
+			default:
+				value += string(str[i])
 			}
 		}
 	}
