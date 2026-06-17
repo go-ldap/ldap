@@ -96,9 +96,21 @@ func (d *DN) String() string {
 func stripLeadingAndTrailingSpaces(inVal string) string {
 	noSpaces := strings.Trim(inVal, " ")
 
-	// Re-add the trailing space if it was an escaped space
-	if len(noSpaces) > 0 && noSpaces[len(noSpaces)-1] == '\\' && inVal[len(inVal)-1] == ' ' {
-		noSpaces = noSpaces + " "
+	// Re-add the trailing space only if it was escaped. A trailing space is
+	// escaped when it is preceded by an odd number of backslashes; an even
+	// number leaves the space unescaped (each "\\" is a literal backslash), so
+	// the space is insignificant and stays stripped. Counting only the final
+	// backslash treated "\\ " (a literal backslash plus an insignificant
+	// space) as an escaped space, keeping a spurious trailing space in the
+	// decoded value.
+	if len(noSpaces) > 0 && inVal[len(inVal)-1] == ' ' {
+		backslashes := 0
+		for i := len(noSpaces) - 1; i >= 0 && noSpaces[i] == '\\'; i-- {
+			backslashes++
+		}
+		if backslashes%2 == 1 {
+			noSpaces = noSpaces + " "
+		}
 	}
 
 	return noSpaces
