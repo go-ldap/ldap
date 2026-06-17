@@ -320,6 +320,10 @@ func TestDNEqual(t *testing.T) {
 		{"o=A+o=B", "O=B+o=A+O=C", false}, // missing values matter
 		{"o=A+o=B+o=C", "O=B+o=A", false}, // missing values matter
 
+		// Repeated attribute value multiplicity is significant
+		{"o=A+o=A+o=B", "o=A+o=B+o=B", false}, // same values, different counts
+		{"o=A+o=A+o=B", "o=A+o=A+o=B", true},  // identical repeats still match
+
 		// Whitespace tests
 		// Matching
 		{
@@ -390,6 +394,10 @@ func TestDNEqualFold(t *testing.T) {
 		{"o=A", "O=a", true},
 		{"o=A,o=b", "o=a,O=B", true},
 		{"o=a+o=B", "o=A+O=b", true},
+
+		// Repeated attribute value multiplicity is significant
+		{"o=A+o=a+o=B", "o=a+o=A+o=b", true},  // two folded a's and one b on both sides
+		{"o=A+o=a+o=b", "o=a+o=b+o=B", false}, // {a:2,b:1} vs {a:1,b:2}
 	}
 
 	for i, tc := range testcases {
