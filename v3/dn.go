@@ -372,10 +372,19 @@ func (r *RelativeDN) Equal(other *RelativeDN) bool {
 }
 
 func (r *RelativeDN) hasAllAttributes(attrs []*AttributeTypeAndValue) bool {
+	// Each candidate attribute must match a distinct attribute of the receiver.
+	// Without consuming matches this is a set containment test, so a multi-valued
+	// RDN that repeats an attributeTypeAndValue would compare equal to one that
+	// repeats a different pair the same number of times.
+	matched := make([]bool, len(r.Attributes))
 	for _, attr := range attrs {
 		found := false
-		for _, myattr := range r.Attributes {
+		for i, myattr := range r.Attributes {
+			if matched[i] {
+				continue
+			}
 			if myattr.Equal(attr) {
+				matched[i] = true
 				found = true
 				break
 			}
@@ -435,10 +444,16 @@ func (r *RelativeDN) EqualFold(other *RelativeDN) bool {
 }
 
 func (r *RelativeDN) hasAllAttributesFold(attrs []*AttributeTypeAndValue) bool {
+	// See hasAllAttributes: matches are consumed so multiplicity is respected.
+	matched := make([]bool, len(r.Attributes))
 	for _, attr := range attrs {
 		found := false
-		for _, myattr := range r.Attributes {
+		for i, myattr := range r.Attributes {
+			if matched[i] {
+				continue
+			}
 			if myattr.EqualFold(attr) {
+				matched[i] = true
 				found = true
 				break
 			}
