@@ -533,3 +533,30 @@ func TestDecodeString(t *testing.T) {
 		assert.EqualError(t, err, expectedError)
 	}
 }
+
+func TestDecodeStringTrailingSpace(t *testing.T) {
+	// A trailing space is significant only when escaped by an odd number of
+	// backslashes. An even number leaves it unescaped and insignificant, so it
+	// must be stripped rather than kept by the preceding backslash.
+	testcases := map[string]string{
+		`admin\ `:    "admin ",  // 1 backslash: escaped space, kept
+		`admin\\ `:   `admin\`,  // 2 backslashes: literal '\', space stripped
+		`admin\\\ `:  `admin\ `, // 3 backslashes: literal '\' + escaped space
+		`admin\\\\ `: `admin\\`, // 4 backslashes: two literal '\', space stripped
+	}
+	for encoded, decoded := range testcases {
+		decodedString, err := decodeString(encoded)
+		if err != nil {
+			t.Fatalf("decodeString(%q): %v", encoded, err)
+		}
+		assert.Equal(t, decoded, decodedString, "decodeString(%q)", encoded)
+	}
+
+	// Two DN strings that differ only by an insignificant trailing space must
+	// compare equal under distinguishedNameMatch.
+	a, err := ParseDN(`CN=admin\\`)
+	assert.NoError(t, err)
+	b, err := ParseDN(`CN=admin\\ `)
+	assert.NoError(t, err)
+	assert.True(t, a.Equal(b), `ParseDN("CN=admin\\") should equal ParseDN("CN=admin\\ ")`)
+}
