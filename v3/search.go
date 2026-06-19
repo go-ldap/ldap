@@ -245,7 +245,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //	if err := result.Unmarshal(&user); err != nil {
 //		// ...
 //	}
-func (e *Entry) Unmarshal(i interface{}) (err error) {
+func (e *Entry) Unmarshal(i any) (err error) {
 	return e.UnmarshalFunc(i, func(entry *Entry, ft reflect.StructField, fv reflect.Value) error {
 		// omitempty can be safely discarded, as it's not needed when unmarshalling
 		fieldTag, _ := readTag(ft)
@@ -307,10 +307,10 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 
 // UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values.
 // A custom unmarshaler can be found in the Unmarshal function or in the test files.
-func (e *Entry) UnmarshalFunc(i interface{},
+func (e *Entry) UnmarshalFunc(i any,
 	fn func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error) error {
 	// Make sure it's a ptr
-	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
+	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Pointer {
 		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
 	}
 
@@ -713,7 +713,7 @@ func (l *Conn) DirSync(
 	return searchResult, nil
 }
 
-// DirSyncDirSyncAsync performs a search request and returns all search results
+// DirSyncAsync performs a search request and returns all search results
 // asynchronously. This is efficient when the server returns lots of entries.
 func (l *Conn) DirSyncAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int,
