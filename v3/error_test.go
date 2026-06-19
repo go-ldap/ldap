@@ -80,7 +80,6 @@ func TestWrappedError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			actual := IsErrorAnyOf(tt.err, tt.codes...)
@@ -212,8 +211,8 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 
 	// Test that if the matchedDN is nil, we get an appropriate error instead of a panic.
 	// Panic message would be "interface conversion: interface {} is nil, not string"
-	panic_data := []byte("07A\x010\x7f\xff00\x02\x010D\"0000000000000000000000000000000000D\x010A\x010A\x010")
-	packet, err := ber.ReadPacket(bytes.NewReader(panic_data))
+	panicData := []byte("07A\x010\x7f\xff00\x02\x010D\"0000000000000000000000000000000000D\x010A\x010A\x010")
+	packet, err := ber.ReadPacket(bytes.NewReader(panicData))
 	if err != nil {
 		panic(fmt.Sprintf("failed to read packet for panic test: %s", err))
 	}
