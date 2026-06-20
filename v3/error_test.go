@@ -167,7 +167,7 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 	corpus["unexpected ordering"] = testCorpusErrorEntry{
 		packet:             packet,
 		expectedResultCode: ErrorNetwork,
-		expectedMessage:    "Invalid packet format",
+		expectedMessage:    "invalid packet format",
 		shouldError:        true,
 	}
 
@@ -175,7 +175,7 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 	corpus["nil packet"] = testCorpusErrorEntry{
 		packet:             nil,
 		expectedResultCode: ErrorUnexpectedResponse,
-		expectedMessage:    "Empty packet",
+		expectedMessage:    "empty packet",
 		shouldError:        true,
 	}
 
@@ -188,13 +188,13 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 	corpus["nil first child"] = testCorpusErrorEntry{
 		packet:             packet,
 		expectedResultCode: ErrorUnexpectedResponse,
-		expectedMessage:    "Empty response in packet",
+		expectedMessage:    "empty response in packet",
 		shouldError:        true,
 	}
 
 	// Test that if the result code is nil, we get an appropriate error instead of a panic.
 	// Panic message would be "interface conversion: interface {} is nil, not int64"
-	diagnosticMessage = "Invalid result code in packet"
+	diagnosticMessage = "invalid result code in packet"
 	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
 	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, nil, "resultCode"))
 	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
@@ -219,7 +219,7 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 	corpus["panic data"] = testCorpusErrorEntry{
 		packet:             packet,
 		expectedResultCode: ErrorNetwork,
-		expectedMessage:    "Invalid matchedDN in packet",
+		expectedMessage:    "invalid matchedDN in packet",
 		shouldError:        true,
 	}
 
