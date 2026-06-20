@@ -836,7 +836,10 @@ RESP:
 		}
 		switch resultCode.Value.(int64) {
 		case 14: // Sasl bind in progress
-			if len(protocolOp.Children) < 3 {
+			// serverSaslCreds is the optional [7] field that follows the
+			// three LDAPResult components, so it sits at child index 3 and
+			// requires at least four children to be present.
+			if len(protocolOp.Children) < 4 {
 				break RESP
 			}
 			referral := protocolOp.Children[3]
