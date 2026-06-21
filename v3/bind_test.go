@@ -86,6 +86,26 @@ func TestParseParamsUnescapesQuotedPair(t *testing.T) {
 	assert.Equal(t, `c\d`, params["nonce"])
 }
 
+func TestParseParamsLinearWhitespace(t *testing.T) {
+	// The DIGEST-MD5 challenge is an RFC 2068 #rule (RFC 2831 section 2.1.1),
+	// so a conforming server may put optional linear whitespace around the
+	// comma directive separators. Every directive after the first must still be
+	// keyed by its name; otherwise the leading space makes realm/nonce lookups
+	// in computeResponse return empty and the bind digest is computed over the
+	// wrong parameters.
+	params, err := parseParams(`realm="example.com", nonce="abc123" , qop=auth`)
+	assert.NoError(t, err)
+	assert.Equal(t, "example.com", params["realm"])
+	assert.Equal(t, "abc123", params["nonce"])
+	assert.Equal(t, "auth", params["qop"])
+
+	// Whitespace inside a quoted value is still significant and must be kept.
+	params, err = parseParams(`realm="a b", nonce="c d"`)
+	assert.NoError(t, err)
+	assert.Equal(t, "a b", params["realm"])
+	assert.Equal(t, "c d", params["nonce"])
+}
+
 func TestConn_UnauthenticatedBind(t *testing.T) {
 	l, err := getTestConnection(false)
 	if err != nil {
