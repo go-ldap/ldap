@@ -622,6 +622,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case ControlTypeManageDsaIT:
 		return NewControlManageDsaIT(Criticality), nil
 	case ControlTypePaging:
+		if value == nil {
+			return nil, fmt.Errorf("paging control value is missing")
+		}
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
@@ -633,11 +636,21 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 			value.Value = nil
 			value.AppendChild(valueChildren)
 		}
+		if len(value.Children) == 0 {
+			return nil, fmt.Errorf("paging control value is empty")
+		}
 		value = value.Children[0]
 		value.Description = "Search Control Value"
+		if len(value.Children) < 2 {
+			return nil, fmt.Errorf("paging control value has %d children, expected 2", len(value.Children))
+		}
 		value.Children[0].Description = "Paging Size"
 		value.Children[1].Description = "Cookie"
-		c.PagingSize = uint32(value.Children[0].Value.(int64))
+		pagingSize, ok := value.Children[0].Value.(int64)
+		if !ok {
+			return nil, fmt.Errorf("paging size is not an integer: %T", value.Children[0].Value)
+		}
+		c.PagingSize = uint32(pagingSize)
 		c.Cookie = value.Children[1].Data.Bytes()
 		value.Children[1].Value = c.Cookie
 		return c, nil
