@@ -2,7 +2,9 @@ package ldap
 
 import (
 	"testing"
+	"time"
 
+	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,4 +98,65 @@ func TestConn_UnauthenticatedBind(t *testing.T) {
 	err = l.UnauthenticatedBind("cn=admin," + baseDN)
 	assert.Error(t, err)
 	assert.Truef(t, IsErrorWithCode(err, LDAPResultUnwillingToPerform), "Expected LDAPResultUnwillingToPerform, got %v", err)
+}
+
+// TestSASLBindTokenExchangeShortInProgress feeds a saslBindInProgress response
+// that omits the optional serverSaslCreds, so the protocolOp carries only the
+// three LDAPResult components. The length guard before reading the creds child
+// must reject it instead of indexing past the slice.
+func TestSASLBindTokenExchangeShortInProgress(t *testing.T) {
+	ptc := newPacketTranslatorConn()
+	defer ptc.Close()
+
+	conn := NewConn(ptc, false)
+	conn.Start()
+	defer conn.Close()
+
+	type result struct {
+		err       error
+		panicked  bool
+		panicData interface{}
+	}
+	resCh := make(chan result, 1)
+	go func() {
+		var res result
+		defer func() {
+			if r := recover(); r != nil {
+				res.panicked = true
+				res.panicData = r
+			}
+			resCh <- res
+		}()
+		_, res.err = conn.saslBindTokenExchange(nil, []byte("client-token"))
+	}()
+
+	req, err := ptc.ReceiveRequest()
+	if err != nil {
+		t.Fatalf("receive request: %v", err)
+	}
+	msgID := req.Children[0].Value.(int64)
+
+	resp := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Response")
+	resp.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, msgID, "MessageID"))
+	bindResp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResp.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, 14, "resultCode"))
+	bindResp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+	bindResp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+	resp.AppendChild(bindResp)
+
+	if err := ptc.SendResponse(resp); err != nil {
+		t.Fatalf("send response: %v", err)
+	}
+
+	select {
+	case res := <-resCh:
+		if res.panicked {
+			t.Fatalf("saslBindTokenExchange panicked on short response: %v", res.panicData)
+		}
+		if res.err == nil {
+			t.Fatal("expected an error for a saslBindInProgress response without serverSaslCreds")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("saslBindTokenExchange did not return")
+	}
 }
