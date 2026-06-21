@@ -16,6 +16,72 @@ func TestControlPaging(t *testing.T) {
 	runControlTest(t, NewControlPaging(100))
 }
 
+func TestDecodeControlPagingMalformed(t *testing.T) {
+	// Hand-built paging response controls that previously panicked the
+	// caller's goroutine: a missing value (nil deref) and a value whose
+	// inner sequence is empty or too short (index out of range).
+	typeChild := func() *ber.Packet {
+		return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypePaging, "Control Type")
+	}
+	valueWithSeq := func(children ...*ber.Packet) *ber.Packet {
+		v := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value (Paging)")
+		seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Search Control Value")
+		for _, c := range children {
+			seq.AppendChild(c)
+		}
+		v.AppendChild(seq)
+		return v
+	}
+
+	tests := []struct {
+		name     string
+		children []*ber.Packet
+		wantErr  string
+	}{
+		{
+			name:     "missing value",
+			children: []*ber.Packet{typeChild(), ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, true, "Criticality")},
+			wantErr:  "paging control value is missing",
+		},
+		{
+			name:     "empty value sequence",
+			children: []*ber.Packet{typeChild(), valueWithSeq()},
+			wantErr:  "expected 2",
+		},
+		{
+			name: "value sequence with one child",
+			children: []*ber.Packet{typeChild(), valueWithSeq(
+				ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "Paging Size"),
+			)},
+			wantErr: "expected 2",
+		},
+		{
+			name: "paging size not an integer",
+			children: []*ber.Packet{typeChild(), valueWithSeq(
+				ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "x", "Paging Size"),
+				ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "Cookie"),
+			)},
+			wantErr: "paging size is not an integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+			for _, child := range tt.children {
+				p.AppendChild(child)
+			}
+			_, err := DecodeControl(p)
+			if err == nil {
+				t.Fatalf("DecodeControl returned nil error, want one containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestControlManageDsaIT(t *testing.T) {
 	runControlTest(t, NewControlManageDsaIT(true))
 	runControlTest(t, NewControlManageDsaIT(false))
