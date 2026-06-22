@@ -650,22 +650,33 @@ func (l *Conn) Syncrepl(
 // unpackAttributes will extract all given LDAP attributes and it's values
 // from the ber.Packet
 func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
-	entries := make([]*EntryAttribute, len(children))
-	for i, child := range children {
-		length := len(child.Children[1].Children)
+	entries := make([]*EntryAttribute, 0, len(children))
+	for _, child := range children {
+		// A conforming PartialAttribute is SEQUENCE { type, vals SET OF value }.
+		// A non-conforming or malicious server can omit the vals element or send a
+		// non-string type/value; index and assert defensively so a malformed
+		// attribute is skipped instead of panicking the search goroutine.
+		if len(child.Children) < 2 {
+			continue
+		}
+		name, ok := child.Children[0].Value.(string)
+		if !ok {
+			continue
+		}
+		values := child.Children[1].Children
 		entry := &EntryAttribute{
-			Name: child.Children[0].Value.(string),
+			Name: name,
 			// pre-allocate the slice since we can determine
 			// the number of attributes at this point
-			Values:     make([]string, length),
-			ByteValues: make([][]byte, length),
+			Values:     make([]string, len(values)),
+			ByteValues: make([][]byte, len(values)),
 		}
 
-		for i, value := range child.Children[1].Children {
+		for i, value := range values {
 			entry.ByteValues[i] = value.ByteValue
-			entry.Values[i] = value.Value.(string)
+			entry.Values[i], _ = value.Value.(string)
 		}
-		entries[i] = entry
+		entries = append(entries, entry)
 	}
 
 	return entries
