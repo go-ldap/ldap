@@ -300,6 +300,15 @@ func parseParams(str string) (map[string]string, error) {
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
 			}
+			// The digest-challenge is an RFC 2068 #rule (RFC 2831 section 2.1.1),
+			// which permits optional linear whitespace around the comma directive
+			// separators. Directive names are tokens that never contain
+			// whitespace, so skip it here; otherwise a directive following
+			// "..., name" is keyed with a leading space and the lookups in
+			// computeResponse (realm, nonce, authzid) miss it.
+			if str[i] == ' ' || str[i] == '\t' {
+				continue
+			}
 			if str[i] != '=' {
 				key += string(str[i])
 				continue
@@ -309,6 +318,14 @@ func parseParams(str string) (map[string]string, error) {
 			if i == len(str) {
 				m[key] = value
 				break
+			}
+			// Linear whitespace outside a quoted string is not part of the
+			// value: an unquoted value is a token and a quoted value's content
+			// is read in the quoted state below. Skipping it lets a challenge
+			// using the whitespace the #rule allows (e.g. `nonce="n" , qop=auth`)
+			// parse the same as the unspaced form.
+			if str[i] == ' ' || str[i] == '\t' {
+				continue
 			}
 			switch str[i] {
 			case ',':
