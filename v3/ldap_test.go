@@ -3,7 +3,6 @@ package ldap
 import (
 	"context"
 	"crypto/tls"
-	"log"
 	"testing"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -380,7 +379,7 @@ func TestSearchAsync(t *testing.T) {
 		srs = append(srs, r.Entry())
 	}
 	if err := r.Err(); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	t.Logf("TestSearcAsync: %s -> num of entries = %d", searchRequest.Filter, len(srs))
@@ -412,7 +411,7 @@ func TestSearchAsyncAndCancel(t *testing.T) {
 		}
 	}
 	if err := r.Err(); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	if len(srs) > cancelNum+3 {
