@@ -20,7 +20,7 @@ import (
 // the cancellation, leaking the goroutine and the buffered entries.
 func TestSearchAsyncCancelUnblocksProducer(t *testing.T) {
 	ptc := newPacketTranslatorConn()
-	defer ptc.Close()
+	defer func() { _ = ptc.Close() }()
 
 	conn := NewConn(ptc, false)
 	conn.Start()
@@ -28,7 +28,7 @@ func TestSearchAsyncCancelUnblocksProducer(t *testing.T) {
 	// deadlocks behind the leaked goroutine and hangs the whole test binary;
 	// bound it so the failure stays diagnosable.
 	defer runWithTimeout(t, time.Second, func() {
-		conn.Close()
+		_ = conn.Close()
 	})
 
 	// Server: read the search request and reply with more entries than the
