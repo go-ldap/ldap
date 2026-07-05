@@ -126,11 +126,11 @@ func TestConn_UnauthenticatedBind(t *testing.T) {
 // must reject it instead of indexing past the slice.
 func TestSASLBindTokenExchangeShortInProgress(t *testing.T) {
 	ptc := newPacketTranslatorConn()
-	defer ptc.Close()
+	defer func() { _ = ptc.Close() }()
 
 	conn := NewConn(ptc, false)
 	conn.Start()
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	type result struct {
 		err       error
