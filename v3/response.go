@@ -126,10 +126,15 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 
 				switch packet.Children[1].Tag {
 				case ApplicationSearchResultEntry:
+					attributes, err := unpackAttributes(packet.Children[1].Children[1].Children)
+					if err != nil {
+						r.ch <- &SearchSingleResult{Error: err}
+						return
+					}
 					result := &SearchSingleResult{
 						Entry: &Entry{
 							DN:         packet.Children[1].Children[0].Value.(string),
-							Attributes: unpackAttributes(packet.Children[1].Children[1].Children),
+							Attributes: attributes,
 						},
 					}
 					if len(packet.Children) != 3 {
