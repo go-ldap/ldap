@@ -42,11 +42,11 @@ func TestExtendedRequest_WhoAmI(t *testing.T) {
 // report the result code as the name.
 func TestExtendedResponseNameOmitted(t *testing.T) {
 	ptc := newPacketTranslatorConn()
-	defer ptc.Close()
+	defer func() { _ = ptc.Close() }()
 
 	conn := NewConn(ptc, false)
 	conn.Start()
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	go func() {
 		req, err := ptc.ReceiveRequest()
