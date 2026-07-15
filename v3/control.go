@@ -980,7 +980,12 @@ func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, 
 		for _, child := range sequence.Children {
 			switch {
 			case child.ClassType == ber.ClassUniversal && child.Tag == ber.TagOctetString:
-				sortKey.AttributeType = child.Value.(string)
+				// A constructed-form OCTET STRING matches this case but leaves
+				// Value nil; guard the assertion so a malformed attributeType is
+				// rejected below rather than panicking.
+				if attrType, ok := child.Value.(string); ok {
+					sortKey.AttributeType = attrType
+				}
 
 			case child.ClassType == ber.ClassContext && child.Tag == 0:
 				sortKey.MatchingRule = child.Data.String()
