@@ -595,9 +595,13 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			if len(packet.Children[1].Children) > 1 {
 				attr = packet.Children[1].Children[1].Children
 			}
+			attributes, err := unpackAttributes(attr)
+			if err != nil {
+				return result, err
+			}
 			entry := &Entry{
 				DN:         packet.Children[1].Children[0].Value.(string),
-				Attributes: unpackAttributes(attr),
+				Attributes: attributes,
 			}
 			result.Entries = append(result.Entries, entry)
 		case 5:
@@ -653,26 +657,41 @@ func (l *Conn) Syncrepl(
 
 // unpackAttributes will extract all given LDAP attributes and it's values
 // from the ber.Packet
-func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
-	entries := make([]*EntryAttribute, len(children))
-	for i, child := range children {
-		length := len(child.Children[1].Children)
+func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
+	entries := make([]*EntryAttribute, 0, len(children))
+	for _, child := range children {
+		// A conforming PartialAttribute is SEQUENCE { type, vals SET OF value }.
+		// A non-conforming or malicious server can omit the vals element or send
+		// a non-string type/value; return an error instead of panicking the
+		// search goroutine, so the caller can handle it.
+		if len(child.Children) < 2 {
+			return nil, fmt.Errorf("ldap: malformed attribute: expected 2 children (type and vals), got %d", len(child.Children))
+		}
+		name, ok := child.Children[0].Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T", child.Children[0].Value)
+		}
+		values := child.Children[1].Children
 		entry := &EntryAttribute{
-			Name: child.Children[0].Value.(string),
+			Name: name,
 			// pre-allocate the slice since we can determine
 			// the number of attributes at this point
-			Values:     make([]string, length),
-			ByteValues: make([][]byte, length),
+			Values:     make([]string, len(values)),
+			ByteValues: make([][]byte, len(values)),
 		}
 
-		for i, value := range child.Children[1].Children {
+		for i, value := range values {
+			v, ok := value.Value.(string)
+			if !ok {
+				return nil, fmt.Errorf("ldap: malformed attribute %q: value is not a string: %T", name, value.Value)
+			}
 			entry.ByteValues[i] = value.ByteValue
-			entry.Values[i] = value.Value.(string)
+			entry.Values[i] = v
 		}
-		entries[i] = entry
+		entries = append(entries, entry)
 	}
 
-	return entries
+	return entries, nil
 }
 
 // DirSync does a Search with dirSync Control.

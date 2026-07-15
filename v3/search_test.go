@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	ber "github.com/go-asn1-ber/asn1-ber"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -277,4 +278,49 @@ func TestEntry_UnmarshalFunc(t *testing.T) {
 			}
 		}
 	})
+}
+
+func newPartialAttribute(name string, values ...string) *ber.Packet {
+	attr := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "PartialAttribute")
+	attr.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, name, "Type"))
+	vals := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "Vals")
+	for _, v := range values {
+		vals.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, v, "Value"))
+	}
+	attr.AppendChild(vals)
+	return attr
+}
+
+func TestUnpackAttributesMalformed(t *testing.T) {
+	// A conforming attribute decodes as before.
+	good := newPartialAttribute("cn", "first", "second")
+
+	entries, err := unpackAttributes([]*ber.Packet{good})
+	if err != nil {
+		t.Fatalf("unexpected error for a well-formed attribute: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != "cn" {
+		t.Fatalf("unexpected entries: %v", entries)
+	}
+	if !reflect.DeepEqual(entries[0].Values, []string{"first", "second"}) {
+		t.Errorf("unexpected attribute values: %v", entries[0].Values)
+	}
+
+	// A non-conforming attribute that omits the vals SET previously indexed
+	// child.Children[1] out of range and panicked the search goroutine.
+	missingVals := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "PartialAttribute")
+	missingVals.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "broken", "Type"))
+
+	if _, err := unpackAttributes([]*ber.Packet{good, missingVals}); err == nil {
+		t.Fatal("expected an error for an attribute without vals")
+	}
+
+	// A non-string attribute type previously failed the type assertion.
+	badType := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "PartialAttribute")
+	badType.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "Type"))
+	badType.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "Vals"))
+
+	if _, err := unpackAttributes([]*ber.Packet{badType}); err == nil {
+		t.Fatal("expected an error for a non-string attribute type")
+	}
 }
