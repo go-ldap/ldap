@@ -425,6 +425,26 @@ func TestControlServerSideSortingDecoding(t *testing.T) {
 	}
 }
 
+// TestControlServerSideSortingConstructedAttributeType feeds a SortKey whose
+// attributeType is a constructed-form OCTET STRING. BER leaves such a packet's
+// Value nil, so the decoder's type assertion must be guarded: decoding must not
+// panic, and the missing primitive attributeType is reported as an error.
+func TestControlServerSideSortingConstructedAttributeType(t *testing.T) {
+	sortKey := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKey")
+	// Constructed OCTET STRING: matches the ClassUniversal/TagOctetString case in
+	// the decoder but carries no primitive string Value.
+	sortKey.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagOctetString, nil, "attributeType"))
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKeyList")
+	seq.AppendChild(sortKey)
+
+	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value")
+	value.Data.Write(seq.Bytes())
+
+	if _, err := NewControlServerSideSorting(value); err == nil {
+		t.Fatal("expected error for constructed-form attributeType, got nil")
+	}
+}
+
 func TestControlServerSideSortingResultDecoding(t *testing.T) {
 	for _, code := range ControlServerSideSortingCodes {
 		control := &ControlServerSideSortingResult{Result: code}
