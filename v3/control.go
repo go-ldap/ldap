@@ -670,23 +670,25 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		sequence := value.Children[0]
 
 		for _, child := range sequence.Children {
-			if child.Tag == 0 {
+			switch child.Tag {
+			case 0:
 				// Warning
 				warningPacket := child.Children[0]
 				val, err := ber.ParseInt64(warningPacket.Data.Bytes())
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode data bytes: %s", err)
 				}
-				if warningPacket.Tag == 0 {
+				switch warningPacket.Tag {
+				case 0:
 					// timeBeforeExpiration
 					c.Expire = val
 					warningPacket.Value = c.Expire
-				} else if warningPacket.Tag == 1 {
+				case 1:
 					// graceAuthNsRemaining
 					c.Grace = val
 					warningPacket.Value = c.Grace
 				}
-			} else if child.Tag == 1 {
+			case 1:
 				// Error
 				bs := child.Data.Bytes()
 				if len(bs) != 1 || bs[0] > 8 {
@@ -1129,7 +1131,7 @@ type ControlServerSideSortingResult struct {
 	// AttributeType string
 }
 
-func (control *ControlServerSideSortingResult) GetControlType() string {
+func (c *ControlServerSideSortingResult) GetControlType() string {
 	return ControlTypeServerSideSortingResult
 }
 
@@ -1151,7 +1153,7 @@ func (c *ControlServerSideSortingResult) String() string {
 	)
 }
 
-// Mode for ControlTypeSyncRequest
+// ControlSyncRequestMode is the mode for ControlTypeSyncRequest
 type ControlSyncRequestMode int64
 
 const (
@@ -1225,7 +1227,7 @@ func (c *ControlSyncRequest) String() string {
 	)
 }
 
-// State for ControlSyncState
+// ControlSyncStateState is the state for ControlSyncState
 type ControlSyncStateState int64
 
 const (
@@ -1348,7 +1350,7 @@ func (c *ControlSyncDone) String() string {
 	)
 }
 
-// Tag For ControlSyncInfo
+// ControlSyncInfoValue is the tag for ControlSyncInfo
 type ControlSyncInfoValue uint64
 
 const (
@@ -1436,7 +1438,7 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 		syncUUIDs      []uuid.UUID
 	)
 	c := &ControlSyncInfo{Criticality: false}
-	switch ControlSyncInfoValue(pkt.Identifier.Tag) {
+	switch ControlSyncInfoValue(pkt.Tag) {
 	case SyncInfoNewcookie:
 		c.Value = SyncInfoNewcookie
 		c.NewCookie = &ControlSyncInfoNewCookie{
@@ -1500,7 +1502,7 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 			SyncUUIDs:      syncUUIDs,
 		}
 	default:
-		return nil, fmt.Errorf("unknown sync info value: %d", pkt.Identifier.Tag)
+		return nil, fmt.Errorf("unknown sync info value: %d", pkt.Tag)
 	}
 	return c, nil
 }

@@ -6,10 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-	enchex "encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"unicode/utf16"
 
@@ -212,7 +211,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 			if child.Data == nil {
 				return result, GetLDAPError(packet)
 			}
-			data, _ := ioutil.ReadAll(child.Data)
+			data, _ := io.ReadAll(child.Data)
 			params, err = parseParams(string(data))
 			if err != nil {
 				return result, fmt.Errorf("parsing digest-challenge: %s", err)
@@ -373,7 +372,7 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	if err != nil {
 		return "", err
 	}
-	cnonce := enchex.EncodeToString(rb)
+	cnonce := hex.EncodeToString(rb)
 	x := username + ":" + params["realm"] + ":" + password
 	y := md5Hash([]byte(x))
 
@@ -384,8 +383,8 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	}
 	a2 := bytes.NewBuffer([]byte("AUTHENTICATE"))
 	a2.WriteString(":" + uri)
-	ha1 := enchex.EncodeToString(md5Hash(a1.Bytes()))
-	ha2 := enchex.EncodeToString(md5Hash(a2.Bytes()))
+	ha1 := hex.EncodeToString(md5Hash(a1.Bytes()))
+	ha2 := hex.EncodeToString(md5Hash(a2.Bytes()))
 
 	kd := ha1
 	kd += ":" + params["nonce"]
@@ -393,7 +392,7 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	kd += ":" + cnonce
 	kd += ":" + qop
 	kd += ":" + ha2
-	resp := enchex.EncodeToString(md5Hash([]byte(kd)))
+	resp := hex.EncodeToString(md5Hash([]byte(kd)))
 	return fmt.Sprintf(
 		`username="%s",realm="%s",nonce="%s",cnonce="%s",nc=00000001,qop=%s,digest-uri="%s",response=%s`,
 		quotedStringEscape(username),
@@ -502,8 +501,8 @@ func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) (err error) {
 	var negMessage []byte
 
 	// generate an NTLMSSP Negotiation message for the  specified domain (it can be blank)
-	switch {
-	case req.Negotiator == nil:
+	switch req.Negotiator {
+	case nil:
 		negMessage, err = ntlmssp.NewNegotiateMessage(req.Domain, "")
 		if err != nil {
 			return fmt.Errorf("create NTLM negotiate message: %s", err)
@@ -615,11 +614,12 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		case ntlmBindRequest.Hash == "" && ntlmBindRequest.Password == "" && !ntlmBindRequest.AllowEmptyPassword:
 			err = fmt.Errorf("need a password or hash to generate reply")
 		case ntlmBindRequest.Negotiator == nil && ntlmBindRequest.Hash != "":
-			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
+			responseMessage, err = ntlmssp.NewAuthenticateMessage(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash, &ntlmssp.AuthenticateMessageOptions{
+				PasswordHashed: true,
+			})
 		case ntlmBindRequest.Negotiator == nil && (ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword):
 			// generate a response message to the challenge with the given Username/Password if password is provided
-			_, _, domainNeeded := ntlmssp.GetDomain(ntlmBindRequest.Username)
-			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, domainNeeded)
+			responseMessage, err = ntlmssp.NewAuthenticateMessage(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, nil)
 		default:
 			hash := ntlmBindRequest.Hash
 			if len(hash) == 0 {
@@ -739,7 +739,7 @@ func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) er
 	return l.GSSAPIBindRequestWithAPOptions(client, req, []int{})
 }
 
-// GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.
+// GSSAPIBindRequestWithAPOptions performs the GSSAPI SASL bind using the provided GSSAPI client and AP options.
 func (l *Conn) GSSAPIBindRequestWithAPOptions(client GSSAPIClient, req *GSSAPIBindRequest, APOptions []int) error {
 	//nolint:errcheck
 	defer client.DeleteSecContext()
@@ -845,7 +845,7 @@ RESP:
 				if referral.ClassType != ber.ClassContext || referral.Tag != ber.TagObjectDescriptor {
 					break RESP
 				}
-				return ioutil.ReadAll(referral.Data)
+				return io.ReadAll(referral.Data)
 			}
 			// Optional:
 			//if len(protocolOp.Children) == 4 {
