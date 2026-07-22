@@ -33,3 +33,29 @@ jobs:
           go vet .
           go test -v -cover -race -count=1 .
           go build .
+
+      - name: Build, Validate, and Test (FIPS)
+        run: |
+          cd ${{ matrix.directory }}
+          go vet -tags requirefips .
+          go test -tags requirefips -v -count=1 .
+          go build -tags requirefips .
+
+      - name: Verify FIPS dependency graph
+        run: |
+          cd ${{ matrix.directory }}
+          DEPS=$(go list -tags requirefips -deps ./...)
+
+          # These packages must never appear in a requirefips build — fail if they do.
+          FORBIDDEN="github.com/Azure/go-ntlmssp"
+          # TODO: add the following once gokrb5 RC4-HMAC enctype support is gated:
+          # golang.org/x/crypto/md4
+          # golang.org/x/crypto/rc4
+
+          for pkg in $FORBIDDEN; do
+            if echo "$DEPS" | grep -qx "$pkg"; then
+              echo "FAIL: non-FIPS package present in requirefips build: $pkg"
+              exit 1
+            fi
+          done
+          echo "FIPS dependency check passed"
