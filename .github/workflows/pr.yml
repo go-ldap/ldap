@@ -9,15 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.26", "1.25"]
+        go: ["1.27", "1.26"]
         directory: ["./v3"]
     name: Go ${{ matrix.go }}.x PR Validate ${{ matrix.directory }} (Modules)
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
 
