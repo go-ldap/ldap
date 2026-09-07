@@ -459,3 +459,131 @@ func TestControlServerSideSortingResultDecoding(t *testing.T) {
 		}
 	}
 }
+
+var syncTestUUID = []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00}
+
+func syncUUIDSet(t *testing.T) *ber.Packet {
+	t.Helper()
+	set := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "syncUUIDs")
+	set.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(syncTestUUID), "syncUUID"))
+	return set
+}
+
+func syncInfoPacket(t *testing.T, tag ber.Tag, children ...*ber.Packet) *ber.Packet {
+	t.Helper()
+	seq := ber.Encode(ber.ClassContext, ber.TypeConstructed, tag, nil, "syncInfoValue")
+	for _, child := range children {
+		seq.AppendChild(child)
+	}
+	return ber.DecodePacket(seq.Bytes())
+}
+
+func syncBool(v bool, desc string) *ber.Packet {
+	return ber.NewBoolean(ber.ClassUniversal, ber.TypePrimitive, ber.TagBoolean, v, desc)
+}
+
+func syncCookie(v string) *ber.Packet {
+	return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, v, "cookie")
+}
+
+// RFC 4533 2.5: syncIdSet ::= SEQUENCE { cookie OPTIONAL, refreshDeletes DEFAULT FALSE, syncUUIDs }.
+func TestControlSyncInfoSyncIdSetOptionalCookie(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		children       []*ber.Packet
+		wantCookie     string
+		wantRefreshDel bool
+	}{
+		{"cookie omitted", []*ber.Packet{syncBool(true, "refreshDeletes"), syncUUIDSet(t)}, "", true},
+		{"cookie and refreshDeletes omitted", []*ber.Packet{syncUUIDSet(t)}, "", false},
+		{"all members present", []*ber.Packet{syncCookie("csn=1"), syncBool(true, "refreshDeletes"), syncUUIDSet(t)}, "csn=1", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := NewControlSyncInfo(syncInfoPacket(t, ber.Tag(SyncInfoSyncIdSet), tc.children...))
+			if err != nil {
+				t.Fatalf("NewControlSyncInfo: %v", err)
+			}
+			if got := string(c.SyncIdSet.Cookie); got != tc.wantCookie {
+				t.Errorf("Cookie = %q, want %q", got, tc.wantCookie)
+			}
+			if c.SyncIdSet.RefreshDeletes != tc.wantRefreshDel {
+				t.Errorf("RefreshDeletes = %v, want %v", c.SyncIdSet.RefreshDeletes, tc.wantRefreshDel)
+			}
+			if len(c.SyncIdSet.SyncUUIDs) != 1 {
+				t.Fatalf("SyncUUIDs = %v, want 1 entry", c.SyncIdSet.SyncUUIDs)
+			}
+			if !bytes.Equal(c.SyncIdSet.SyncUUIDs[0][:], syncTestUUID) {
+				t.Errorf("SyncUUIDs[0] = %v, want %v", c.SyncIdSet.SyncUUIDs[0], syncTestUUID)
+			}
+		})
+	}
+}
+
+// RFC 4533 2.5: refreshDelete/refreshPresent ::= SEQUENCE { cookie OPTIONAL, refreshDone DEFAULT TRUE }.
+func TestControlSyncInfoRefreshOptionalCookie(t *testing.T) {
+	pkt := syncInfoPacket(t, ber.Tag(SyncInfoRefreshPresent), syncBool(false, "refreshDone"))
+	c, err := NewControlSyncInfo(pkt)
+	if err != nil {
+		t.Fatalf("NewControlSyncInfo: %v", err)
+	}
+	if len(c.RefreshPresent.Cookie) != 0 {
+		t.Errorf("Cookie = %q, want empty", c.RefreshPresent.Cookie)
+	}
+	if c.RefreshPresent.RefreshDone {
+		t.Error("RefreshDone = true, want false")
+	}
+
+	pkt = syncInfoPacket(t, ber.Tag(SyncInfoRefreshDelete), syncBool(false, "refreshDone"))
+	c, err = NewControlSyncInfo(pkt)
+	if err != nil {
+		t.Fatalf("NewControlSyncInfo: %v", err)
+	}
+	if len(c.RefreshDelete.Cookie) != 0 {
+		t.Errorf("Cookie = %q, want empty", c.RefreshDelete.Cookie)
+	}
+	if c.RefreshDelete.RefreshDone {
+		t.Error("RefreshDone = true, want false")
+	}
+
+	pkt = syncInfoPacket(t, ber.Tag(SyncInfoRefreshDelete), syncCookie("csn=2"), syncBool(false, "refreshDone"))
+	c, err = NewControlSyncInfo(pkt)
+	if err != nil {
+		t.Fatalf("NewControlSyncInfo: %v", err)
+	}
+	if string(c.RefreshDelete.Cookie) != "csn=2" {
+		t.Errorf("Cookie = %q, want %q", c.RefreshDelete.Cookie, "csn=2")
+	}
+	if c.RefreshDelete.RefreshDone {
+		t.Error("RefreshDone = true, want false")
+	}
+}
+
+// RFC 4533 2.4: syncDoneValue ::= SEQUENCE { cookie OPTIONAL, refreshDeletes DEFAULT FALSE }.
+func TestControlSyncDoneOptionalCookie(t *testing.T) {
+	seq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "syncDoneValue")
+	seq.AppendChild(syncBool(true, "refreshDeletes"))
+	c, err := NewControlSyncDone(ber.DecodePacket(seq.Bytes()))
+	if err != nil {
+		t.Fatalf("NewControlSyncDone: %v", err)
+	}
+	if len(c.Cookie) != 0 {
+		t.Errorf("Cookie = %q, want empty", c.Cookie)
+	}
+	if !c.RefreshDeletes {
+		t.Error("RefreshDeletes = false, want true")
+	}
+}
+
+// syncUUIDs is mandatory; a server omitting it must not crash the decoder.
+func TestControlSyncInfoSyncIdSetWithoutUUIDs(t *testing.T) {
+	c, err := NewControlSyncInfo(syncInfoPacket(t, ber.Tag(SyncInfoSyncIdSet), syncCookie("csn=3")))
+	if err != nil {
+		t.Fatalf("NewControlSyncInfo: %v", err)
+	}
+	if string(c.SyncIdSet.Cookie) != "csn=3" {
+		t.Errorf("Cookie = %q, want %q", c.SyncIdSet.Cookie, "csn=3")
+	}
+	if len(c.SyncIdSet.SyncUUIDs) != 0 {
+		t.Errorf("SyncUUIDs = %v, want none", c.SyncIdSet.SyncUUIDs)
+	}
+}

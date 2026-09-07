@@ -1305,19 +1305,30 @@ type ControlSyncDone struct {
 	RefreshDeletes bool
 }
 
+// parseSyncMembers identifies the members of an RFC 4533 sync sequence by tag.
+// cookie is OPTIONAL and the flags carry a DEFAULT, so a member's position is not
+// fixed and the count of present members does not identify them.
+func parseSyncMembers(children []*ber.Packet) (cookie []byte, flag *bool, uuidSet *ber.Packet) {
+	for _, child := range children {
+		switch child.Tag {
+		case ber.TagOctetString:
+			cookie = child.ByteValue
+		case ber.TagBoolean:
+			if b, ok := child.Value.(bool); ok {
+				flag = &b
+			}
+		case ber.TagSet:
+			uuidSet = child
+		}
+	}
+	return cookie, flag, uuidSet
+}
+
 func NewControlSyncDone(pkt *ber.Packet) (*ControlSyncDone, error) {
-	var (
-		cookie         []byte
-		refreshDeletes bool
-	)
-	switch len(pkt.Children) {
-	case 0:
-		// have nothing to do
-	case 1:
-		cookie = pkt.Children[0].ByteValue
-	case 2:
-		cookie = pkt.Children[0].ByteValue
-		refreshDeletes = pkt.Children[1].Value.(bool)
+	var refreshDeletes bool
+	cookie, flag, _ := parseSyncMembers(pkt.Children)
+	if flag != nil {
+		refreshDeletes = *flag
 	}
 	return &ControlSyncDone{
 		Criticality:    false,
@@ -1430,7 +1441,6 @@ type ControlSyncInfo struct {
 
 func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 	var (
-		cookie         []byte
 		refreshDone    = true
 		refreshDeletes bool
 		syncUUIDs      []uuid.UUID
@@ -1444,14 +1454,9 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 		}
 	case SyncInfoRefreshDelete:
 		c.Value = SyncInfoRefreshDelete
-		switch len(pkt.Children) {
-		case 0:
-			// have nothing to do
-		case 1:
-			cookie = pkt.Children[0].ByteValue
-		case 2:
-			cookie = pkt.Children[0].ByteValue
-			refreshDone = pkt.Children[1].Value.(bool)
+		cookie, flag, _ := parseSyncMembers(pkt.Children)
+		if flag != nil {
+			refreshDone = *flag
 		}
 		c.RefreshDelete = &ControlSyncInfoRefreshDelete{
 			Cookie:      cookie,
@@ -1459,14 +1464,9 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 		}
 	case SyncInfoRefreshPresent:
 		c.Value = SyncInfoRefreshPresent
-		switch len(pkt.Children) {
-		case 0:
-			// have nothing to do
-		case 1:
-			cookie = pkt.Children[0].ByteValue
-		case 2:
-			cookie = pkt.Children[0].ByteValue
-			refreshDone = pkt.Children[1].Value.(bool)
+		cookie, flag, _ := parseSyncMembers(pkt.Children)
+		if flag != nil {
+			refreshDone = *flag
 		}
 		c.RefreshPresent = &ControlSyncInfoRefreshPresent{
 			Cookie:      cookie,
@@ -1474,19 +1474,13 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 		}
 	case SyncInfoSyncIdSet:
 		c.Value = SyncInfoSyncIdSet
-		switch len(pkt.Children) {
-		case 0:
-			// have nothing to do
-		case 1:
-			cookie = pkt.Children[0].ByteValue
-		case 2:
-			cookie = pkt.Children[0].ByteValue
-			refreshDeletes = pkt.Children[1].Value.(bool)
-		case 3:
-			cookie = pkt.Children[0].ByteValue
-			refreshDeletes = pkt.Children[1].Value.(bool)
-			syncUUIDs = make([]uuid.UUID, 0, len(pkt.Children[2].Children))
-			for _, child := range pkt.Children[2].Children {
+		cookie, flag, uuidSet := parseSyncMembers(pkt.Children)
+		if flag != nil {
+			refreshDeletes = *flag
+		}
+		if uuidSet != nil {
+			syncUUIDs = make([]uuid.UUID, 0, len(uuidSet.Children))
+			for _, child := range uuidSet.Children {
 				u, err := uuid.FromBytes(child.ByteValue)
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode uuid: %w", err)
