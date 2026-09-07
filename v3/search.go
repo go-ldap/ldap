@@ -377,6 +377,14 @@ type SearchResult struct {
 	Referrals []string
 	// Controls are the returned controls
 	Controls []Control
+	// ResultCode is the LDAP resultCode from SearchResultDone (0 = success).
+	// Populated even on success so callers can inspect it alongside DiagnosticMessage.
+	ResultCode uint16
+	// DiagnosticMessage is the server's free-text message from SearchResultDone.
+	// Per RFC 4511, this may be set even when resultCode is 0 (success).
+	// GetLDAPError returns nil on success and does not expose this field;
+	// it is preserved here so callers can log or act on it.
+	DiagnosticMessage string
 }
 
 // Print outputs a human-readable description
@@ -398,6 +406,8 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Entries = append(r.Entries, s.Entries...)
 	r.Referrals = append(r.Referrals, s.Referrals...)
 	r.Controls = append(r.Controls, s.Controls...)
+	r.ResultCode = s.ResultCode
+	r.DiagnosticMessage = s.DiagnosticMessage
 }
 
 // SearchSingleResult holds the server's single entry response to a search request
@@ -601,6 +611,7 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 			result.Entries = append(result.Entries, entry)
 		case 5:
+			result.ResultCode, _, result.DiagnosticMessage = ParseLDAPResult(packet)
 			err := GetLDAPError(packet)
 			if err != nil {
 				return result, err
