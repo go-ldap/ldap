@@ -204,7 +204,7 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 		return tls.DialWithDialer(dc.dialer, "tcp", net.JoinHostPort(host, port), dc.tlsConfig)
 	}
 
-	return nil, fmt.Errorf("Unknown scheme '%s'", u.Scheme)
+	return nil, fmt.Errorf("unknown scheme '%s'", u.Scheme)
 }
 
 // Dial connects to the given address on the given network using net.Dial

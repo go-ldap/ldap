@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"time"
 )
 
@@ -522,7 +522,7 @@ func ExampleConn_ExternalBind() {
 	}
 
 	// Load CA chain
-	caCert, err := ioutil.ReadFile(ldapCAchain)
+	caCert, err := os.ReadFile(ldapCAchain)
 	if err != nil {
 		log.Fatal(err)
 	}

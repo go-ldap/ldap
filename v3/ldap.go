@@ -2,7 +2,6 @@ package ldap
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -231,23 +230,25 @@ func addControlDescriptions(packet *ber.Packet) error {
 			}
 			sequence := value.Children[0]
 			for _, child := range sequence.Children {
-				if child.Tag == 0 {
+				switch child.Tag {
+				case 0:
 					// Warning
 					warningPacket := child.Children[0]
 					val, err := ber.ParseInt64(warningPacket.Data.Bytes())
 					if err != nil {
 						return fmt.Errorf("failed to decode data bytes: %s", err)
 					}
-					if warningPacket.Tag == 0 {
+					switch warningPacket.Tag {
+					case 0:
 						// timeBeforeExpiration
 						value.Description += " (TimeBeforeExpiration)"
 						warningPacket.Value = val
-					} else if warningPacket.Tag == 1 {
+					case 1:
 						// graceAuthNsRemaining
 						value.Description += " (GraceAuthNsRemaining)"
 						warningPacket.Value = val
 					}
-				} else if child.Tag == 1 {
+				case 1:
 					// Error
 					bs := child.Data.Bytes()
 					if len(bs) != 1 || bs[0] > 8 {
@@ -297,7 +298,7 @@ func addDefaultLDAPResponseDescriptions(packet *ber.Packet) error {
 
 // DebugBinaryFile reads and prints packets from the given filename
 func DebugBinaryFile(fileName string) error {
-	file, err := ioutil.ReadFile(fileName)
+	file, err := os.ReadFile(fileName)
 	if err != nil {
 		return NewError(ErrorDebugging, err)
 	}
