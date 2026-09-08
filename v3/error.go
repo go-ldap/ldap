@@ -195,6 +195,46 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
+// ParseLDAPResult extracts resultCode, matchedDN, and diagnosticMessage from a
+// BER packet representing an LDAPResult (e.g. SearchResultDone).
+//
+// Unlike GetLDAPError, ParseLDAPResult does not return early when resultCode is
+// success (0). This allows callers to read the diagnosticMessage even on a
+// successful operation, which some servers use to signal warnings or degraded
+// state (for example, a directory in read-only / reinitializing mode).
+func ParseLDAPResult(packet *ber.Packet) (resultCode uint16, matchedDN, diagnosticMessage string) {
+	if packet == nil || len(packet.Children) < 2 || packet.Children[1] == nil {
+		return 0, "", ""
+	}
+	response := packet.Children[1]
+	if len(response.Children) < 1 || response.Children[0] == nil || response.Children[0].Value == nil {
+		return 0, "", ""
+	}
+	switch v := response.Children[0].Value.(type) {
+	case int64:
+		resultCode = uint16(v)
+	case uint64:
+		resultCode = uint16(v)
+	case int:
+		resultCode = uint16(v)
+	default:
+		return 0, "", ""
+	}
+	if len(response.Children) >= 2 && response.Children[1] != nil {
+		if s, ok := response.Children[1].Value.(string); ok {
+			matchedDN = s
+		}
+	}
+	if len(response.Children) >= 3 && response.Children[2] != nil && response.Children[2].Value != nil {
+		if s, ok := response.Children[2].Value.(string); ok {
+			diagnosticMessage = s
+		} else {
+			diagnosticMessage = fmt.Sprintf("%v", response.Children[2].Value)
+		}
+	}
+	return resultCode, matchedDN, diagnosticMessage
+}
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).
