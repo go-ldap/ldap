@@ -28,7 +28,7 @@ func NewExtendedRequest(name string, value *ber.Packet) *ExtendedRequest {
 	}
 }
 
-func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
+/*func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extended Request")
 	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extended Request Name"))
 	if er.Value != nil {
@@ -38,6 +38,46 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	if len(er.Controls) > 0 {
 		envelope.AppendChild(encodeControls(er.Controls))
 	}
+	return nil
+}*/
+
+func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
+	pkt := ber.Encode(
+		ber.ClassApplication,
+		ber.TypeConstructed,
+		ApplicationExtendedRequest,
+		nil,
+		"Extended Request",
+	)
+
+	pkt.AppendChild(
+		ber.NewString(
+			ber.ClassContext,
+			ber.TypePrimitive,
+			0,
+			er.Name,
+			"Extended Request Name",
+		),
+	)
+
+	if er.Value != nil {
+		pkt.AppendChild(
+			ber.NewString(
+				ber.ClassContext,
+				ber.TypePrimitive,
+				1,
+				string(er.Value.Bytes()),
+				"Extended Request Value",
+			),
+		)
+	}
+
+	envelope.AppendChild(pkt)
+
+	if len(er.Controls) > 0 {
+		envelope.AppendChild(encodeControls(er.Controls))
+	}
+
 	return nil
 }
 
