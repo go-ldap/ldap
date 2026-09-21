@@ -53,7 +53,7 @@ stop-local-server:
 	-$(CONTAINER_CMD) rm -f $(CONTAINER_NAME)
 
 test:
-	(cd $(MODULE_DIR) && go test -v -cover -race -count=1 .)
+	(cd $(MODULE_DIR) && go test -v -cover -race -count=1 ./...)
 
 fuzz:
 	(cd $(MODULE_DIR) && go test -fuzz=FuzzGetLDAPError -fuzztime=600s .)
