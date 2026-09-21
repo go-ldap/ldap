@@ -38,15 +38,15 @@ func NewClientWithKeytab(username, realm, keytabPath, krb5confPath string, setti
 		return nil, err
 	}
 
-	keytab, err := keytab.Load(keytabPath)
+	kt, err := keytab.Load(keytabPath)
 	if err != nil {
 		return nil, err
 	}
 
-	client := client.NewWithKeytab(username, realm, keytab, krb5conf, settings...)
+	cl := client.NewWithKeytab(username, realm, kt, krb5conf, settings...)
 
 	return &Client{
-		Client: client,
+		Client: cl,
 	}, nil
 }
 
@@ -58,10 +58,10 @@ func NewClientWithPassword(username, realm, password string, krb5confPath string
 		return nil, err
 	}
 
-	client := client.NewWithPassword(username, realm, password, krb5conf, settings...)
+	cl := client.NewWithPassword(username, realm, password, krb5conf, settings...)
 
 	return &Client{
-		Client: client,
+		Client: cl,
 	}, nil
 }
 
@@ -77,51 +77,51 @@ func NewClientFromCCache(ccachePath, krb5confPath string, settings ...func(*clie
 		return nil, err
 	}
 
-	client, err := client.NewFromCCache(ccache, krb5conf, settings...)
+	cl, err := client.NewFromCCache(ccache, krb5conf, settings...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		Client: client,
+		Client: cl,
 	}, nil
 }
 
 // Close deletes any established secure context and closes the client.
-func (client *Client) Close() error {
-	client.Destroy()
+func (c *Client) Close() error {
+	c.Destroy()
 	return nil
 }
 
 // DeleteSecContext destroys any established secure context.
-func (client *Client) DeleteSecContext() error {
-	client.ekey = types.EncryptionKey{}
-	client.Subkey = types.EncryptionKey{}
+func (c *Client) DeleteSecContext() error {
+	c.ekey = types.EncryptionKey{}
+	c.Subkey = types.EncryptionKey{}
 	return nil
 }
 
 // InitSecContext initiates the establishment of a security context for
 // GSS-API between the client and server.
 // See RFC 4752 section 3.1.
-func (client *Client) InitSecContext(target string, input []byte) ([]byte, bool, error) {
-	return client.InitSecContextWithOptions(target, input, []int{})
+func (c *Client) InitSecContext(target string, input []byte) ([]byte, bool, error) {
+	return c.InitSecContextWithOptions(target, input, []int{})
 }
 
 // InitSecContextWithOptions initiates the establishment of a security context for
 // GSS-API between the client and server.
 // See RFC 4752 section 3.1.
-func (client *Client) InitSecContextWithOptions(target string, input []byte, APOptions []int) ([]byte, bool, error) {
+func (c *Client) InitSecContextWithOptions(target string, input []byte, APOptions []int) ([]byte, bool, error) {
 	gssapiFlags := []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf, gssapi.ContextFlagMutual}
 
 	switch input {
 	case nil:
-		tkt, ekey, err := client.GetServiceTicket(target)
+		tkt, ekey, err := c.GetServiceTicket(target)
 		if err != nil {
 			return nil, false, err
 		}
-		client.ekey = ekey
+		c.ekey = ekey
 
-		token, err := spnego.NewKRB5TokenAPREQ(client.Client, tkt, ekey, gssapiFlags, APOptions)
+		token, err := spnego.NewKRB5TokenAPREQ(c.Client, tkt, ekey, gssapiFlags, APOptions)
 		if err != nil {
 			return nil, false, err
 		}
@@ -146,7 +146,7 @@ func (client *Client) InitSecContextWithOptions(target string, input []byte, APO
 		if token.IsAPRep() {
 			completed = true
 
-			encpart, err := crypto.DecryptEncPart(token.APRep.EncPart, client.ekey, keyusage.AP_REP_ENCPART)
+			encpart, err := crypto.DecryptEncPart(token.APRep.EncPart, c.ekey, keyusage.AP_REP_ENCPART)
 			if err != nil {
 				return nil, false, err
 			}
@@ -156,11 +156,11 @@ func (client *Client) InitSecContextWithOptions(target string, input []byte, APO
 			if err = part.Unmarshal(encpart); err != nil {
 				return nil, false, err
 			}
-			client.Subkey = part.Subkey
+			c.Subkey = part.Subkey
 		}
 
 		if token.IsKRBError() {
-			return nil, !false, token.KRBError
+			return nil, true, token.KRBError
 		}
 
 		return make([]byte, 0), !completed, nil
@@ -169,7 +169,7 @@ func (client *Client) InitSecContextWithOptions(target string, input []byte, APO
 
 // NegotiateSaslAuth performs the last step of the SASL handshake.
 // See RFC 4752 section 3.1.
-func (client *Client) NegotiateSaslAuth(input []byte, authzid string) ([]byte, error) {
+func (c *Client) NegotiateSaslAuth(input []byte, authzid string) ([]byte, error) {
 	token := &gssapi.WrapToken{}
 	err := UnmarshalWrapToken(token, input, true)
 	if err != nil {
@@ -180,9 +180,9 @@ func (client *Client) NegotiateSaslAuth(input []byte, authzid string) ([]byte, e
 		return nil, fmt.Errorf("got a Wrapped token that's not from the server")
 	}
 
-	key := client.ekey
+	key := c.ekey
 	if (token.Flags & 0b100) != 0 {
-		key = client.Subkey
+		key = c.Subkey
 	}
 
 	_, err = token.Verify(key, keyusage.GSSAPI_ACCEPTOR_SEAL)
