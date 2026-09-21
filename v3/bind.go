@@ -14,6 +14,7 @@ import (
 
 	"github.com/Azure/go-ntlmssp"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	//lint:ignore SA1019 NTLM requires MD4; there is no secure replacement for the protocol.
 	"golang.org/x/crypto/md4" //nolint:staticcheck
 )
 

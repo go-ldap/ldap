@@ -78,15 +78,7 @@ vet:
     	-unusedresult \
     	./...
 
-# https://github.com/golang/lint
-# go get github.com/golang/lint/golint
-# Capture output and force failure when there is non-empty output
-# Only run on go1.5+
+# https://staticcheck.dev/
+# go install honnef.co/go/tools/cmd/staticcheck@latest
 lint:
-	@echo golint ./...
-	@OUTPUT=`command -v golint >/dev/null 2>&1 && golint ./... 2>&1`; \
-	if [ "$$OUTPUT" ]; then \
-		echo "golint errors:"; \
-		echo "$$OUTPUT"; \
-		exit 1; \
-	fi
+	(cd v3 && staticcheck ./...)
