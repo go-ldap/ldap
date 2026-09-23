@@ -316,3 +316,43 @@ func BenchmarkFilterDecompile(b *testing.B) {
 		_, _ = DecompileFilter(filters[i%maxIdx])
 	}
 }
+
+func TestHegelPinFilterClosingParenChecked(t *testing.T) {
+	for _, filterStr := range []string{
+		`(&(a=b)x`,
+		`(!(a=b)x`,
+		`((a=b)x`,
+		`(|(a=b)]`,
+		`(&(a=b)(c=d)x`,
+		`(!(a=b)`,
+		`((a=b)`,
+		`(&x)`,
+	} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		} else if !strings.Contains(err.Error(), "unexpected end of filter") {
+			t.Errorf("CompileFilter(%q) error %q does not contain %q", filterStr, err, "unexpected end of filter")
+		}
+	}
+
+	// Properly closed nested filters must keep compiling (redundant wrapping
+	// parentheses are dropped, as before).
+	for _, tc := range []struct{ in, want string }{
+		{`((a=b))`, `(a=b)`},
+		{`(!(!(a=b)))`, `(!(!(a=b)))`},
+		{`(|(&(a=b))(c=d))`, `(|(&(a=b))(c=d))`},
+		{`(&(|(a=b)(c=d))(!(e=f)))`, `(&(|(a=b)(c=d))(!(e=f)))`},
+	} {
+		p, err := CompileFilter(tc.in)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", tc.in, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", tc.in, err)
+		}
+		if got != tc.want {
+			t.Errorf("decompile of %q = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
