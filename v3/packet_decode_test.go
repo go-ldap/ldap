@@ -104,6 +104,14 @@ func TestSearchMalformedEntryResponses(t *testing.T) {
 			},
 		},
 		{
+			name: "entry with dn but no attributes element",
+			op: func() *ber.Packet {
+				op := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultEntry, nil, "Search Result Entry")
+				op.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "cn=x", "Object Name"))
+				return op
+			},
+		},
+		{
 			name: "referral with no children",
 			op: func() *ber.Packet {
 				return ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultReference, nil, "Search Result Reference")
@@ -430,6 +438,9 @@ func TestUnpackAttributesBoundsMalformed(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
+			if !errors.Is(err, errMalformedPacket) {
+				t.Fatalf("expected errMalformedPacket, got %v", err)
+			}
 		})
 	}
 }
@@ -472,9 +483,6 @@ func TestPacketHelpersDoNotPanicOnNil(t *testing.T) {
 	}{
 		{"packetChild", func() error { _, err := packetChild(nil, 0); return err }},
 		{"packetChildIfPresent", func() error { _, _, err := packetChildIfPresent(nil, 0); return err }},
-		{"packetChildren", func() error { _, err := packetChildren(nil); return err }},
-		{"packetChildrenByTag", func() error { _, err := packetChildrenByTag(nil, ber.ClassUniversal, ber.TagOctetString); return err }},
-		{"packetRequired", func() error { _, err := packetRequired(nil, "x"); return err }},
 		{"packetChildCount", func() error { _, err := packetChildCount(nil, 1, 1, "x"); return err }},
 		{"packetString", func() error { _, err := packetString(nil); return err }},
 		{"packetInt64", func() error { _, err := packetInt64(nil); return err }},

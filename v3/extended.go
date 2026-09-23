@@ -82,7 +82,15 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = GetLDAPError(packet); err != nil {
+
+	return decodeExtendedResponse(packet)
+}
+
+// decodeExtendedResponse decodes an extended response envelope, including any
+// response controls. It is separated from the network loop so the full
+// response decoder can be fuzzed directly.
+func decodeExtendedResponse(packet *ber.Packet) (*ExtendedResponse, error) {
+	if err := GetLDAPError(packet); err != nil {
 		return nil, err
 	}
 
@@ -119,19 +127,15 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		}
 	}
 
-	responseChildren, err := packetChildCount(packet, 2, 3, "extended response")
+	controlsChild, ok, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return nil, err
 	}
-	if len(responseChildren) == 3 {
-		controlsChild, err := packetChild(packet, 2)
-		if err != nil {
-			return nil, err
-		}
+	if ok {
 		for _, child := range controlsChild.Children {
 			decodedChild, decodeErr := DecodeControl(child)
 			if decodeErr != nil {
-				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)
+				return nil, fmt.Errorf("failed to decode child control: %w", decodeErr)
 			}
 			response.Controls = append(response.Controls, decodedChild)
 		}

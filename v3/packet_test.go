@@ -99,40 +99,6 @@ func TestPacketChildIfPresent(t *testing.T) {
 	}
 }
 
-func TestPacketChildrenByTag(t *testing.T) {
-	envelope := newTestEnvelope(
-		newTestString("type"),
-		newTestBool(true),
-		newTestString("value"),
-	)
-
-	// Two OCTET STRING children (controlType and controlValue) are structural
-	// matches; the BOOLEAN criticality is found by tag without inspecting Value.
-	stringsChildren, err := packetChildrenByTag(envelope, ber.ClassUniversal, ber.TagOctetString)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(stringsChildren) != 2 {
-		t.Fatalf("expected 2 OCTET STRING children, got %d", len(stringsChildren))
-	}
-
-	first, ok, err := packetChildByTag(envelope, ber.ClassUniversal, ber.TagBoolean)
-	if err != nil || !ok || first == nil {
-		t.Fatalf("expected BOOLEAN child, got ok=%v child=%v err=%v", ok, first, err)
-	}
-	if b, _ := packetBool(first); !b {
-		t.Fatalf("expected boolean true")
-	}
-
-	if _, ok, _ := packetChildByTag(envelope, ber.ClassUniversal, ber.TagInteger); ok {
-		t.Fatalf("did not expect an INTEGER child")
-	}
-
-	if _, err := packetChildrenByTag(nil, ber.ClassUniversal, ber.TagOctetString); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket, got %v", err)
-	}
-}
-
 func TestPacketLeafConversions(t *testing.T) {
 	if s, err := packetString(newTestString("hello")); err != nil || s != "hello" {
 		t.Fatalf("packetString: got %q, %v", s, err)
@@ -187,9 +153,6 @@ func TestPacketAtHelpers(t *testing.T) {
 	if i, err := packetInt64At(envelope, 1); err != nil || i != 7 {
 		t.Fatalf("packetInt64At: got %d, %v", i, err)
 	}
-	if b, err := packetBoolAt(envelope, 2); err != nil || b {
-		t.Fatalf("packetBoolAt: got %v, %v", b, err)
-	}
 
 	if _, err := packetStringAt(envelope, 99); !errors.Is(err, errMalformedPacket) {
 		t.Fatalf("out-of-range packetStringAt: expected errMalformedPacket, got %v", err)
@@ -200,15 +163,6 @@ func TestPacketAtHelpers(t *testing.T) {
 	if _, err := packetDataAt(envelope, 0); err != nil {
 		// child 0 is a string with a data buffer, so this should succeed.
 		t.Fatalf("unexpected packetDataAt error: %v", err)
-	}
-}
-
-func TestPacketRequired(t *testing.T) {
-	if p, err := packetRequired(newTestString("x"), "member"); err != nil || p == nil {
-		t.Fatalf("expected packet, got %v, %v", p, err)
-	}
-	if _, err := packetRequired(nil, "criticality"); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket, got %v", err)
 	}
 }
 

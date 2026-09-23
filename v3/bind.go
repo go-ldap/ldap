@@ -77,23 +77,26 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 		return nil, err
 	}
 
+	return decodeSimpleBindResult(packet)
+}
+
+// decodeSimpleBindResult decodes a bind response envelope, including any
+// response controls. It is separated from the network loop so the full
+// response decoder can be fuzzed directly.
+func decodeSimpleBindResult(packet *ber.Packet) (*SimpleBindResult, error) {
 	result := &SimpleBindResult{
 		Controls: make([]Control, 0),
 	}
 
-	children, err := packetChildCount(packet, 2, 3, "bind response")
+	controls, ok, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return nil, err
 	}
-	if len(children) == 3 {
-		controls, err := packetChild(packet, 2)
-		if err != nil {
-			return nil, err
-		}
+	if ok {
 		for _, child := range controls.Children {
 			decodedChild, decodeErr := DecodeControl(child)
 			if decodeErr != nil {
-				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)
+				return nil, fmt.Errorf("failed to decode child control: %w", decodeErr)
 			}
 			result.Controls = append(result.Controls, decodedChild)
 		}
@@ -204,18 +207,18 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		Controls: make([]Control, 0),
 	}
 	var params map[string]string
-	children, err := packetChildCount(packet, 2, 3, "bind response")
+	_, hasControls, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return nil, err
 	}
-	if len(children) == 2 {
+	if !hasControls {
 		challenge, perr := packetChild(packet, 1)
 		if perr == nil {
-			challengeChildren, cerr := packetChildCount(challenge, 3, -1, "bind response")
+			challengeChild, hasChallengeChild, cerr := packetChildIfPresent(challenge, 3)
 			if cerr != nil {
 				return result, GetLDAPError(packet)
 			}
-			if len(challengeChildren) >= 4 {
+			if hasChallengeChild {
 				child, perr := packetChild(challenge, 0)
 				if perr != nil || child.Tag != ber.TagEnumerated {
 					return result, GetLDAPError(packet)
@@ -224,8 +227,8 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 				if perr != nil || code != 14 {
 					return result, GetLDAPError(packet)
 				}
-				child, perr = packetChild(challenge, 3)
-				if perr != nil || child.Tag != ber.TagObjectDescriptor || child.Data == nil {
+				child = challengeChild
+				if child.Tag != ber.TagObjectDescriptor || child.Data == nil {
 					return result, GetLDAPError(packet)
 				}
 				data, _ := io.ReadAll(child.Data)
@@ -274,11 +277,11 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 			return nil, fmt.Errorf("read packet: %s", err)
 		}
 
-		children, err := packetChildCount(packet, 2, 3, "bind response")
+		_, hasControls, err := packetChildIfPresent(packet, 2)
 		if err != nil {
 			return nil, err
 		}
-		if len(children) == 2 {
+		if !hasControls {
 			response, rerr := packetChild(packet, 1)
 			if rerr != nil {
 				return result, GetLDAPError(packet)
@@ -629,11 +632,11 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 	var ntlmsspChallenge []byte
 
 	// now find the NTLM Response Message
-	children, err := packetChildCount(packet, 2, 3, "bind response")
+	_, hasControls, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return nil, err
 	}
-	if len(children) == 2 {
+	if !hasControls {
 		protocolOp, perr := packetChild(packet, 1)
 		if perr == nil {
 			protocolOpChildren, cerr := packetChildCount(protocolOp, 3, -1, "bind response")

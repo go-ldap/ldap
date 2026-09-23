@@ -121,9 +121,6 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 		return err
 	}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return err
-	}
 	protocolOp, err := packetChild(packet, 1)
 	if err != nil {
 		return err
@@ -165,30 +162,21 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 		return nil, err
 	}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return nil, err
-	}
 	protocolOp, err := packetChild(packet, 1)
 	if err != nil {
 		return nil, err
 	}
-
-	switch protocolOp.Tag {
-	case ApplicationModifyResponse:
+	if protocolOp.Tag == ApplicationModifyResponse {
 		if err = GetLDAPError(packet); err != nil {
 			result.Referral = getReferral(err, packet)
 
 			return result, err
 		}
-		responseChildren, err := packetChildCount(packet, 2, 3, "modify response")
+		controls, ok, err := packetChildIfPresent(packet, 2)
 		if err != nil {
 			return nil, err
 		}
-		if len(responseChildren) == 3 {
-			controls, err := packetChild(packet, 2)
-			if err != nil {
-				return nil, err
-			}
+		if ok {
 			for _, child := range controls.Children {
 				decodedChild, err := DecodeControl(child)
 				if err != nil {

@@ -155,15 +155,11 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 				grandchild.Description = "Attribute Value"
 			}
 		}
-		entryChildren, err := packetChildCount(packet, 2, 3, "search result entry")
+		controls, ok, err := packetChildIfPresent(packet, 2)
 		if err != nil {
 			return err
 		}
-		if len(entryChildren) == 3 {
-			controls, err := packetChild(packet, 2)
-			if err != nil {
-				return err
-			}
+		if ok {
 			if err = addControlDescriptions(controls); err != nil {
 				return err
 			}
@@ -228,7 +224,7 @@ func addControlDescriptions(packet *ber.Packet) error {
 				return err
 			}
 			// Children[1] is criticality or value; identify it by its ASN.1 tag.
-			if second.Tag == ber.TagBoolean {
+			if second.ClassType == ber.ClassUniversal && second.Tag == ber.TagBoolean {
 				second.Description = "Criticality"
 			} else {
 				second.Description = "Control Value"
@@ -259,11 +255,11 @@ func addControlDescriptions(packet *ber.Packet) error {
 			if value.Value != nil {
 				data, err := packetData(value)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				valueChildren, err := ber.DecodePacketErr(data)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				value.Data.Truncate(0)
 				value.Value = nil
@@ -299,11 +295,11 @@ func addControlDescriptions(packet *ber.Packet) error {
 			if value.Value != nil {
 				data, err := packetData(value)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				valueChildren, err := ber.DecodePacketErr(data)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				value.Data.Truncate(0)
 				value.Value = nil
@@ -326,11 +322,11 @@ func addControlDescriptions(packet *ber.Packet) error {
 					}
 					data, err := packetData(warningPacket)
 					if err != nil {
-						return fmt.Errorf("failed to decode data bytes: %s", err)
+						return fmt.Errorf("failed to decode data bytes: %w", err)
 					}
 					val, err := ber.ParseInt64(data)
 					if err != nil {
-						return fmt.Errorf("failed to decode data bytes: %s", err)
+						return fmt.Errorf("failed to decode data bytes: %w", err)
 					}
 					switch warningPacket.Tag {
 					case 0:
@@ -349,7 +345,7 @@ func addControlDescriptions(packet *ber.Packet) error {
 						return err
 					}
 					if len(bs) != 1 || bs[0] > 8 {
-						return fmt.Errorf("failed to decode data bytes: %s", "invalid PasswordPolicyResponse enum value")
+						return malformedf("invalid PasswordPolicyResponse enum value")
 					}
 					val := int8(bs[0])
 					child.Description = "Error"
@@ -373,15 +369,11 @@ func addRequestDescriptions(packet *ber.Packet) error {
 		return err
 	}
 	protocolOp.Description = ApplicationMap[uint8(protocolOp.Tag)]
-	requestChildren, err := packetChildCount(packet, 2, 3, "LDAP request")
+	controls, ok, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return err
 	}
-	if len(requestChildren) == 3 {
-		controls, err := packetChild(packet, 2)
-		if err != nil {
-			return err
-		}
+	if ok {
 		return addControlDescriptions(controls)
 	}
 	return nil
@@ -416,26 +408,18 @@ func addDefaultLDAPResponseDescriptions(packet *ber.Packet) error {
 		return err
 	}
 	errorMessageChild.Description = description
-	resultChildren, err := packetChildCount(protocolOp, 3, -1, "LDAP result")
+	referral, ok, err := packetChildIfPresent(protocolOp, 3)
 	if err != nil {
 		return err
 	}
-	if len(resultChildren) > 3 {
-		referral, err := packetChild(protocolOp, 3)
-		if err != nil {
-			return err
-		}
+	if ok {
 		referral.Description = "Referral"
 	}
-	responseChildren, err := packetChildCount(packet, 2, 3, "LDAP response")
+	controls, ok, err := packetChildIfPresent(packet, 2)
 	if err != nil {
 		return err
 	}
-	if len(responseChildren) == 3 {
-		controls, err := packetChild(packet, 2)
-		if err != nil {
-			return err
-		}
+	if ok {
 		return addControlDescriptions(controls)
 	}
 	return nil
@@ -450,7 +434,7 @@ func DebugBinaryFile(fileName string) error {
 	ber.PrintBytes(os.Stdout, file, "")
 	packet, err := ber.DecodePacketErr(file)
 	if err != nil {
-		return fmt.Errorf("failed to decode packet: %s", err)
+		return fmt.Errorf("failed to decode packet: %w", err)
 	}
 	if err := addLDAPDescriptions(packet); err != nil {
 		return err
