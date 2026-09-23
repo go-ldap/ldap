@@ -438,8 +438,8 @@ func TestUnpackAttributesBoundsMalformed(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
-			if !errors.Is(err, errMalformedPacket) {
-				t.Fatalf("expected errMalformedPacket, got %v", err)
+			if !errors.Is(err, ErrMalformedPacket) {
+				t.Fatalf("expected ErrMalformedPacket, got %v", err)
 			}
 		})
 	}
@@ -493,8 +493,8 @@ func TestPacketHelpersDoNotPanicOnNil(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var err error
 			mustNotPanic(t, c.name, func() { err = c.f() })
-			if !errors.Is(err, errMalformedPacket) {
-				t.Fatalf("expected errMalformedPacket, got %v", err)
+			if !errors.Is(err, ErrMalformedPacket) {
+				t.Fatalf("expected ErrMalformedPacket, got %v", err)
 			}
 		})
 	}

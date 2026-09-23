@@ -7,19 +7,18 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-// errMalformedPacket is the package-private sentinel wrapped by the
-// structural decoding failures reported by the helpers in this file, so
-// in-package callers can distinguish a malformed packet with errors.Is. It is
-// unexported, and external callers only observe it through the LDAP-style
-// *Error (ResultCode ErrorMalformedPacket) built by malformedf; wrapping that
-// error with %s instead of %w drops it from the chain.
-var errMalformedPacket = errors.New("ldap: malformed packet")
+// ErrMalformedPacket is the sentinel wrapped by the structural decoding
+// failures reported by the helpers in this file, so callers can distinguish a
+// malformed packet with errors.Is. It is nested inside the LDAP-style *Error
+// (ResultCode ErrorMalformedPacket) built by malformedf; wrapping that error
+// with %s instead of %w drops the sentinel from the chain.
+var ErrMalformedPacket = errors.New("ldap: malformed packet")
 
 // malformedf builds an LDAP-style error (NewError with ErrorMalformedPacket)
-// wrapping errMalformedPacket. Callers must wrap its result with %w, not %s,
+// wrapping ErrMalformedPacket. Callers must wrap its result with %w, not %s,
 // to keep both the *Error and the sentinel matchable with errors.As/errors.Is.
 func malformedf(format string, args ...any) error {
-	return NewError(ErrorMalformedPacket, fmt.Errorf("%w: %s", errMalformedPacket, fmt.Sprintf(format, args...)))
+	return NewError(ErrorMalformedPacket, fmt.Errorf("%w: %s", ErrMalformedPacket, fmt.Sprintf(format, args...)))
 }
 
 // packetChildCount asserts that p has between min and max direct children

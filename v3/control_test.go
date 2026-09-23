@@ -79,8 +79,8 @@ func TestDecodeControlPagingMalformed(t *testing.T) {
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
 			}
-			if !errors.Is(err, errMalformedPacket) {
-				t.Errorf("error = %v, want errMalformedPacket", err)
+			if !errors.Is(err, ErrMalformedPacket) {
+				t.Errorf("error = %v, want ErrMalformedPacket", err)
 			}
 		})
 	}
@@ -133,8 +133,8 @@ func TestResponseControlDirSyncMalformed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a short dirSync control value")
 	}
-	if !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket, got %v", err)
+	if !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("expected ErrMalformedPacket, got %v", err)
 	}
 }
 
@@ -368,8 +368,8 @@ func TestDecodeControlInvalidTypes(t *testing.T) {
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
 			}
-			if !errors.Is(err, errMalformedPacket) {
-				t.Errorf("error = %v, want errMalformedPacket", err)
+			if !errors.Is(err, ErrMalformedPacket) {
+				t.Errorf("error = %v, want ErrMalformedPacket", err)
 			}
 		})
 	}
