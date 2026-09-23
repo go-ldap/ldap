@@ -90,6 +90,7 @@ const (
 	ErrorUnexpectedMessage  = 204
 	ErrorUnexpectedResponse = 205
 	ErrorEmptyPassword      = 206
+	ErrorMalformedPacket    = 207
 )
 
 // LDAPResultCodeMap contains string descriptions for LDAP error codes
@@ -175,6 +176,7 @@ var LDAPResultCodeMap = map[uint16]string{
 	ErrorUnexpectedMessage:  "Unexpected Message",
 	ErrorUnexpectedResponse: "Unexpected Response",
 	ErrorEmptyPassword:      "Empty password not allowed by the client",
+	ErrorMalformedPacket:    "Malformed Packet",
 }
 
 // Error holds LDAP error information
@@ -203,32 +205,46 @@ func GetLDAPError(packet *ber.Packet) error {
 		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty packet")}
 	}
 
-	if len(packet.Children) >= 2 {
-		response := packet.Children[1]
-		if response == nil {
+	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err == nil {
+		response, err := packetChild(packet, 1)
+		if err != nil {
 			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty response in packet"), Packet: packet}
 		}
-		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-			if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
-				if response.Children[0].Value == nil {
+		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed {
+			if _, err := packetChildCount(response, 3, -1, "LDAP result"); err == nil {
+				resultCodeChild, err := packetChild(response, 0)
+				if err != nil {
 					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 				}
-
-				resultCode := uint16(response.Children[0].Value.(int64))
-				if resultCode == 0 { // No error
-					return nil
-				}
-
-				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
-					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
-					if response.Children[1].Value == nil {
-						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid matchedDN in packet"), Packet: packet}
+				if ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagInteger) || ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagEnumerated) {
+					code, err := packetInt64(resultCodeChild)
+					if err != nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 					}
-					return &Error{
-						ResultCode: resultCode,
-						MatchedDN:  response.Children[1].Value.(string),
-						Err:        fmt.Errorf("%v", response.Children[2].Value),
-						Packet:     packet,
+
+					resultCode := uint16(code)
+					if resultCode == 0 { // No error
+						return nil
+					}
+
+					matchedDNChild, matchedDNErr := packetChild(response, 1)
+					errorMessageChild, errorMessageErr := packetChild(response, 2)
+					if matchedDNErr != nil || errorMessageErr != nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid packet format"), Packet: packet}
+					}
+
+					if ber.Type(matchedDNChild.Tag) == ber.Type(ber.TagOctetString) &&
+						ber.Type(errorMessageChild.Tag) == ber.Type(ber.TagOctetString) {
+						matchedDN, err := packetString(matchedDNChild)
+						if err != nil {
+							return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid matchedDN in packet"), Packet: packet}
+						}
+						return &Error{
+							ResultCode: resultCode,
+							MatchedDN:  matchedDN,
+							Err:        fmt.Errorf("%v", errorMessageChild.Value),
+							Packet:     packet,
+						}
 					}
 				}
 			}

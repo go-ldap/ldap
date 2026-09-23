@@ -86,12 +86,12 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		return nil, err
 	}
 
-	extResp := packet.Children[1]
-	if len(extResp.Children) < 3 {
-		return nil, fmt.Errorf(
-			"ldap: malformed extended response: expected at least 3 children, got %d",
-			len(packet.Children),
-		)
+	extResp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := packetChildCount(extResp, 3, -1, "extended response"); err != nil {
+		return nil, err
 	}
 
 	response := &ExtendedResponse{
@@ -109,14 +109,26 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		}
 		switch child.Tag {
 		case ber.TagEnumerated:
-			response.Name = child.Data.String()
+			name, err := packetData(child)
+			if err != nil {
+				return nil, err
+			}
+			response.Name = string(name)
 		case ber.TagEmbeddedPDV:
 			response.Value = child
 		}
 	}
 
-	if len(packet.Children) == 3 {
-		for _, child := range packet.Children[2].Children {
+	responseChildren, err := packetChildCount(packet, 2, 3, "extended response")
+	if err != nil {
+		return nil, err
+	}
+	if len(responseChildren) == 3 {
+		controlsChild, err := packetChild(packet, 2)
+		if err != nil {
+			return nil, err
+		}
+		for _, child := range controlsChild.Children {
 			decodedChild, decodeErr := DecodeControl(child)
 			if decodeErr != nil {
 				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)

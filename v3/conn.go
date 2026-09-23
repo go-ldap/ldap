@@ -463,6 +463,10 @@ func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) 
 	if l.IsClosing() {
 		return nil, NewError(ErrorNetwork, errors.New("ldap: connection closed"))
 	}
+	messageID, err := packetInt64At(packet, 0)
+	if err != nil {
+		return nil, NewError(ErrorNetwork, err)
+	}
 	l.messageMutex.Lock()
 	l.Debug.Printf("flags&startTLS = %d", flags&startTLS)
 	if l.isStartingTLS {
@@ -481,7 +485,6 @@ func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) 
 	l.messageMutex.Unlock()
 
 	responses := make(chan *PacketResponse)
-	messageID := packet.Children[0].Value.(int64)
 	message := &messagePacket{
 		Op:        MessageRequest,
 		MessageID: messageID,
@@ -659,8 +662,13 @@ func (l *Conn) reader() {
 		if err := addLDAPDescriptions(packet); err != nil {
 			l.Debug.Printf("descriptions error: %s", err)
 		}
-		if len(packet.Children) == 0 {
-			l.Debug.Printf("Received bad ldap packet")
+		if _, err := packetChildCount(packet, 1, -1, "LDAP response"); err != nil {
+			l.Debug.Printf("Received bad ldap packet: %s", err)
+			continue
+		}
+		messageID, err := packetInt64At(packet, 0)
+		if err != nil {
+			l.Debug.Printf("Received bad ldap packet: %s", err)
 			continue
 		}
 		l.messageMutex.Lock()
@@ -670,7 +678,7 @@ func (l *Conn) reader() {
 		l.messageMutex.Unlock()
 		message := &messagePacket{
 			Op:        MessageResponse,
-			MessageID: packet.Children[0].Value.(int64),
+			MessageID: messageID,
 			Packet:    packet,
 		}
 		if !l.sendProcessMessage(message) {
