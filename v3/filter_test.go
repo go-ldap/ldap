@@ -448,3 +448,18 @@ func TestHegelPinAttributeDescriptionValidated(t *testing.T) {
 		}
 	}
 }
+
+func TestHegelPinExtensibleNeedsAttrOrRule(t *testing.T) {
+	for _, filterStr := range []string{`(:=a)`, `(:dn:=a)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// A matching rule alone, or an attribute alone, is still valid.
+	for _, filterStr := range []string{`(attr:=a)`, `(:rule:=a)`, `(:1.2.3:=a)`, `(:dn:rule:=a)`, `(attr:dn:rule:=a)`} {
+		if _, err := CompileFilter(filterStr); err != nil {
+			t.Errorf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+	}
+}

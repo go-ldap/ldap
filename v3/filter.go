@@ -372,6 +372,9 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			return packet, newPos, err
 		}
 		if packet.Tag == FilterExtensibleMatch {
+			if extensibleMatchingRule.Len() == 0 && attribute.Len() == 0 {
+				return packet, newPos, NewError(ErrorFilterCompile, errors.New("ldap: extensible filter requires an attribute or a matching rule"))
+			}
 			if attribute.Len() > 0 && !validAttributeDescription(attribute.String()) {
 				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid attribute description at position %d", pos))
 			}
