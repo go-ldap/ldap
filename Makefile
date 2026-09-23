@@ -1,6 +1,9 @@
-.PHONY: default install build test test fmt vet lint
+.PHONY: default install build test fuzz fmt vet lint local-server stop-local-server
 
 default: fmt vet lint build test
+
+# The module lives in v3/; the repository root holds no go.mod.
+MODULE_DIR := v3
 
 CONTAINER_CMD := $(shell (command -v docker 2>/dev/null || command -v podman 2>/dev/null))
 ifeq ($(CONTAINER_CMD),)
@@ -8,10 +11,10 @@ ifeq ($(CONTAINER_CMD),)
 endif
 
 install:
-	go get -t -x ./...
+	(cd $(MODULE_DIR) && go get -t -x ./...)
 
 build:
-	go build -v ./...
+	(cd $(MODULE_DIR) && go build -v ./...)
 
 LDAP_ADMIN_DN := cn=admin,dc=example,dc=com
 LDAP_ADMIN_PASSWORD := admin123
@@ -50,10 +53,10 @@ stop-local-server:
 	-$(CONTAINER_CMD) rm -f $(CONTAINER_NAME)
 
 test:
-	go test -v -cover -race -count=1 .
+	(cd $(MODULE_DIR) && go test -v -cover -race -count=1 ./...)
 
 fuzz:
-	(cd v3 && go test -fuzz=FuzzGetLDAPError     -fuzztime=600s .)
+	(cd $(MODULE_DIR) && go test -fuzz=FuzzGetLDAPError -fuzztime=600s .)
 
 # Capture output and force failure when there is non-empty output
 fmt:
@@ -66,27 +69,19 @@ fmt:
 	fi
 
 vet:
-	go vet \
-    	-atomic \
-    	-bool \
-    	-copylocks \
-    	-nilfunc \
-    	-printf \
-    	-rangeloops \
-    	-unreachable \
-    	-unsafeptr \
-    	-unusedresult \
-    	./...
+	(cd $(MODULE_DIR) && go vet \
+		-atomic \
+		-bool \
+		-copylocks \
+		-nilfunc \
+		-printf \
+		-rangeloops \
+		-unreachable \
+		-unsafeptr \
+		-unusedresult \
+		./...)
 
-# https://github.com/golang/lint
-# go get github.com/golang/lint/golint
-# Capture output and force failure when there is non-empty output
-# Only run on go1.5+
+# https://staticcheck.dev/
+# go install honnef.co/go/tools/cmd/staticcheck@latest
 lint:
-	@echo golint ./...
-	@OUTPUT=`command -v golint >/dev/null 2>&1 && golint ./... 2>&1`; \
-	if [ "$$OUTPUT" ]; then \
-		echo "golint errors:"; \
-		echo "$$OUTPUT"; \
-		exit 1; \
-	fi
+	(cd $(MODULE_DIR) && staticcheck ./...)

@@ -200,18 +200,18 @@ func (e *Error) Unwrap() error { return e.Err }
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).
 func GetLDAPError(packet *ber.Packet) error {
 	if packet == nil {
-		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
+		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty packet")}
 	}
 
 	if len(packet.Children) >= 2 {
 		response := packet.Children[1]
 		if response == nil {
-			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty response in packet"), Packet: packet}
+			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty response in packet"), Packet: packet}
 		}
 		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
 			if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
 				if response.Children[0].Value == nil {
-					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid result code in packet"), Packet: packet}
+					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 				}
 
 				resultCode := uint16(response.Children[0].Value.(int64))
@@ -222,7 +222,7 @@ func GetLDAPError(packet *ber.Packet) error {
 				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
 					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
 					if response.Children[1].Value == nil {
-						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid matchedDN in packet"), Packet: packet}
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid matchedDN in packet"), Packet: packet}
 					}
 					return &Error{
 						ResultCode: resultCode,
@@ -235,7 +235,7 @@ func GetLDAPError(packet *ber.Packet) error {
 		}
 	}
 
-	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid packet format"), Packet: packet}
+	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid packet format"), Packet: packet}
 }
 
 // NewError creates an LDAP error with the given code and underlying error

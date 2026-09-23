@@ -30,6 +30,6 @@ jobs:
       - name: Build, Validate, and Test
         run: |
           cd ${{ matrix.directory }}
-          go vet .
-          go test -v -cover -race -count=1 .
-          go build .
+          go vet ./...
+          go test -v -cover -race -count=1 ./...
+          go build ./...
