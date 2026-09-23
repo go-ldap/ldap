@@ -430,6 +430,9 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 				}
 				seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, tag, encodedString, FilterSubstringsMap[uint64(tag)]))
 			}
+			if len(seq.Children) == 0 {
+				return packet, newPos, NewError(ErrorFilterCompile, errors.New("ldap: substring filter requires at least one substring"))
+			}
 			packet.AppendChild(seq)
 		default:
 			encodedString, encodeErr := decodeEscapedSymbols(condition.Bytes())

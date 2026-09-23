@@ -356,3 +356,35 @@ func TestHegelPinFilterClosingParenChecked(t *testing.T) {
 		}
 	}
 }
+
+func TestHegelPinEmptySubstringsRejected(t *testing.T) {
+	for _, filterStr := range []string{`(sn=**)`, `(sn=***)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// "*" alone is the present filter and must keep working.
+	present, err := CompileFilter(`(sn=*)`)
+	if err != nil {
+		t.Fatalf("CompileFilter(%q) unexpected error: %v", `(sn=*)`, err)
+	}
+	if present.Tag != FilterPresent {
+		t.Errorf("(sn=*) expected FilterPresent, got %s", FilterMap[uint64(present.Tag)])
+	}
+
+	// Ordinary substring filters still round-trip.
+	for _, filterStr := range []string{`(sn=*Mill)`, `(sn=Mill*)`, `(sn=*Mill*)`, `(sn=Mi*l*r)`} {
+		p, err := CompileFilter(filterStr)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		if got != filterStr {
+			t.Errorf("round trip of %q = %q", filterStr, got)
+		}
+	}
+}
