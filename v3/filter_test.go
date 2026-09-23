@@ -413,3 +413,23 @@ func TestHegelPinDnattrsCaseInsensitive(t *testing.T) {
 		t.Errorf("(sn:DN:...) decompiled as %q", got)
 	}
 }
+
+func TestHegelPinReplacementCharCompiles(t *testing.T) {
+	// A literal U+FFFD (EF BF BD) is a valid UTF-8 character and must compile.
+	p, err := CompileFilter("(cn=a\uFFFDb)")
+	if err != nil {
+		t.Fatalf("CompileFilter with literal U+FFFD: %v", err)
+	}
+	got, err := DecompileFilter(p)
+	if err != nil {
+		t.Fatalf("DecompileFilter with literal U+FFFD: %v", err)
+	}
+	if want := `(cn=a\ef\bf\bdb)`; got != want {
+		t.Errorf("literal U+FFFD decompiled as %q, want %q", got, want)
+	}
+
+	// Genuinely invalid UTF-8 is still rejected.
+	if _, err := CompileFilter("(cn=a\xffb)"); err == nil {
+		t.Error("CompileFilter with invalid UTF-8 expected error, got nil")
+	}
+}

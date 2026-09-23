@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -232,10 +231,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	newPos := pos
 
 	currentRune, currentWidth := utf8.DecodeRuneInString(filter[newPos:])
+	if currentRune == utf8.RuneError && currentWidth == 1 {
+		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+	}
 
 	switch currentRune {
-	case utf8.RuneError:
-		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 	case '(':
 		packet, newPos, err = compileFilter(filter, pos+currentWidth)
 		if err != nil {
@@ -279,7 +279,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			if currentRune == ')' {
 				break
 			}
-			if currentRune == utf8.RuneError {
+			if currentRune == utf8.RuneError && currentWidth == 1 {
 				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 			}
 
@@ -469,7 +469,7 @@ func decodeEscapedSymbols(src []byte) (string, error) {
 			return buffer.String(), nil
 		} else if err != nil {
 			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: failed to read filter: %v", err))
-		} else if runeVal == unicode.ReplacementChar {
+		} else if runeVal == utf8.RuneError && runeSize == 1 {
 			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", offset))
 		}
 
