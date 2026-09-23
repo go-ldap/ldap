@@ -371,6 +371,13 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error parsing filter"))
 			return packet, newPos, err
 		}
+		if packet.Tag == FilterExtensibleMatch {
+			if attribute.Len() > 0 && !validAttributeDescription(attribute.String()) {
+				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid attribute description at position %d", pos))
+			}
+		} else if !validAttributeDescription(attribute.String()) {
+			return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid attribute description at position %d", pos))
+		}
 
 		switch {
 		case packet.Tag == FilterExtensibleMatch:
@@ -451,6 +458,83 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 // hasPrefixFold reports whether s starts with prefix, ignoring case.
 func hasPrefixFold(s, prefix string) bool {
 	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+// validAttributeDescription reports whether attr is a valid RFC 4512
+// attributedescription: an attributedescription is a descr or numericoid,
+// optionally followed by one or more ";option" suffixes.
+func validAttributeDescription(attr string) bool {
+	base, options, hasOptions := strings.Cut(attr, ";")
+	if base == "" {
+		return false
+	}
+	if !isKeyString(base) && !isNumericOID(base) {
+		return false
+	}
+	if !hasOptions {
+		return true
+	}
+	for _, option := range strings.Split(options, ";") {
+		if !isOption(option) {
+			return false
+		}
+	}
+	return true
+}
+
+// isOption reports whether s is an RFC 4512 option: one or more keychar
+// characters (ALPHA, DIGIT or HYPHEN).
+func isOption(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isKeyString reports whether s is an RFC 4512 keystring: an ALPHA lead
+// character followed by zero or more ALPHA, DIGIT or HYPHEN characters.
+func isKeyString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z':
+		case c == '-' && i > 0:
+		case c >= '0' && c <= '9' && i > 0:
+		default:
+			return false
+		}
+	}
+	return s != ""
+}
+
+// isNumericOID reports whether s is an RFC 4512 numericoid: dot-separated
+// numbers, each a single DIGIT or an LDIGIT followed by DIGITs.
+func isNumericOID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, part := range strings.Split(s, ".") {
+		if part == "" {
+			return false
+		}
+		for i := 0; i < len(part); i++ {
+			if part[i] < '0' || part[i] > '9' {
+				return false
+			}
+		}
+		if len(part) > 1 && part[0] == '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport

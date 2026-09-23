@@ -433,3 +433,18 @@ func TestHegelPinReplacementCharCompiles(t *testing.T) {
 		t.Error("CompileFilter with invalid UTF-8 expected error, got nil")
 	}
 }
+
+func TestHegelPinAttributeDescriptionValidated(t *testing.T) {
+	for _, filterStr := range []string{`(=v)`, `(a b=v)`, `(a\2ab=v)`, `(1.2.3.=v)`, `(a;=v)`, `(-cn=v)`, `(a b:=v)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// Valid descr, numericoid and options must keep compiling.
+	for _, filterStr := range []string{`(cn=v)`, `(1.2.3=v)`, `(cn;lang-en=v)`, `(cn;123=v)`, `(cn;-x=v)`, `(1.2.3;binary=v)`, `(objectClass=*)`} {
+		if _, err := CompileFilter(filterStr); err != nil {
+			t.Errorf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+	}
+}
