@@ -89,9 +89,6 @@ func (l *Conn) ModifyDN(m *ModifyDNRequest) error {
 		return err
 	}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return err
-	}
 	protocolOp, err := packetChild(packet, 1)
 	if err != nil {
 		return err

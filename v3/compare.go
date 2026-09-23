@@ -46,9 +46,6 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 		return false, err
 	}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return false, err
-	}
 	protocolOp, err := packetChild(packet, 1)
 	if err != nil {
 		return false, err

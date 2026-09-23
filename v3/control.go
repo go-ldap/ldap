@@ -564,19 +564,19 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 	typeChild, err := packetChild(packet, 0)
 	if err != nil {
-		return nil, fmt.Errorf("at least one child is required for control type")
+		return nil, err
 	}
 	typeChild.Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
 	if typeChild.Value != nil {
 		ct, err := packetString(typeChild)
 		if err != nil {
-			return nil, fmt.Errorf("control type is not a string: %T", typeChild.Value)
+			return nil, fmt.Errorf("control type is not a string: %T: %w", typeChild.Value, err)
 		}
 		ControlType = ct
 	} else if typeChild.Data != nil {
 		ControlType = typeChild.Data.String()
 	} else {
-		return nil, fmt.Errorf("not found where to get the control type")
+		return nil, malformedf("not found where to get the control type")
 	}
 
 	switch len(children) {
@@ -589,7 +589,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		criticality.Description = "Criticality"
 		crit, err := packetBool(criticality)
 		if err != nil {
-			return nil, fmt.Errorf("criticality is not a bool: %T", criticality.Value)
+			return nil, fmt.Errorf("criticality is not a bool: %T: %w", criticality.Value, err)
 		}
 		Criticality = crit
 
@@ -608,11 +608,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		if err != nil {
 			return nil, err
 		}
-		if second.Tag == ber.TagBoolean {
+		if second.ClassType == ber.ClassUniversal && second.Tag == ber.TagBoolean {
 			second.Description = "Criticality"
 			crit, err := packetBool(second)
 			if err != nil {
-				return nil, fmt.Errorf("criticality is not a bool: %T", second.Value)
+				return nil, fmt.Errorf("criticality is not a bool: %T: %w", second.Value, err)
 			}
 			Criticality = crit
 		} else {
@@ -626,25 +626,22 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		return NewControlManageDsaIT(Criticality), nil
 	case ControlTypePaging:
 		if value == nil {
-			return nil, fmt.Errorf("paging control value is missing")
+			return nil, malformedf("paging control value is missing")
 		}
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
 			data, err := packetData(value)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 			}
 			valueChildren, err := ber.DecodePacketErr(data)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 			}
 			value.Data.Truncate(0)
 			value.Value = nil
 			value.AppendChild(valueChildren)
-		}
-		if _, err := packetChildCount(value, 1, -1, "paging control value"); err != nil {
-			return nil, err
 		}
 		first, err := packetChild(value, 0)
 		if err != nil {
@@ -652,9 +649,6 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		}
 		value = first
 		value.Description = "Search Control Value"
-		if _, err := packetChildCount(value, 2, -1, "paging control value"); err != nil {
-			return nil, err
-		}
 		sizeChild, err := packetChild(value, 0)
 		if err != nil {
 			return nil, err
@@ -667,7 +661,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		cookieChild.Description = "Cookie"
 		pagingSize, err := packetInt64(sizeChild)
 		if err != nil {
-			return nil, fmt.Errorf("paging size is not an integer: %T", sizeChild.Value)
+			return nil, fmt.Errorf("paging size is not an integer: %T: %w", sizeChild.Value, err)
 		}
 		c.PagingSize = uint32(pagingSize)
 		cookie, err := packetData(cookieChild)
@@ -686,11 +680,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		if value.Value != nil {
 			data, err := packetData(value)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 			}
 			valueChildren, err := ber.DecodePacketErr(data)
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 			}
 			value.Data.Truncate(0)
 			value.Value = nil
@@ -715,11 +709,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 				}
 				data, err := packetData(warningPacket)
 				if err != nil {
-					return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+					return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				val, err := ber.ParseInt64(data)
 				if err != nil {
-					return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+					return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				switch warningPacket.Tag {
 				case 0:
@@ -738,7 +732,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 					return nil, err
 				}
 				if len(bs) != 1 || bs[0] > 8 {
-					return nil, fmt.Errorf("failed to decode data bytes: %s", "invalid PasswordPolicyResponse enum value")
+					return nil, malformedf("invalid PasswordPolicyResponse enum value")
 				}
 				val := int8(bs[0])
 				c.Error = val
@@ -759,7 +753,7 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 		expire, err := strconv.ParseInt(expireStr, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse value as int: %s", err)
+			return nil, fmt.Errorf("failed to parse value as int: %w", err)
 		}
 		c.Expire = expire
 		value.Value = c.Expire
@@ -793,11 +787,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		value.Description += " (Sync State)"
 		data, err := packetData(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		valueChildren, err := ber.DecodePacketErr(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		return NewControlSyncState(valueChildren)
 	case ControlTypeSyncDone:
@@ -807,11 +801,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		value.Description += " (Sync Done)"
 		data, err := packetData(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		valueChildren, err := ber.DecodePacketErr(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		return NewControlSyncDone(valueChildren)
 	case ControlTypeSyncInfo:
@@ -821,11 +815,11 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		value.Description += " (Sync Info)"
 		data, err := packetData(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		valueChildren, err := ber.DecodePacketErr(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		return NewControlSyncInfo(valueChildren)
 	default:
@@ -941,11 +935,11 @@ func NewResponseControlDirSync(value *ber.Packet) (*ControlDirSync, error) {
 	if value.Value != nil {
 		data, err := packetData(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		valueChildren, err := ber.DecodePacketErr(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode data bytes: %s", err)
+			return nil, fmt.Errorf("failed to decode data bytes: %w", err)
 		}
 		value.Data.Truncate(0)
 		value.Value = nil
@@ -953,7 +947,7 @@ func NewResponseControlDirSync(value *ber.Packet) (*ControlDirSync, error) {
 	}
 	child, err := packetChild(value, 0)
 	if err != nil {
-		return nil, fmt.Errorf("invalid number of children in dirSync control")
+		return nil, fmt.Errorf("invalid number of children in dirSync control: %w", err)
 	}
 	// also on initial creation, Cookie is an empty string
 	if _, err := packetChildCount(child, 3, 3, "dirSync control value"); err != nil {
@@ -961,15 +955,15 @@ func NewResponseControlDirSync(value *ber.Packet) (*ControlDirSync, error) {
 	}
 	flagsChild, err := packetChild(child, 0)
 	if err != nil {
-		return nil, fmt.Errorf("invalid number of children in dirSync control")
+		return nil, fmt.Errorf("invalid number of children in dirSync control: %w", err)
 	}
 	maxAttrChild, err := packetChild(child, 1)
 	if err != nil {
-		return nil, fmt.Errorf("invalid number of children in dirSync control")
+		return nil, fmt.Errorf("invalid number of children in dirSync control: %w", err)
 	}
 	cookieChild, err := packetChild(child, 2)
 	if err != nil {
-		return nil, fmt.Errorf("invalid number of children in dirSync control")
+		return nil, fmt.Errorf("invalid number of children in dirSync control: %w", err)
 	}
 	child.Description = "DirSync Control Value"
 	flagsChild.Description = "Flags"
@@ -1073,11 +1067,11 @@ func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, 
 	}
 	data, err := packetData(value)
 	if err != nil {
-		return nil, fmt.Errorf("decode packet err: %s", err)
+		return nil, fmt.Errorf("decode packet err: %w", err)
 	}
 	val, err := ber.DecodePacketErr(data)
 	if err != nil {
-		return nil, fmt.Errorf("decode packet err: %s", err)
+		return nil, fmt.Errorf("decode packet err: %w", err)
 	}
 
 	if _, err := packetChildCount(val, 1, -1, "sort key list"); err != nil {
@@ -1382,11 +1376,6 @@ func NewControlSyncState(pkt *ber.Packet) (*ControlSyncState, error) {
 		entryUUID uuid.UUID
 		cookie    []byte
 	)
-	children, err := packetChildCount(pkt, 2, 3, "sync state control value")
-	if err != nil {
-		return nil, err
-	}
-
 	code, err := packetInt64At(pkt, 0)
 	if err != nil {
 		return nil, err
@@ -1400,11 +1389,11 @@ func NewControlSyncState(pkt *ber.Packet) (*ControlSyncState, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode uuid: %w", err)
 	}
-	if len(children) == 3 {
-		cookieChild, err := packetChild(pkt, 2)
-		if err != nil {
-			return nil, err
-		}
+	cookieChild, ok, err := packetChildIfPresent(pkt, 2)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
 		cookie = cookieChild.ByteValue
 	}
 	return &ControlSyncState{

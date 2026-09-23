@@ -93,9 +93,6 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	result := &PasswordModifyResult{}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return nil, err
-	}
 	extendedResponse, err := packetChild(packet, 1)
 	if err != nil {
 		return nil, err
@@ -117,11 +114,11 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 		if child.Tag == ber.TagEmbeddedPDV {
 			data, err := packetData(child)
 			if err != nil {
-				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %s", err)
+				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %w", err)
 			}
 			passwordModifyResponseValue, err := ber.DecodePacketErr(data)
 			if err != nil {
-				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %s", err)
+				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %w", err)
 			}
 			pwChildren, err := packetChildCount(passwordModifyResponseValue, 0, 1, "password modify response value")
 			if err != nil {

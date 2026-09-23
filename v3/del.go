@@ -52,9 +52,6 @@ func (l *Conn) Del(delRequest *DelRequest) error {
 		return err
 	}
 
-	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
-		return err
-	}
 	protocolOp, err := packetChild(packet, 1)
 	if err != nil {
 		return err

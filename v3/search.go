@@ -596,13 +596,16 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				return result, ErrSizeLimitExceeded
 			}
 
-			attr := make([]*ber.Packet, 0)
-			if attributesChild, ok, err := packetChildIfPresent(protocolOp, 1); err != nil {
+			// RFC 4511 declares SearchResultEntry ::= [APPLICATION 4] SEQUENCE {
+			// objectName LDAPDN, attributes PartialAttributeList }, and
+			// PartialAttributeList is a SEQUENCE OF, so the attributes element
+			// must be present even when it is empty. Both search paths treat a
+			// missing element as malformed.
+			attributesChild, err := packetChild(protocolOp, 1)
+			if err != nil {
 				return result, err
-			} else if ok {
-				attr = attributesChild.Children
 			}
-			attributes, err := unpackAttributes(attr)
+			attributes, err := unpackAttributes(attributesChild.Children)
 			if err != nil {
 				return result, err
 			}
@@ -620,19 +623,15 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			if err != nil {
 				return result, err
 			}
-			doneChildren, err := packetChildCount(packet, 2, 3, "search result done")
+			controlsChild, ok, err := packetChildIfPresent(packet, 2)
 			if err != nil {
 				return result, err
 			}
-			if len(doneChildren) == 3 {
-				controlsChild, err := packetChild(packet, 2)
-				if err != nil {
-					return result, err
-				}
+			if ok {
 				for _, child := range controlsChild.Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
-						return result, fmt.Errorf("failed to decode child control: %s", err)
+						return result, fmt.Errorf("failed to decode child control: %w", err)
 					}
 					result.Controls = append(result.Controls, decodedChild)
 				}
@@ -688,10 +687,7 @@ func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
 		// a non-string type/value; return an error instead of panicking the
 		// search goroutine, so the caller can handle it.
 		if child == nil {
-			return nil, fmt.Errorf("ldap: malformed attribute: nil attribute")
-		}
-		if _, err := packetChildCount(child, 2, -1, "attribute"); err != nil {
-			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
+			return nil, malformedf("malformed attribute: nil attribute")
 		}
 		nameChild, err := packetChild(child, 0)
 		if err != nil {
@@ -703,7 +699,7 @@ func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
 		}
 		name, err := packetString(nameChild)
 		if err != nil {
-			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T", nameChild.Value)
+			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T: %w", nameChild.Value, err)
 		}
 		values := valuesChild.Children
 		entry := &EntryAttribute{
@@ -716,11 +712,11 @@ func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
 
 		for i, value := range values {
 			if value == nil {
-				return nil, fmt.Errorf("ldap: malformed attribute %q: value is nil", name)
+				return nil, malformedf("malformed attribute %q: value is nil", name)
 			}
 			v, err := packetString(value)
 			if err != nil {
-				return nil, fmt.Errorf("ldap: malformed attribute %q: value is not a string: %T", name, value.Value)
+				return nil, fmt.Errorf("ldap: malformed attribute %q: value is not a string: %T: %w", name, value.Value, err)
 			}
 			entry.ByteValues[i] = value.ByteValue
 			entry.Values[i] = v

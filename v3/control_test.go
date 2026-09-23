@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -46,14 +47,14 @@ func TestDecodeControlPagingMalformed(t *testing.T) {
 		{
 			name:     "empty value sequence",
 			children: []*ber.Packet{typeChild(), valueWithSeq()},
-			wantErr:  "expected 2",
+			wantErr:  "child index 0 out of range",
 		},
 		{
 			name: "value sequence with one child",
 			children: []*ber.Packet{typeChild(), valueWithSeq(
 				ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "Paging Size"),
 			)},
-			wantErr: "expected 2",
+			wantErr: "child index 1 out of range",
 		},
 		{
 			name: "paging size not an integer",
@@ -77,6 +78,9 @@ func TestDecodeControlPagingMalformed(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
+			}
+			if !errors.Is(err, errMalformedPacket) {
+				t.Errorf("error = %v, want errMalformedPacket", err)
 			}
 		})
 	}
@@ -113,6 +117,25 @@ func TestControlString(t *testing.T) {
 func TestControlDirSync(t *testing.T) {
 	runControlTest(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, nil))
 	runControlTest(t, NewRequestControlDirSync(DirSyncObjectSecurity, 1000, []byte("I'm a cookie!")))
+}
+
+func TestResponseControlDirSyncMalformed(t *testing.T) {
+	// A dirSync control value is SEQUENCE { flags, maxAttrCount, cookie }.
+	// A short value must not panic and must keep the malformed sentinel so
+	// callers can match it with errors.Is.
+	value := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "DirSync Control")
+	short := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Real DirSync Control Value")
+	short.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "Flags"))
+	short.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "MaxAttrCount"))
+	value.AppendChild(short)
+
+	_, err := NewResponseControlDirSync(value)
+	if err == nil {
+		t.Fatal("expected an error for a short dirSync control value")
+	}
+	if !errors.Is(err, errMalformedPacket) {
+		t.Fatalf("expected errMalformedPacket, got %v", err)
+	}
 }
 
 func runControlTest(t *testing.T, originalControl Control) {
@@ -345,7 +368,34 @@ func TestDecodeControlInvalidTypes(t *testing.T) {
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want substring %q", err, tt.wantErr)
 			}
+			if !errors.Is(err, errMalformedPacket) {
+				t.Errorf("error = %v, want errMalformedPacket", err)
+			}
 		})
+	}
+}
+
+func TestDecodeControlContextTaggedSecondChild(t *testing.T) {
+	// A context-class [1] element shares the BOOLEAN tag number 1 but is not
+	// criticality; with only two children it must be treated as the control
+	// value instead of being misread as a BOOLEAN criticality.
+	p := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "1.2.3.4.5.999", "Control Type"))
+	p.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagBoolean, "v", "Control Value"))
+
+	c, err := DecodeControl(p)
+	if err != nil {
+		t.Fatalf("DecodeControl: %v", err)
+	}
+	cs, ok := c.(*ControlString)
+	if !ok {
+		t.Fatalf("expected *ControlString, got %T", c)
+	}
+	if cs.Criticality {
+		t.Fatal("context-tagged [1] element must not be read as criticality")
+	}
+	if cs.ControlValue != "v" {
+		t.Fatalf("ControlValue = %q, want %q", cs.ControlValue, "v")
 	}
 }
 

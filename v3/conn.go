@@ -465,7 +465,10 @@ func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) 
 	}
 	messageID, err := packetInt64At(packet, 0)
 	if err != nil {
-		return nil, NewError(ErrorNetwork, err)
+		// The packet is built by this package, so a malformed one is our bug,
+		// not a network failure: return the malformed-packet error as-is
+		// instead of nesting it inside ErrorNetwork.
+		return nil, err
 	}
 	l.messageMutex.Lock()
 	l.Debug.Printf("flags&startTLS = %d", flags&startTLS)
@@ -661,10 +664,6 @@ func (l *Conn) reader() {
 		}
 		if err := addLDAPDescriptions(packet); err != nil {
 			l.Debug.Printf("descriptions error: %s", err)
-		}
-		if _, err := packetChildCount(packet, 1, -1, "LDAP response"); err != nil {
-			l.Debug.Printf("Received bad ldap packet: %s", err)
-			continue
 		}
 		messageID, err := packetInt64At(packet, 0)
 		if err != nil {

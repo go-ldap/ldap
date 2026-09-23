@@ -532,3 +532,22 @@ func TestParseLDAPURL(t *testing.T) {
 		}
 	}
 }
+
+// TestSendMessageMalformedPacketReturnsMalformedError verifies that a failure
+// decoding our own outbound packet is reported as a malformed packet, not
+// nested inside an ErrorNetwork error.
+func TestSendMessageMalformedPacketReturnsMalformedError(t *testing.T) {
+	conn := &Conn{}
+	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+
+	_, err := conn.sendMessageWithFlags(packet, 0)
+	if err == nil {
+		t.Fatal("expected an error for a packet without a message id")
+	}
+	if !errors.Is(err, errMalformedPacket) {
+		t.Fatalf("expected the malformed sentinel, got %v", err)
+	}
+	if IsErrorWithCode(err, ErrorNetwork) {
+		t.Fatalf("outbound decode failure must not be reported as ErrorNetwork: %v", err)
+	}
+}

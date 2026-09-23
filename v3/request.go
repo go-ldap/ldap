@@ -110,10 +110,6 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 		// malicious server can send an empty SEQUENCE. Skip it instead of indexing
 		// child.Children[0], which would panic the goroutine that called Modify or
 		// PasswordModify.
-		if _, err := packetChildCount(child, 1, -1, "referral"); err != nil {
-			continue
-		}
-
 		uriChild, err := packetChild(child, 0)
 		if err != nil {
 			continue

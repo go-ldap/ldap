@@ -3,6 +3,7 @@ package ldap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"testing"
@@ -104,6 +105,90 @@ func TestSearchAsyncCancelUnblocksProducer(t *testing.T) {
 		for r.Next() {
 		}
 	})
+}
+
+// TestDecodeSearchResponseControls pins the controls handling of the search
+// entry and done decoders: every control in the SEQUENCE OF Control is
+// decoded, and an empty (valid) sequence is skipped instead of failing the
+// search.
+func TestDecodeSearchResponseControls(t *testing.T) {
+	entryOp := func() *ber.Packet {
+		op := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultEntry, nil, "Search Result Entry")
+		op.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "cn=a", "Object Name"))
+		attrs := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Attributes")
+		attrs.AppendChild(newPartialAttribute("cn", "a"))
+		op.AppendChild(attrs)
+		return op
+	}
+	controlsElement := func(controls ...*ber.Packet) *ber.Packet {
+		el := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0, nil, "Controls")
+		for _, c := range controls {
+			el.AppendChild(c)
+		}
+		return el
+	}
+
+	entryWithControls := newDecodeEnvelope(1, entryOp())
+	entryWithControls.AppendChild(controlsElement(
+		NewControlPaging(100).Encode(),
+		NewControlManageDsaIT(true).Encode(),
+	))
+	result, err := decodeSearchResultEntry(entryWithControls)
+	if err != nil {
+		t.Fatalf("decodeSearchResultEntry: %v", err)
+	}
+	if len(result.Controls) != 2 {
+		t.Fatalf("expected both controls decoded, got %d", len(result.Controls))
+	}
+
+	entryEmptyControls := newDecodeEnvelope(1, entryOp())
+	entryEmptyControls.AppendChild(controlsElement())
+	result, err = decodeSearchResultEntry(entryEmptyControls)
+	if err != nil {
+		t.Fatalf("empty controls must not fail the entry decode: %v", err)
+	}
+	if len(result.Controls) != 0 {
+		t.Fatalf("expected no controls, got %d", len(result.Controls))
+	}
+
+	doneWithControls := newDecodeEnvelope(1, newResultProtocolOp(ApplicationSearchResultDone, 0))
+	doneWithControls.AppendChild(controlsElement(
+		NewControlPaging(100).Encode(),
+		NewControlManageDsaIT(true).Encode(),
+	))
+	done, err := decodeSearchResultDone(doneWithControls)
+	if err != nil {
+		t.Fatalf("decodeSearchResultDone: %v", err)
+	}
+	if done == nil || len(done.Controls) != 2 {
+		t.Fatalf("expected both done controls decoded, got %v", done)
+	}
+
+	doneEmptyControls := newDecodeEnvelope(1, newResultProtocolOp(ApplicationSearchResultDone, 0))
+	doneEmptyControls.AppendChild(controlsElement())
+	done, err = decodeSearchResultDone(doneEmptyControls)
+	if err != nil {
+		t.Fatalf("empty controls must not fail the done decode: %v", err)
+	}
+	if done != nil {
+		t.Fatalf("expected no result for empty controls, got %v", done)
+	}
+}
+
+// TestDecodeSearchResultEntryRequiresAttributes pins the RFC 4511 requirement
+// shared with the Search decode path: the attributes element must be present
+// even when empty, so a missing one is malformed rather than an empty entry.
+func TestDecodeSearchResultEntryRequiresAttributes(t *testing.T) {
+	op := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultEntry, nil, "Search Result Entry")
+	op.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "cn=a", "Object Name"))
+
+	result, err := decodeSearchResultEntry(newDecodeEnvelope(1, op))
+	if err == nil {
+		t.Fatalf("expected an error for a missing attributes element, got %v", result)
+	}
+	if !errors.Is(err, errMalformedPacket) {
+		t.Fatalf("expected errMalformedPacket, got %v", err)
+	}
 }
 
 func waitForCondition(t *testing.T, timeout time.Duration, msg string, cond func() bool) {

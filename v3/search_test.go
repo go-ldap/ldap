@@ -1,6 +1,7 @@
 package ldap
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -308,6 +309,8 @@ func TestUnpackAttributesMalformed(t *testing.T) {
 
 	if _, err := unpackAttributes([]*ber.Packet{good, missingVals}); err == nil {
 		t.Fatal("expected an error for an attribute without vals")
+	} else if !errors.Is(err, errMalformedPacket) {
+		t.Fatalf("expected errMalformedPacket, got %v", err)
 	}
 
 	// A non-string attribute type previously failed the type assertion.
@@ -317,5 +320,7 @@ func TestUnpackAttributesMalformed(t *testing.T) {
 
 	if _, err := unpackAttributes([]*ber.Packet{badType}); err == nil {
 		t.Fatal("expected an error for a non-string attribute type")
+	} else if !errors.Is(err, errMalformedPacket) {
+		t.Fatalf("expected errMalformedPacket, got %v", err)
 	}
 }

@@ -7,29 +7,19 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-// errMalformedPacket is the sentinel wrapped by every structural decoding
-// failure reported by the helpers in this file. It is nested inside the
-// LDAP-style *Error returned by malformedf, so callers can match either with
-// errors.Is: the *Error for the LDAP result code, or this sentinel for the
-// specific malformed-packet cause.
+// errMalformedPacket is the package-private sentinel wrapped by the
+// structural decoding failures reported by the helpers in this file, so
+// in-package callers can distinguish a malformed packet with errors.Is. It is
+// unexported, and external callers only observe it through the LDAP-style
+// *Error (ResultCode ErrorMalformedPacket) built by malformedf; wrapping that
+// error with %s instead of %w drops it from the chain.
 var errMalformedPacket = errors.New("ldap: malformed packet")
 
 // malformedf builds an LDAP-style error (NewError with ErrorMalformedPacket)
-// wrapping errMalformedPacket, so every structural decode failure is
-// descriptive, carries an LDAP result code, and remains matchable with
-// errors.Is.
+// wrapping errMalformedPacket. Callers must wrap its result with %w, not %s,
+// to keep both the *Error and the sentinel matchable with errors.As/errors.Is.
 func malformedf(format string, args ...any) error {
 	return NewError(ErrorMalformedPacket, fmt.Errorf("%w: %s", errMalformedPacket, fmt.Sprintf(format, args...)))
-}
-
-// packetChildren returns the children of p. The result is only meaningful for
-// the ordered, schema-directed accessors below; callers that already know the
-// expected count should prefer packetChild.
-func packetChildren(p *ber.Packet) ([]*ber.Packet, error) {
-	if p == nil {
-		return nil, malformedf("nil packet")
-	}
-	return p.Children, nil
 }
 
 // packetChildCount asserts that p has between min and max direct children
@@ -89,50 +79,6 @@ func packetChildIfPresent(p *ber.Packet, i int) (child *ber.Packet, ok bool, err
 		return nil, false, malformedf("child index %d is nil", i)
 	}
 	return child, true, nil
-}
-
-// packetChildrenByTag returns the direct children of p matching the given
-// class and tag. It is used where order alone cannot identify a member, for
-// example OPTIONAL or repeated elements whose presence is encoded by their
-// tag; the decision is still structural (class/tag), never based on the Go
-// type of Value.
-func packetChildrenByTag(p *ber.Packet, classType ber.Class, tag ber.Tag) ([]*ber.Packet, error) {
-	if p == nil {
-		return nil, malformedf("nil packet")
-	}
-	var matches []*ber.Packet
-	for _, child := range p.Children {
-		if child == nil {
-			continue
-		}
-		if child.ClassType == classType && child.Tag == tag {
-			matches = append(matches, child)
-		}
-	}
-	return matches, nil
-}
-
-// packetChildByTag returns the first direct child of p matching the given
-// class and tag, reporting ok == false when no such child exists.
-func packetChildByTag(p *ber.Packet, classType ber.Class, tag ber.Tag) (child *ber.Packet, ok bool, err error) {
-	children, err := packetChildrenByTag(p, classType, tag)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(children) == 0 {
-		return nil, false, nil
-	}
-	return children[0], true, nil
-}
-
-// packetRequired returns p when it is non-nil and otherwise reports a
-// malformed packet naming the mandatory element. It is used for control and
-// response members whose value the schema requires.
-func packetRequired(p *ber.Packet, what string) (*ber.Packet, error) {
-	if p == nil {
-		return nil, malformedf("%s is missing", what)
-	}
-	return p, nil
 }
 
 // packetString returns the string value of p. The field's position or tag is
@@ -215,13 +161,4 @@ func packetDataAt(p *ber.Packet, i int) ([]byte, error) {
 		return nil, err
 	}
 	return packetData(child)
-}
-
-// packetBoolAt returns the bool value of the i-th child of p.
-func packetBoolAt(p *ber.Packet, i int) (bool, error) {
-	child, err := packetChild(p, i)
-	if err != nil {
-		return false, err
-	}
-	return packetBool(child)
 }

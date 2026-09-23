@@ -148,87 +148,25 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 
 				switch protocolOp.Tag {
 				case ApplicationSearchResultEntry:
-					attributesChild, err := packetChild(protocolOp, 1)
+					result, err := decodeSearchResultEntry(packet)
 					if err != nil {
 						r.send(ctx, &SearchSingleResult{Error: err})
 						return
 					}
-					attributes, err := unpackAttributes(attributesChild.Children)
-					if err != nil {
-						r.ch <- &SearchSingleResult{Error: err}
-						return
-					}
-					dn, err := packetStringAt(protocolOp, 0)
-					if err != nil {
-						r.ch <- &SearchSingleResult{Error: err}
-						return
-					}
-					result := &SearchSingleResult{
-						Entry: &Entry{
-							DN:         dn,
-							Attributes: attributes,
-						},
-					}
-					entryChildren, err := packetChildCount(packet, 2, 3, "search result entry")
-					if err != nil {
-						r.send(ctx, &SearchSingleResult{Error: err})
-						return
-					}
-					if len(entryChildren) != 3 {
-						if !r.send(ctx, result) {
-							return
-						}
-						continue
-					}
-					controlsChild, err := packetChild(packet, 2)
-					if err != nil {
-						r.send(ctx, &SearchSingleResult{Error: err})
-						return
-					}
-					controlChild, err := packetChild(controlsChild, 0)
-					if err != nil {
-						r.send(ctx, &SearchSingleResult{Error: err})
-						return
-					}
-					decoded, err := DecodeControl(controlChild)
-					if err != nil {
-						werr := fmt.Errorf("failed to decode search result entry: %w", err)
-						result.Error = werr
-						r.send(ctx, result)
-						return
-					}
-					result.Controls = append(result.Controls, decoded)
 					if !r.send(ctx, result) {
 						return
 					}
 
 				case ApplicationSearchResultDone:
-					if err := GetLDAPError(packet); err != nil {
-						r.send(ctx, &SearchSingleResult{Error: err})
-						return
-					}
-					doneChildren, err := packetChildCount(packet, 2, 3, "search result done")
+					result, err := decodeSearchResultDone(packet)
 					if err != nil {
 						r.send(ctx, &SearchSingleResult{Error: err})
 						return
 					}
-					if len(doneChildren) == 3 {
-						controlsChild, err := packetChild(packet, 2)
-						if err != nil {
-							r.send(ctx, &SearchSingleResult{Error: err})
+					if result != nil {
+						if !r.send(ctx, result) {
 							return
 						}
-						result := &SearchSingleResult{}
-						for _, child := range controlsChild.Children {
-							decodedChild, err := DecodeControl(child)
-							if err != nil {
-								werr := fmt.Errorf("failed to decode child control: %w", err)
-								r.send(ctx, &SearchSingleResult{Error: werr})
-								return
-							}
-							result.Controls = append(result.Controls, decodedChild)
-						}
-						r.send(ctx, result)
 					}
 					foundSearchSingleResultDone = true
 
@@ -264,6 +202,77 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 		}
 		r.conn.Debug.Printf("%d: returning", msgCtx.id)
 	}()
+}
+
+// decodeSearchResultEntry decodes a SearchResultEntry envelope, including any
+// response controls. It is kept out of the network loop so the full response
+// decoder can be exercised directly by the fuzz targets.
+func decodeSearchResultEntry(packet *ber.Packet) (*SearchSingleResult, error) {
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
+	}
+	attributesChild, err := packetChild(protocolOp, 1)
+	if err != nil {
+		return nil, err
+	}
+	attributes, err := unpackAttributes(attributesChild.Children)
+	if err != nil {
+		return nil, err
+	}
+	dn, err := packetStringAt(protocolOp, 0)
+	if err != nil {
+		return nil, err
+	}
+	result := &SearchSingleResult{
+		Entry: &Entry{
+			DN:         dn,
+			Attributes: attributes,
+		},
+	}
+	controlsChild, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return result, nil
+	}
+	for _, controlChild := range controlsChild.Children {
+		decoded, err := DecodeControl(controlChild)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode search result entry: %w", err)
+		}
+		result.Controls = append(result.Controls, decoded)
+	}
+	return result, nil
+}
+
+// decodeSearchResultDone decodes a SearchResultDone envelope. It returns a nil
+// result with a nil error when the response carries no controls, so the caller
+// does not enqueue an empty result.
+func decodeSearchResultDone(packet *ber.Packet) (*SearchSingleResult, error) {
+	if err := GetLDAPError(packet); err != nil {
+		return nil, err
+	}
+	controlsChild, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	result := &SearchSingleResult{}
+	for _, child := range controlsChild.Children {
+		decodedChild, err := DecodeControl(child)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode child control: %w", err)
+		}
+		result.Controls = append(result.Controls, decodedChild)
+	}
+	if len(result.Controls) == 0 {
+		return nil, nil
+	}
+	return result, nil
 }
 
 func newSearchResponse(conn *Conn, bufferSize int) *searchResponse {
