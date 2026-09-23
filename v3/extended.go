@@ -32,13 +32,23 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extended Request")
 	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extended Request Name"))
 	if er.Value != nil {
-		pkt.AppendChild(er.Value)
+		pkt.AppendChild(encodeExtendedRequestValue(er.Value))
 	}
 	envelope.AppendChild(pkt)
 	if len(er.Controls) > 0 {
 		envelope.AppendChild(encodeControls(er.Controls))
 	}
 	return nil
+}
+
+// encodeExtendedRequestValue wraps the caller payload as RFC 4511 requestValue
+// [1] OCTET STRING. Callers that already built that field (context class, tag 1)
+// are left unchanged so Password Modify-style packets are not double-wrapped.
+func encodeExtendedRequestValue(value *ber.Packet) *ber.Packet {
+	if value.ClassType == ber.ClassContext && value.Tag == 1 {
+		return value
+	}
+	return ber.NewString(ber.ClassContext, ber.TypePrimitive, 1, string(value.Bytes()), "Extended Request Value")
 }
 
 // ExtendedResponse represents the response from the directory server
