@@ -189,6 +189,16 @@ var testFilters = []compileTest{
 var testInvalidFilters = []string{
 	`(objectGUID=\zz)`,
 	`(objectGUID=\a)`,
+	`(&(a=b)x`,
+	`(!(a=b)x`,
+	`((a=b)x`,
+	`(|(a=b)]`,
+	`(&(a=b)(c=d)x`,
+	`(&(a=b)`,
+	`(|(a=b)`,
+	`(!(a=b)`,
+	`((a=b)`,
+	`(&(a=b)(c=d)`,
 }
 
 func TestFilter(t *testing.T) {
@@ -255,6 +265,36 @@ func TestInvalidFilter(t *testing.T) {
 		if _, err := CompileFilter(filterStr); err == nil {
 			t.Errorf("Problem compiling %s - expected err", filterStr)
 		}
+	}
+}
+
+func TestCompileFilterClosingParen(t *testing.T) {
+	testCases := []struct {
+		filter      string
+		expectedErr string
+	}{
+		{filter: "(&(a=b)x", expectedErr: "expected ')' at position 7"},
+		{filter: "(!(a=b)x", expectedErr: "expected ')' at position 7"},
+		{filter: "((a=b)x", expectedErr: "expected ')' at position 6"},
+		{filter: "(|(a=b)]", expectedErr: "expected ')' at position 7"},
+		{filter: "(&(a=b)(c=d)x", expectedErr: "expected ')' at position 12"},
+		{filter: "(&(a=b)", expectedErr: "unexpected end of filter"},
+		{filter: "(|(a=b)", expectedErr: "unexpected end of filter"},
+		{filter: "(!(a=b)", expectedErr: "unexpected end of filter"},
+		{filter: "((a=b)", expectedErr: "unexpected end of filter"},
+		{filter: "(&(a=b)(c=d)", expectedErr: "unexpected end of filter"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.filter, func(t *testing.T) {
+			_, err := CompileFilter(tc.filter)
+			if err == nil {
+				t.Fatalf("expected error for filter %q, got nil", tc.filter)
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Errorf("filter %q: expected error to contain %q, got %q", tc.filter, tc.expectedErr, err.Error())
+			}
+		})
 	}
 }
 
