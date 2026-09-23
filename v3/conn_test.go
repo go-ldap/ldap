@@ -544,7 +544,7 @@ func TestSendMessageMalformedPacketReturnsMalformedError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a packet without a message id")
 	}
-	if !errors.Is(err, errMalformedPacket) {
+	if !errors.Is(err, ErrMalformedPacket) {
 		t.Fatalf("expected the malformed sentinel, got %v", err)
 	}
 	if IsErrorWithCode(err, ErrorNetwork) {

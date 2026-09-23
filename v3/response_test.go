@@ -186,8 +186,8 @@ func TestDecodeSearchResultEntryRequiresAttributes(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error for a missing attributes element, got %v", result)
 	}
-	if !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket, got %v", err)
+	if !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("expected ErrMalformedPacket, got %v", err)
 	}
 }
 

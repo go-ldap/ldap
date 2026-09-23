@@ -49,16 +49,16 @@ func TestPacketChild(t *testing.T) {
 			if err == nil {
 				t.Fatalf("index %d: expected error, got nil", i)
 			}
-			if !errors.Is(err, errMalformedPacket) {
-				t.Fatalf("index %d: expected errMalformedPacket, got %v", i, err)
+			if !errors.Is(err, ErrMalformedPacket) {
+				t.Fatalf("index %d: expected ErrMalformedPacket, got %v", i, err)
 			}
 		}
 	})
 
 	t.Run("nil packet", func(t *testing.T) {
 		_, err := packetChild(nil, 0)
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 	})
 
@@ -66,8 +66,8 @@ func TestPacketChild(t *testing.T) {
 		p := newTestEnvelope()
 		p.Children = append(p.Children, nil)
 		_, err := packetChild(p, 0)
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 	})
 }
@@ -88,14 +88,14 @@ func TestPacketChildIfPresent(t *testing.T) {
 		t.Fatalf("expected present child, got ok=%v child=%v err=%v", ok, child, err)
 	}
 
-	if _, _, err := packetChildIfPresent(nil, 0); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket for nil packet, got %v", err)
+	if _, _, err := packetChildIfPresent(nil, 0); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("expected ErrMalformedPacket for nil packet, got %v", err)
 	}
 
 	p := newTestEnvelope()
 	p.Children = append(p.Children, nil)
-	if _, _, err := packetChildIfPresent(p, 0); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket for nil child, got %v", err)
+	if _, _, err := packetChildIfPresent(p, 0); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("expected ErrMalformedPacket for nil child, got %v", err)
 	}
 }
 
@@ -112,26 +112,26 @@ func TestPacketLeafConversions(t *testing.T) {
 
 	// A field whose Value has the wrong Go type must produce a
 	// malformed-packet error, never a panic.
-	if _, err := packetString(newTestInt(1)); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetString(int): expected errMalformedPacket, got %v", err)
+	if _, err := packetString(newTestInt(1)); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetString(int): expected ErrMalformedPacket, got %v", err)
 	}
-	if _, err := packetInt64(newTestString("x")); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetInt64(string): expected errMalformedPacket, got %v", err)
+	if _, err := packetInt64(newTestString("x")); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetInt64(string): expected ErrMalformedPacket, got %v", err)
 	}
-	if _, err := packetBool(newTestInt(1)); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetBool(int): expected errMalformedPacket, got %v", err)
+	if _, err := packetBool(newTestInt(1)); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetBool(int): expected ErrMalformedPacket, got %v", err)
 	}
-	if _, err := packetString(nil); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetString(nil): expected errMalformedPacket, got %v", err)
+	if _, err := packetString(nil); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetString(nil): expected ErrMalformedPacket, got %v", err)
 	}
 
 	// A packet built without a data buffer must not panic on Data.Bytes().
 	noData := &ber.Packet{Identifier: ber.Identifier{ClassType: ber.ClassUniversal, TagType: ber.TypePrimitive, Tag: ber.TagOctetString}}
-	if _, err := packetData(noData); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetData(no data): expected errMalformedPacket, got %v", err)
+	if _, err := packetData(noData); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetData(no data): expected ErrMalformedPacket, got %v", err)
 	}
-	if _, err := packetData(nil); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("packetData(nil): expected errMalformedPacket, got %v", err)
+	if _, err := packetData(nil); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("packetData(nil): expected ErrMalformedPacket, got %v", err)
 	}
 
 	buf := newTestString("payload")
@@ -154,11 +154,11 @@ func TestPacketAtHelpers(t *testing.T) {
 		t.Fatalf("packetInt64At: got %d, %v", i, err)
 	}
 
-	if _, err := packetStringAt(envelope, 99); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("out-of-range packetStringAt: expected errMalformedPacket, got %v", err)
+	if _, err := packetStringAt(envelope, 99); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("out-of-range packetStringAt: expected ErrMalformedPacket, got %v", err)
 	}
-	if _, err := packetInt64At(envelope, 0); !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("wrong-type packetInt64At: expected errMalformedPacket, got %v", err)
+	if _, err := packetInt64At(envelope, 0); !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("wrong-type packetInt64At: expected ErrMalformedPacket, got %v", err)
 	}
 	if _, err := packetDataAt(envelope, 0); err != nil {
 		// child 0 is a string with a data buffer, so this should succeed.
@@ -181,8 +181,8 @@ func TestPacketChildCount(t *testing.T) {
 
 	t.Run("min violated", func(t *testing.T) {
 		_, err := packetChildCount(three, 4, -1, "control")
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 		if !strings.Contains(err.Error(), "expected 4 or more children, got 3") {
 			t.Fatalf("unexpected message: %v", err)
@@ -191,8 +191,8 @@ func TestPacketChildCount(t *testing.T) {
 
 	t.Run("max violated", func(t *testing.T) {
 		_, err := packetChildCount(three, -1, 2, "control")
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 		if !strings.Contains(err.Error(), "expected at most 2 children, got 3") {
 			t.Fatalf("unexpected message: %v", err)
@@ -207,8 +207,8 @@ func TestPacketChildCount(t *testing.T) {
 
 	t.Run("exact count violated", func(t *testing.T) {
 		_, err := packetChildCount(three, 2, 2, "control")
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 		if !strings.Contains(err.Error(), "expected 2 children, got 3") {
 			t.Fatalf("unexpected message: %v", err)
@@ -217,8 +217,8 @@ func TestPacketChildCount(t *testing.T) {
 
 	t.Run("nil packet", func(t *testing.T) {
 		_, err := packetChildCount(nil, 1, 3, "control")
-		if !errors.Is(err, errMalformedPacket) {
-			t.Fatalf("expected errMalformedPacket, got %v", err)
+		if !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("expected ErrMalformedPacket, got %v", err)
 		}
 	})
 }
@@ -230,8 +230,8 @@ func TestMalformedfIsLDAPError(t *testing.T) {
 	if !IsErrorWithCode(err, ErrorMalformedPacket) {
 		t.Fatalf("expected ErrorMalformedPacket code, got %v", err)
 	}
-	if !errors.Is(err, errMalformedPacket) {
-		t.Fatalf("expected errMalformedPacket sentinel, got %v", err)
+	if !errors.Is(err, ErrMalformedPacket) {
+		t.Fatalf("expected ErrMalformedPacket sentinel, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "child index 5 out of range") {
 		t.Fatalf("unexpected message: %v", err)
