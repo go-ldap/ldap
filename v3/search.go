@@ -583,7 +583,12 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			return result, err
 		}
 
-		switch packet.Children[1].Tag {
+		protocolOp, err := packetChild(packet, 1)
+		if err != nil {
+			return result, err
+		}
+
+		switch protocolOp.Tag {
 		case 4:
 			if searchRequest.EnforceSizeLimit &&
 				searchRequest.SizeLimit > 0 &&
@@ -592,15 +597,21 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 
 			attr := make([]*ber.Packet, 0)
-			if len(packet.Children[1].Children) > 1 {
-				attr = packet.Children[1].Children[1].Children
+			if attributesChild, ok, err := packetChildIfPresent(protocolOp, 1); err != nil {
+				return result, err
+			} else if ok {
+				attr = attributesChild.Children
 			}
 			attributes, err := unpackAttributes(attr)
 			if err != nil {
 				return result, err
 			}
+			dn, err := packetStringAt(protocolOp, 0)
+			if err != nil {
+				return result, err
+			}
 			entry := &Entry{
-				DN:         packet.Children[1].Children[0].Value.(string),
+				DN:         dn,
 				Attributes: attributes,
 			}
 			result.Entries = append(result.Entries, entry)
@@ -609,8 +620,16 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			if err != nil {
 				return result, err
 			}
-			if len(packet.Children) == 3 {
-				for _, child := range packet.Children[2].Children {
+			doneChildren, err := packetChildCount(packet, 2, 3, "search result done")
+			if err != nil {
+				return result, err
+			}
+			if len(doneChildren) == 3 {
+				controlsChild, err := packetChild(packet, 2)
+				if err != nil {
+					return result, err
+				}
+				for _, child := range controlsChild.Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
 						return result, fmt.Errorf("failed to decode child control: %s", err)
@@ -620,7 +639,11 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			}
 			return result, nil
 		case 19:
-			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+			ref, err := packetStringAt(protocolOp, 0)
+			if err != nil {
+				return result, err
+			}
+			result.Referrals = append(result.Referrals, ref)
 		}
 	}
 }
@@ -664,14 +687,25 @@ func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
 		// A non-conforming or malicious server can omit the vals element or send
 		// a non-string type/value; return an error instead of panicking the
 		// search goroutine, so the caller can handle it.
-		if len(child.Children) < 2 {
-			return nil, fmt.Errorf("ldap: malformed attribute: expected 2 children (type and vals), got %d", len(child.Children))
+		if child == nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: nil attribute")
 		}
-		name, ok := child.Children[0].Value.(string)
-		if !ok {
-			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T", child.Children[0].Value)
+		if _, err := packetChildCount(child, 2, -1, "attribute"); err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
 		}
-		values := child.Children[1].Children
+		nameChild, err := packetChild(child, 0)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
+		}
+		valuesChild, err := packetChild(child, 1)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
+		}
+		name, err := packetString(nameChild)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T", nameChild.Value)
+		}
+		values := valuesChild.Children
 		entry := &EntryAttribute{
 			Name: name,
 			// pre-allocate the slice since we can determine
@@ -681,8 +715,11 @@ func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
 		}
 
 		for i, value := range values {
-			v, ok := value.Value.(string)
-			if !ok {
+			if value == nil {
+				return nil, fmt.Errorf("ldap: malformed attribute %q: value is nil", name)
+			}
+			v, err := packetString(value)
+			if err != nil {
 				return nil, fmt.Errorf("ldap: malformed attribute %q: value is not a string: %T", name, value.Value)
 			}
 			entry.ByteValues[i] = value.ByteValue

@@ -140,26 +140,57 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 					ber.PrintPacket(packet)
 				}
 
-				switch packet.Children[1].Tag {
+				protocolOp, err := packetChild(packet, 1)
+				if err != nil {
+					r.send(ctx, &SearchSingleResult{Error: err})
+					return
+				}
+
+				switch protocolOp.Tag {
 				case ApplicationSearchResultEntry:
-					attributes, err := unpackAttributes(packet.Children[1].Children[1].Children)
+					attributesChild, err := packetChild(protocolOp, 1)
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
+					attributes, err := unpackAttributes(attributesChild.Children)
+					if err != nil {
+						r.ch <- &SearchSingleResult{Error: err}
+						return
+					}
+					dn, err := packetStringAt(protocolOp, 0)
 					if err != nil {
 						r.ch <- &SearchSingleResult{Error: err}
 						return
 					}
 					result := &SearchSingleResult{
 						Entry: &Entry{
-							DN:         packet.Children[1].Children[0].Value.(string),
+							DN:         dn,
 							Attributes: attributes,
 						},
 					}
-					if len(packet.Children) != 3 {
+					entryChildren, err := packetChildCount(packet, 2, 3, "search result entry")
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
+					if len(entryChildren) != 3 {
 						if !r.send(ctx, result) {
 							return
 						}
 						continue
 					}
-					decoded, err := DecodeControl(packet.Children[2].Children[0])
+					controlsChild, err := packetChild(packet, 2)
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
+					controlChild, err := packetChild(controlsChild, 0)
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
+					decoded, err := DecodeControl(controlChild)
 					if err != nil {
 						werr := fmt.Errorf("failed to decode search result entry: %w", err)
 						result.Error = werr
@@ -176,9 +207,19 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 						r.send(ctx, &SearchSingleResult{Error: err})
 						return
 					}
-					if len(packet.Children) == 3 {
+					doneChildren, err := packetChildCount(packet, 2, 3, "search result done")
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
+					if len(doneChildren) == 3 {
+						controlsChild, err := packetChild(packet, 2)
+						if err != nil {
+							r.send(ctx, &SearchSingleResult{Error: err})
+							return
+						}
 						result := &SearchSingleResult{}
-						for _, child := range packet.Children[2].Children {
+						for _, child := range controlsChild.Children {
 							decodedChild, err := DecodeControl(child)
 							if err != nil {
 								werr := fmt.Errorf("failed to decode child control: %w", err)
@@ -192,13 +233,17 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 					foundSearchSingleResultDone = true
 
 				case ApplicationSearchResultReference:
-					ref := packet.Children[1].Children[0].Value.(string)
+					ref, err := packetStringAt(protocolOp, 0)
+					if err != nil {
+						r.send(ctx, &SearchSingleResult{Error: err})
+						return
+					}
 					if !r.send(ctx, &SearchSingleResult{Referral: ref}) {
 						return
 					}
 
 				case ApplicationIntermediateResponse:
-					decoded, err := DecodeControl(packet.Children[1])
+					decoded, err := DecodeControl(protocolOp)
 					if err != nil {
 						werr := fmt.Errorf("failed to decode intermediate response: %w", err)
 						r.send(ctx, &SearchSingleResult{Error: werr})
@@ -211,7 +256,7 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 					}
 
 				default:
-					err := fmt.Errorf("unknown tag: %d", packet.Children[1].Tag)
+					err := fmt.Errorf("unknown tag: %d", protocolOp.Tag)
 					r.send(ctx, &SearchSingleResult{Error: err})
 					return
 				}

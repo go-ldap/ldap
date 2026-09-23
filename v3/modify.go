@@ -121,16 +121,19 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 		return err
 	}
 
-	if len(packet.Children) < 2 {
-		return fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
+		return err
 	}
-	if packet.Children[1].Tag == ApplicationModifyResponse {
-		err := GetLDAPError(packet)
-		if err != nil {
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
+	}
+	if protocolOp.Tag == ApplicationModifyResponse {
+		if err := GetLDAPError(packet); err != nil {
 			return err
 		}
 	} else {
-		return fmt.Errorf("ldap: unexpected response: %d", packet.Children[1].Tag)
+		return fmt.Errorf("ldap: unexpected response: %d", protocolOp.Tag)
 	}
 
 	return nil
@@ -162,19 +165,31 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 		return nil, err
 	}
 
-	if len(packet.Children) < 2 {
-		return nil, fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err != nil {
+		return nil, err
+	}
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
 	}
 
-	switch packet.Children[1].Tag {
+	switch protocolOp.Tag {
 	case ApplicationModifyResponse:
 		if err = GetLDAPError(packet); err != nil {
 			result.Referral = getReferral(err, packet)
 
 			return result, err
 		}
-		if len(packet.Children) == 3 {
-			for _, child := range packet.Children[2].Children {
+		responseChildren, err := packetChildCount(packet, 2, 3, "modify response")
+		if err != nil {
+			return nil, err
+		}
+		if len(responseChildren) == 3 {
+			controls, err := packetChild(packet, 2)
+			if err != nil {
+				return nil, err
+			}
+			for _, child := range controls.Children {
 				decodedChild, err := DecodeControl(child)
 				if err != nil {
 					return nil, errors.New("failed to decode child control: " + err.Error())
