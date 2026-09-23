@@ -287,14 +287,14 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			case stateReadingAttr:
 				switch {
 				// Extensible rule, with only DN-matching
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:="):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:="):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingCondition
 					newPos += 5
 
 				// Extensible rule, with DN-matching and a matching OID
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:"):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:"):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingExtensibleMatchingRule
@@ -446,6 +446,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		newPos += currentWidth
 		return packet, newPos, err
 	}
+}
+
+// hasPrefixFold reports whether s starts with prefix, ignoring case.
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
 }
 
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport

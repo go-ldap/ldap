@@ -388,3 +388,28 @@ func TestHegelPinEmptySubstringsRejected(t *testing.T) {
 		}
 	}
 }
+
+func TestHegelPinDnattrsCaseInsensitive(t *testing.T) {
+	for _, filterStr := range []string{`(o:DN:=x)`, `(o:Dn:=x)`, `(o:dN:=x)`, `(o:dn:=x)`} {
+		p, err := CompileFilter(filterStr)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		if want := `(o:dn:=x)`; got != want {
+			t.Errorf("CompileFilter(%q) decompiled as %q, want %q", filterStr, got, want)
+		}
+	}
+
+	// A matching rule after a case-insensitive :DN: marker is still recognised.
+	p, err := CompileFilter(`(sn:DN:2.4.6.8.10:=x)`)
+	if err != nil {
+		t.Fatalf("CompileFilter unexpected error: %v", err)
+	}
+	if got, _ := DecompileFilter(p); got != `(sn:dn:2.4.6.8.10:=x)` {
+		t.Errorf("(sn:DN:...) decompiled as %q", got)
+	}
+}
