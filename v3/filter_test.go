@@ -356,3 +356,150 @@ func BenchmarkFilterDecompile(b *testing.B) {
 		_, _ = DecompileFilter(filters[i%maxIdx])
 	}
 }
+
+func TestHegelPinFilterClosingParenChecked(t *testing.T) {
+	for _, filterStr := range []string{
+		`(&(a=b)x`,
+		`(!(a=b)x`,
+		`((a=b)x`,
+		`(|(a=b)]`,
+		`(&(a=b)(c=d)x`,
+		`(!(a=b)`,
+		`((a=b)`,
+		`(&x)`,
+	} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		} else if !strings.Contains(err.Error(), "unexpected end of filter") {
+			t.Errorf("CompileFilter(%q) error %q does not contain %q", filterStr, err, "unexpected end of filter")
+		}
+	}
+
+	// Properly closed nested filters must keep compiling (redundant wrapping
+	// parentheses are dropped, as before).
+	for _, tc := range []struct{ in, want string }{
+		{`((a=b))`, `(a=b)`},
+		{`(!(!(a=b)))`, `(!(!(a=b)))`},
+		{`(|(&(a=b))(c=d))`, `(|(&(a=b))(c=d))`},
+		{`(&(|(a=b)(c=d))(!(e=f)))`, `(&(|(a=b)(c=d))(!(e=f)))`},
+	} {
+		p, err := CompileFilter(tc.in)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", tc.in, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", tc.in, err)
+		}
+		if got != tc.want {
+			t.Errorf("decompile of %q = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestHegelPinEmptySubstringsRejected(t *testing.T) {
+	for _, filterStr := range []string{`(sn=**)`, `(sn=***)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// "*" alone is the present filter and must keep working.
+	present, err := CompileFilter(`(sn=*)`)
+	if err != nil {
+		t.Fatalf("CompileFilter(%q) unexpected error: %v", `(sn=*)`, err)
+	}
+	if present.Tag != FilterPresent {
+		t.Errorf("(sn=*) expected FilterPresent, got %s", FilterMap[uint64(present.Tag)])
+	}
+
+	// Ordinary substring filters still round-trip.
+	for _, filterStr := range []string{`(sn=*Mill)`, `(sn=Mill*)`, `(sn=*Mill*)`, `(sn=Mi*l*r)`} {
+		p, err := CompileFilter(filterStr)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		if got != filterStr {
+			t.Errorf("round trip of %q = %q", filterStr, got)
+		}
+	}
+}
+
+func TestHegelPinDnattrsCaseInsensitive(t *testing.T) {
+	for _, filterStr := range []string{`(o:DN:=x)`, `(o:Dn:=x)`, `(o:dN:=x)`, `(o:dn:=x)`} {
+		p, err := CompileFilter(filterStr)
+		if err != nil {
+			t.Fatalf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		got, err := DecompileFilter(p)
+		if err != nil {
+			t.Fatalf("DecompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+		if want := `(o:dn:=x)`; got != want {
+			t.Errorf("CompileFilter(%q) decompiled as %q, want %q", filterStr, got, want)
+		}
+	}
+
+	// A matching rule after a case-insensitive :DN: marker is still recognised.
+	p, err := CompileFilter(`(sn:DN:2.4.6.8.10:=x)`)
+	if err != nil {
+		t.Fatalf("CompileFilter unexpected error: %v", err)
+	}
+	if got, _ := DecompileFilter(p); got != `(sn:dn:2.4.6.8.10:=x)` {
+		t.Errorf("(sn:DN:...) decompiled as %q", got)
+	}
+}
+
+func TestHegelPinReplacementCharCompiles(t *testing.T) {
+	// A literal U+FFFD (EF BF BD) is a valid UTF-8 character and must compile.
+	p, err := CompileFilter("(cn=a\uFFFDb)")
+	if err != nil {
+		t.Fatalf("CompileFilter with literal U+FFFD: %v", err)
+	}
+	got, err := DecompileFilter(p)
+	if err != nil {
+		t.Fatalf("DecompileFilter with literal U+FFFD: %v", err)
+	}
+	if want := `(cn=a\ef\bf\bdb)`; got != want {
+		t.Errorf("literal U+FFFD decompiled as %q, want %q", got, want)
+	}
+
+	// Genuinely invalid UTF-8 is still rejected.
+	if _, err := CompileFilter("(cn=a\xffb)"); err == nil {
+		t.Error("CompileFilter with invalid UTF-8 expected error, got nil")
+	}
+}
+
+func TestHegelPinAttributeDescriptionValidated(t *testing.T) {
+	for _, filterStr := range []string{`(=v)`, `(a b=v)`, `(a\2ab=v)`, `(1.2.3.=v)`, `(a;=v)`, `(-cn=v)`, `(a b:=v)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// Valid descr, numericoid and options must keep compiling.
+	for _, filterStr := range []string{`(cn=v)`, `(1.2.3=v)`, `(cn;lang-en=v)`, `(cn;123=v)`, `(cn;-x=v)`, `(1.2.3;binary=v)`, `(objectClass=*)`} {
+		if _, err := CompileFilter(filterStr); err != nil {
+			t.Errorf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+	}
+}
+
+func TestHegelPinExtensibleNeedsAttrOrRule(t *testing.T) {
+	for _, filterStr := range []string{`(:=a)`, `(:dn:=a)`} {
+		if _, err := CompileFilter(filterStr); err == nil {
+			t.Errorf("CompileFilter(%q) expected error, got nil", filterStr)
+		}
+	}
+
+	// A matching rule alone, or an attribute alone, is still valid.
+	for _, filterStr := range []string{`(attr:=a)`, `(:rule:=a)`, `(:1.2.3:=a)`, `(:dn:rule:=a)`, `(attr:dn:rule:=a)`} {
+		if _, err := CompileFilter(filterStr); err != nil {
+			t.Errorf("CompileFilter(%q) unexpected error: %v", filterStr, err)
+		}
+	}
+}
