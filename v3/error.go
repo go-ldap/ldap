@@ -197,6 +197,49 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
+// parseLDAPResult extracts resultCode, matchedDN, and diagnosticMessage from a
+// BER packet representing an LDAPResult (e.g. SearchResultDone).
+//
+// Unlike GetLDAPError, parseLDAPResult does not return early when resultCode is
+// success (0). This allows callers to read the diagnosticMessage even on a
+// successful operation, which some servers use to signal warnings or degraded
+// state (for example, a directory in read-only / reinitializing mode).
+//
+// Per RFC 4511, an LDAPResult must contain resultCode, matchedDN, and
+// diagnosticMessage. An error is returned if the packet is malformed.
+func parseLDAPResult(packet *ber.Packet) (resultCode uint16, matchedDN, diagnosticMessage string, err error) {
+	if packet == nil || len(packet.Children) < 2 || packet.Children[1] == nil {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: missing or nil response packet")
+	}
+	response := packet.Children[1]
+	if len(response.Children) < 3 {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: expected at least 3 children (resultCode, matchedDN, diagnosticMessage), got %d", len(response.Children))
+	}
+	if response.Children[0] == nil || response.Children[0].Value == nil {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil resultCode")
+	}
+	v, ok := response.Children[0].Value.(int64)
+	if !ok {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: resultCode has unexpected type %T", response.Children[0].Value)
+	}
+	resultCode = uint16(v)
+	if response.Children[1] == nil {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil matchedDN child")
+	}
+	matchedDN, ok = response.Children[1].Value.(string)
+	if !ok {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: matchedDN has unexpected type %T", response.Children[1].Value)
+	}
+	if response.Children[2] == nil {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil diagnosticMessage child")
+	}
+	diagnosticMessage, ok = response.Children[2].Value.(string)
+	if !ok {
+		return 0, "", "", fmt.Errorf("malformed LDAPResult: diagnosticMessage has unexpected type %T", response.Children[2].Value)
+	}
+	return resultCode, matchedDN, diagnosticMessage, nil
+}
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).

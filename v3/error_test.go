@@ -335,3 +335,142 @@ func (c *signalErrConn) SetReadDeadline(t time.Time) error {
 func (c *signalErrConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
+
+func TestParseLDAPResult(t *testing.T) {
+	tests := []struct {
+		name                  string
+		packet                *ber.Packet
+		wantResultCode        uint16
+		wantMatchedDN         string
+		wantDiagnosticMessage string
+		wantErr               bool
+	}{
+		{
+			name: "success with diagnosticMessage",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "IPA: directory is reinitializing", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantResultCode:        0,
+			wantDiagnosticMessage: "IPA: directory is reinitializing",
+		},
+		{
+			name: "non-zero resultCode",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(LDAPResultInvalidCredentials), "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "dc=example,dc=org", "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "invalid password", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantResultCode:        LDAPResultInvalidCredentials,
+			wantMatchedDN:         "dc=example,dc=org",
+			wantDiagnosticMessage: "invalid password",
+		},
+		{
+			name: "success with empty diagnosticMessage",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+		},
+		{
+			name:    "nil packet",
+			packet:  nil,
+			wantErr: true,
+		},
+		{
+			name: "fewer than 3 response children",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "resultCode wrong type",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "not-an-int", "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "matchedDN wrong type",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(7), "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "diagnosticMessage wrong type",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(7), "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc, dn, diag, err := parseLDAPResult(tt.packet)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected an error but got nil (rc=%d, dn=%q, diag=%q)", rc, dn, diag)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if rc != tt.wantResultCode {
+				t.Errorf("resultCode: got %d, want %d", rc, tt.wantResultCode)
+			}
+			if dn != tt.wantMatchedDN {
+				t.Errorf("matchedDN: got %q, want %q", dn, tt.wantMatchedDN)
+			}
+			if diag != tt.wantDiagnosticMessage {
+				t.Errorf("diagnosticMessage: got %q, want %q", diag, tt.wantDiagnosticMessage)
+			}
+		})
+	}
+}
