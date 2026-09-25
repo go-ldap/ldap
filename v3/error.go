@@ -208,36 +208,27 @@ func (e *Error) Unwrap() error { return e.Err }
 // Per RFC 4511, an LDAPResult must contain resultCode, matchedDN, and
 // diagnosticMessage. An error is returned if the packet is malformed.
 func parseLDAPResult(packet *ber.Packet) (resultCode uint16, matchedDN, diagnosticMessage string, err error) {
-	if packet == nil || len(packet.Children) < 2 || packet.Children[1] == nil {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: missing or nil response packet")
+	response, err := packetChild(packet, 1)
+	if err != nil {
+		return 0, "", "", err
 	}
-	response := packet.Children[1]
-	if len(response.Children) < 3 {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: expected at least 3 children (resultCode, matchedDN, diagnosticMessage), got %d", len(response.Children))
+
+	children, err := packetChildCount(response, 3, 4, "LDAP Result")
+	if err != nil {
+		return 0, "", "", err
 	}
-	if response.Children[0] == nil || response.Children[0].Value == nil {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil resultCode")
-	}
-	v, ok := response.Children[0].Value.(int64)
-	if !ok {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: resultCode has unexpected type %T", response.Children[0].Value)
+
+	v, err := packetInt64(children[0])
+	if err != nil {
+		return
 	}
 	resultCode = uint16(v)
-	if response.Children[1] == nil {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil matchedDN child")
+
+	if matchedDN, err = packetString(children[1]); err != nil {
+		return
 	}
-	matchedDN, ok = response.Children[1].Value.(string)
-	if !ok {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: matchedDN has unexpected type %T", response.Children[1].Value)
-	}
-	if response.Children[2] == nil {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: nil diagnosticMessage child")
-	}
-	diagnosticMessage, ok = response.Children[2].Value.(string)
-	if !ok {
-		return 0, "", "", fmt.Errorf("malformed LDAPResult: diagnosticMessage has unexpected type %T", response.Children[2].Value)
-	}
-	return resultCode, matchedDN, diagnosticMessage, nil
+	diagnosticMessage, err = packetString(children[2])
+	return
 }
 
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
