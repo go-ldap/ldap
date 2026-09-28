@@ -227,8 +227,6 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 		if port == "" {
 			port = DefaultLdapsPort
 		}
-	default:
-		return nil, fmt.Errorf("unknown scheme '%s'", u.Scheme)
 	}
 
 	return dc.dialAddress(u.Scheme, net.JoinHostPort(host, port))
