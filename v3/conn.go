@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -157,10 +158,33 @@ func DialWithTLSDialer(tlsConfig *tls.Config, dialer *net.Dialer) DialOpt {
 	}
 }
 
+// DialWithSRVDiscovery makes DialURL resolve the host through DNS SRV records
+// (RFC 2782) and connect to the returned targets in RFC 2782 order until one
+// connection succeeds. The service name is derived from the URL scheme
+// (_ldap._tcp for ldap://, _ldaps._tcp for ldaps://) and the port from the SRV
+// records, so a port in the URL is ignored. It applies to ldap:// and ldaps://
+// URLs; other schemes are dialed as before.
+func DialWithSRVDiscovery() DialOpt {
+	return func(dc *DialContext) {
+		dc.useSRV = true
+	}
+}
+
+// DialWithSRVResolver sets the SRVResolver used by DialWithSRVDiscovery and
+// implies DialWithSRVDiscovery. Pass nil to keep the default resolver.
+func DialWithSRVResolver(resolver SRVResolver) DialOpt {
+	return func(dc *DialContext) {
+		dc.useSRV = true
+		dc.srvResolver = resolver
+	}
+}
+
 // DialContext contains necessary parameters to dial the given ldap URL.
 type DialContext struct {
-	dialer    *net.Dialer
-	tlsConfig *tls.Config
+	dialer      *net.Dialer
+	tlsConfig   *tls.Config
+	useSRV      bool
+	srvResolver SRVResolver
 }
 
 func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
@@ -186,25 +210,86 @@ func (dc *DialContext) dial(u *url.URL) (net.Conn, error) {
 		port = ""
 	}
 
+	if dc.useSRV && (u.Scheme == "ldap" || u.Scheme == "ldaps") {
+		return dc.dialSRV(u.Scheme, host)
+	}
+
 	switch u.Scheme {
 	case "cldap":
 		if port == "" {
 			port = DefaultLdapPort
 		}
-		return dc.dialer.Dial("udp", net.JoinHostPort(host, port))
 	case "ldap":
 		if port == "" {
 			port = DefaultLdapPort
 		}
-		return dc.dialer.Dial("tcp", net.JoinHostPort(host, port))
 	case "ldaps":
 		if port == "" {
 			port = DefaultLdapsPort
 		}
-		return tls.DialWithDialer(dc.dialer, "tcp", net.JoinHostPort(host, port), dc.tlsConfig)
+	default:
+		return nil, fmt.Errorf("unknown scheme '%s'", u.Scheme)
 	}
 
-	return nil, fmt.Errorf("unknown scheme '%s'", u.Scheme)
+	return dc.dialAddress(u.Scheme, net.JoinHostPort(host, port))
+}
+
+// dialAddress dials an already resolved address with the transport belonging to
+// the given scheme.
+func (dc *DialContext) dialAddress(scheme, addr string) (net.Conn, error) {
+	switch scheme {
+	case "cldap":
+		return dc.dialer.Dial("udp", addr)
+	case "ldap":
+		return dc.dialer.Dial("tcp", addr)
+	case "ldaps":
+		return tls.DialWithDialer(dc.dialer, "tcp", addr, dc.tlsConfig)
+	}
+
+	return nil, fmt.Errorf("unknown scheme '%s'", scheme)
+}
+
+// dialSRV resolves _service._tcp.host and tries the resulting targets in RFC
+// 2782 order, returning the first connection that succeeds. Lookup and dial
+// share the dialer timeout, and the dial errors of every tried target are
+// reported together when none succeeds.
+func (dc *DialContext) dialSRV(scheme, host string) (net.Conn, error) {
+	if host == "" {
+		return nil, errors.New("ldap: SRV discovery requires a domain name in the URL")
+	}
+
+	service := "ldap"
+	if scheme == "ldaps" {
+		service = "ldaps"
+	}
+
+	ctx := context.Background()
+	if dc.dialer.Timeout > 0 {
+		var cancelFunc context.CancelFunc
+		ctx, cancelFunc = context.WithTimeout(ctx, dc.dialer.Timeout)
+		defer cancelFunc()
+	}
+
+	records, err := LookupSRV(ctx, dc.srvResolver, service, "tcp", host)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return nil, fmt.Errorf("ldap: no SRV records for _%s._tcp.%s", service, host)
+	}
+
+	errs := make([]error, 0, len(records))
+	for _, rr := range records {
+		addr := net.JoinHostPort(strings.TrimSuffix(rr.Target, "."), strconv.Itoa(int(rr.Port)))
+		conn, err := dc.dialAddress(scheme, addr)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		return conn, nil
+	}
+
+	return nil, fmt.Errorf("ldap: no SRV target for _%s._tcp.%s could be reached: %w", service, host, errors.Join(errs...))
 }
 
 // Dial connects to the given address on the given network using net.Dial
@@ -259,6 +344,8 @@ func parseLDAPURL(addr string) (*url.URL, error) {
 // DialURL connects to the given ldap URL.
 // The following schemas are supported: ldap://, ldaps://, ldapi://,
 // and cldap:// (RFC1798, deprecated but used by Active Directory).
+// With DialWithSRVDiscovery, ldap:// and ldaps:// hosts are looked up through
+// DNS SRV records (RFC 2782) instead of being dialed directly.
 // On success a new Conn for the connection is returned.
 func DialURL(addr string, opts ...DialOpt) (*Conn, error) {
 	u, err := parseLDAPURL(addr)

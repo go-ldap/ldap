@@ -11,10 +11,12 @@ The library implements the following specifications:
 - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02 for Tree Delete Control
 - https://datatracker.ietf.org/doc/html/rfc2891 for Server Side Sorting of Search Results
 - https://datatracker.ietf.org/doc/html/rfc4532 for WhoAmI requests
+- https://datatracker.ietf.org/doc/html/rfc2782 for DNS SRV service discovery
 
 ## Features:
 
 - Connecting to LDAP server (non-TLS, TLS, STARTTLS, through a custom dialer)
+- DNS SRV discovery of LDAP servers (RFC 2782)
 - Bind Requests / Responses (Simple Bind, GSSAPI, SASL)
 - "Who Am I" Requests / Responses
 - Search Requests / Responses (normal, paging and asynchronous)
