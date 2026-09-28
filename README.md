@@ -45,11 +45,9 @@ Before submitting a pull request, please make sure tests and verification script
 make local-server
 
 # Run gofmt, go vet and go test
-cd ./v3
-make -f ../Makefile
+make test
 
 # (Optionally) Stop and delete the directory server container afterwards
-cd ..
 make stop-local-server
 ```
 
