@@ -185,6 +185,8 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 				result.Controls = append(result.Controls, decodedChild)
 			}
 		}
+	} else {
+		return nil, fmt.Errorf("ldap: unexpected response: %d", protocolOp.Tag)
 	}
 	l.Debug.Printf("%d: returning", msgCtx.id)
 	return result, nil
