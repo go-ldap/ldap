@@ -109,6 +109,18 @@ func TestPacketLeafConversions(t *testing.T) {
 	if b, err := packetBool(newTestBool(true)); err != nil || !b {
 		t.Fatalf("packetBool: got %v, %v", b, err)
 	}
+	if c, err := packetResultCode(newTestInt(49)); err != nil || c != 49 {
+		t.Fatalf("packetResultCode: got %d, %v", c, err)
+	}
+
+	// A resultCode outside the uint16 range is malformed, not merely unknown:
+	// narrowing it aliases it onto an unrelated code, and any multiple of 2^16
+	// onto success(0).
+	for _, code := range []int64{-1, -65536, 65536, 131072} {
+		if _, err := packetResultCode(newTestInt(code)); !errors.Is(err, ErrMalformedPacket) {
+			t.Fatalf("packetResultCode(%d): expected ErrMalformedPacket, got %v", code, err)
+		}
+	}
 
 	// A field whose Value has the wrong Go type must produce a
 	// malformed-packet error, never a panic.

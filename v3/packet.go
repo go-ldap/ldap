@@ -3,6 +3,7 @@ package ldap
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -105,6 +106,22 @@ func packetInt64(p *ber.Packet) (int64, error) {
 		return 0, malformedf("expected integer value, got %T", p.Value)
 	}
 	return i, nil
+}
+
+// packetResultCode returns the LDAPResult resultCode held by p. RFC 4511
+// declares resultCode an ENUMERATED and the codes it assigns all fit the uint16
+// this package exposes, so a value outside that range is malformed rather than
+// merely unknown. Narrowing it instead would alias it onto an unrelated code,
+// and any multiple of 2^16 onto success(0).
+func packetResultCode(p *ber.Packet) (uint16, error) {
+	code, err := packetInt64(p)
+	if err != nil {
+		return 0, err
+	}
+	if code < 0 || code > math.MaxUint16 {
+		return 0, malformedf("result code %d out of range", code)
+	}
+	return uint16(code), nil
 }
 
 // packetBool returns the bool value of p, whose schema position or BOOLEAN tag

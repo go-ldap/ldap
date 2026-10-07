@@ -218,11 +218,10 @@ func parseLDAPResult(packet *ber.Packet) (resultCode uint16, matchedDN, diagnost
 		return 0, "", "", err
 	}
 
-	v, err := packetInt64(children[0])
+	resultCode, err = packetResultCode(children[0])
 	if err != nil {
 		return
 	}
-	resultCode = uint16(v)
 
 	if matchedDN, err = packetString(children[1]); err != nil {
 		return
@@ -251,12 +250,11 @@ func GetLDAPError(packet *ber.Packet) error {
 					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 				}
 				if ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagInteger) || ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagEnumerated) {
-					code, err := packetInt64(resultCodeChild)
+					resultCode, err := packetResultCode(resultCodeChild)
 					if err != nil {
 						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 					}
 
-					resultCode := uint16(code)
 					if resultCode == 0 { // No error
 						return nil
 					}
