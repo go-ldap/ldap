@@ -293,11 +293,10 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 						return result, GetLDAPError(packet)
 					}
 					if ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagInteger) || ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagEnumerated) {
-						code, rerr := packetInt64(resultCodeChild)
+						resultCode, rerr := packetResultCode(resultCodeChild)
 						if rerr != nil {
 							return result, GetLDAPError(packet)
 						}
-						resultCode := uint16(code)
 						if resultCode == 14 {
 							msgCtx, err := l.doRequest(digestMD5BindRequest)
 							if err != nil {

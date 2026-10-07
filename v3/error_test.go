@@ -155,6 +155,24 @@ func generateGetLDAPErrorCorpus() map[string]testCorpusErrorEntry {
 		expectedMessage:    "",
 	}
 
+	// A resultCode outside the uint16 range the package exposes must be
+	// rejected. Narrowing it maps any multiple of 2^16 onto success(0), so a
+	// reply carrying no success code would be reported to the caller as a
+	// successful operation.
+	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
+	bindResponse.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(65536), "resultCode"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+	bindResponse.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+	packet = ber.NewSequence("LDAPMessage")
+	packet.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(0), "messageID"))
+	packet.AppendChild(bindResponse)
+	corpus["result code out of range"] = testCorpusErrorEntry{
+		packet:             packet,
+		expectedResultCode: ErrorNetwork,
+		expectedMessage:    "invalid result code in packet",
+		shouldError:        true,
+	}
+
 	// Test that responses with an unexpected ordering or combination of children
 	// don't cause a panic.
 	bindResponse = ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationBindResponse, nil, "Bind Response")
@@ -411,6 +429,20 @@ func TestParseLDAPResult(t *testing.T) {
 			packet: func() *ber.Packet {
 				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
 				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "not-an-int", "resultCode"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
+				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
+				pkt := ber.NewSequence("LDAPMessage")
+				pkt.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, int64(1), "messageID"))
+				pkt.AppendChild(resp)
+				return pkt
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "resultCode out of range",
+			packet: func() *ber.Packet {
+				resp := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationSearchResultDone, nil, "SearchResultDone")
+				resp.AppendChild(ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(65536), "resultCode"))
 				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "matchedDN"))
 				resp.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "", "diagnosticMessage"))
 				pkt := ber.NewSequence("LDAPMessage")
