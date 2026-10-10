@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -232,10 +231,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	newPos := pos
 
 	currentRune, currentWidth := utf8.DecodeRuneInString(filter[newPos:])
+	if currentRune == utf8.RuneError && currentWidth == 1 {
+		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
+	}
 
 	switch currentRune {
-	case utf8.RuneError:
-		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 	case '(':
 		packet, newPos, err = compileFilter(filter, pos+currentWidth)
 		if err != nil {
@@ -285,7 +285,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			if currentRune == ')' {
 				break
 			}
-			if currentRune == utf8.RuneError {
+			if currentRune == utf8.RuneError && currentWidth == 1 {
 				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 			}
 
@@ -293,14 +293,14 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			case stateReadingAttr:
 				switch {
 				// Extensible rule, with only DN-matching
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:="):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:="):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingCondition
 					newPos += 5
 
 				// Extensible rule, with DN-matching and a matching OID
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:"):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:"):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingExtensibleMatchingRule
@@ -377,6 +377,16 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			err = NewError(ErrorFilterCompile, errors.New("ldap: error parsing filter"))
 			return packet, newPos, err
 		}
+		if packet.Tag == FilterExtensibleMatch {
+			if extensibleMatchingRule.Len() == 0 && attribute.Len() == 0 {
+				return packet, newPos, NewError(ErrorFilterCompile, errors.New("ldap: extensible filter requires an attribute or a matching rule"))
+			}
+			if attribute.Len() > 0 && !validAttributeDescription(attribute.String()) {
+				return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid attribute description at position %d", pos))
+			}
+		} else if !validAttributeDescription(attribute.String()) {
+			return packet, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid attribute description at position %d", pos))
+		}
 
 		switch {
 		case packet.Tag == FilterExtensibleMatch:
@@ -436,6 +446,9 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 				}
 				seq.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, tag, encodedString, FilterSubstringsMap[uint64(tag)]))
 			}
+			if len(seq.Children) == 0 {
+				return packet, newPos, NewError(ErrorFilterCompile, errors.New("ldap: substring filter requires at least one substring"))
+			}
 			packet.AppendChild(seq)
 		default:
 			encodedString, encodeErr := decodeEscapedSymbols(condition.Bytes())
@@ -449,6 +462,88 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		newPos += currentWidth
 		return packet, newPos, err
 	}
+}
+
+// hasPrefixFold reports whether s starts with prefix, ignoring case.
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+// validAttributeDescription reports whether attr is a valid RFC 4512
+// attributedescription: an attributedescription is a descr or numericoid,
+// optionally followed by one or more ";option" suffixes.
+func validAttributeDescription(attr string) bool {
+	base, options, hasOptions := strings.Cut(attr, ";")
+	if base == "" {
+		return false
+	}
+	if !isKeyString(base) && !isNumericOID(base) {
+		return false
+	}
+	if !hasOptions {
+		return true
+	}
+	for _, option := range strings.Split(options, ";") {
+		if !isOption(option) {
+			return false
+		}
+	}
+	return true
+}
+
+// isOption reports whether s is an RFC 4512 option: one or more keychar
+// characters (ALPHA, DIGIT or HYPHEN).
+func isOption(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isKeyString reports whether s is an RFC 4512 keystring: an ALPHA lead
+// character followed by zero or more ALPHA, DIGIT or HYPHEN characters.
+func isKeyString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z':
+		case c == '-' && i > 0:
+		case c >= '0' && c <= '9' && i > 0:
+		default:
+			return false
+		}
+	}
+	return s != ""
+}
+
+// isNumericOID reports whether s is an RFC 4512 numericoid: dot-separated
+// numbers, each a single DIGIT or an LDIGIT followed by DIGITs.
+func isNumericOID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, part := range strings.Split(s, ".") {
+		if part == "" {
+			return false
+		}
+		for i := 0; i < len(part); i++ {
+			if part[i] < '0' || part[i] > '9' {
+				return false
+			}
+		}
+		if len(part) > 1 && part[0] == '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport
@@ -467,7 +562,7 @@ func decodeEscapedSymbols(src []byte) (string, error) {
 			return buffer.String(), nil
 		} else if err != nil {
 			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: failed to read filter: %v", err))
-		} else if runeVal == unicode.ReplacementChar {
+		} else if runeVal == utf8.RuneError && runeSize == 1 {
 			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", offset))
 		}
 
