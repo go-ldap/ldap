@@ -282,13 +282,21 @@ func ParseDN(str string) (*DN, error) {
 	}
 
 	var (
-		rdn                   = &RelativeDN{}
-		attr                  = &AttributeTypeAndValue{}
-		escaping              bool
+		rdn      = &RelativeDN{}
+		attr     = &AttributeTypeAndValue{}
+		escaping bool
+		// typeSet records whether the current attribute's type has been
+		// consumed. attr.Type being empty cannot serve as that marker: setType
+		// accepts a segment that decodes to the empty string, and treating the
+		// type as still unset would let a second '=' re-bind it, silently
+		// swallowing the empty leading segment ("=a=b" would parse as "a=b").
+		// The empty type itself is rejected by the length checks below.
+		typeSet               bool
 		startPos              int
 		appendAttributesToRDN = func(end bool) {
 			rdn.Attributes = append(rdn.Attributes, attr)
 			attr = &AttributeTypeAndValue{}
+			typeSet = false
 			if end {
 				dn.RDNs = append(dn.RDNs, rdn)
 				rdn = &RelativeDN{}
@@ -307,10 +315,11 @@ func ParseDN(str string) (*DN, error) {
 			escaping = false
 		case char == '\\':
 			escaping = true
-		case char == '=' && len(attr.Type) == 0:
+		case char == '=' && !typeSet:
 			if err := attr.setType(str[startPos:i]); err != nil {
 				return nil, err
 			}
+			typeSet = true
 			startPos = i + 1
 		case char == ',' || char == '+' || char == ';':
 			if len(attr.Type) == 0 {
