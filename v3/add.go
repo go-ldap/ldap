@@ -96,3 +96,63 @@ func (l *Conn) Add(addRequest *AddRequest) error {
 	}
 	return nil
 }
+
+// AddResult holds the server's response to an add request
+type AddResult struct {
+	// Controls are the returned controls
+	Controls []Control
+	// Referral is the returned referral
+	Referral string
+}
+
+// AddWithResult performs the given AddRequest and returns the result
+func (l *Conn) AddWithResult(addRequest *AddRequest) (*AddResult, error) {
+	if addRequest == nil {
+		return nil, NewError(ErrorNetwork, errors.New("AddRequest cannot be nil"))
+	}
+
+	msgCtx, err := l.doRequest(addRequest)
+	if err != nil {
+		return nil, err
+	}
+	defer l.finishMessage(msgCtx)
+
+	result := &AddResult{
+		Controls: make([]Control, 0),
+	}
+
+	l.Debug.Printf("%d: waiting for response", msgCtx.id)
+	packet, err := l.readPacket(msgCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
+	}
+	if protocolOp.Tag == ApplicationAddResponse {
+		if err = GetLDAPError(packet); err != nil {
+			result.Referral = getReferral(err, packet)
+
+			return result, err
+		}
+		controls, ok, err := packetChildIfPresent(packet, 2)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			for _, child := range controls.Children {
+				decodedChild, err := DecodeControl(child)
+				if err != nil {
+					return nil, errors.New("failed to decode child control: " + err.Error())
+				}
+				result.Controls = append(result.Controls, decodedChild)
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("ldap: unexpected response: %d", protocolOp.Tag)
+	}
+	l.Debug.Printf("%d: returning", msgCtx.id)
+	return result, nil
+}
