@@ -298,6 +298,15 @@ func TestCompileFilterClosingParen(t *testing.T) {
 	}
 }
 
+func TestCompileFilterNestingDepth(t *testing.T) {
+	n := 1000000
+	filter := strings.Repeat("(", n) + "a=b" + strings.Repeat(")", n)
+	_, err := CompileFilter(filter)
+	if err == nil || !strings.Contains(err.Error(), "nesting depth") {
+		t.Fatalf("expected nesting depth error, got %v", err)
+	}
+}
+
 func TestDecompileFilterEscapesAttribute(t *testing.T) {
 	eq := ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterEqualityMatch, nil, FilterMap[FilterEqualityMatch])
 	eq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, "uid)(uid=admin", "Attribute"))
