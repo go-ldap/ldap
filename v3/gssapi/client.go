@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jcmturner/gokrb5/v8/client"
 	"github.com/jcmturner/gokrb5/v8/config"
@@ -28,6 +29,11 @@ type Client struct {
 
 	ekey   types.EncryptionKey
 	Subkey types.EncryptionKey
+
+	// ctime and cusec are the timestamp of the authenticator sent in the
+	// AP-REQ, which the server's AP-REP must echo.
+	ctime time.Time
+	cusec int
 }
 
 // NewClientWithKeytab creates a new client from a keytab credential.
@@ -97,6 +103,8 @@ func (c *Client) Close() error {
 func (c *Client) DeleteSecContext() error {
 	c.ekey = types.EncryptionKey{}
 	c.Subkey = types.EncryptionKey{}
+	c.ctime = time.Time{}
+	c.cusec = 0
 	return nil
 }
 
@@ -125,6 +133,14 @@ func (c *Client) InitSecContextWithOptions(target string, input []byte, APOption
 		if err != nil {
 			return nil, false, err
 		}
+
+		// Read the authenticator back as encoded on the wire so the AP-REP
+		// can be checked against the same second-precision ctime.
+		if err := token.APReq.DecryptAuthenticator(ekey); err != nil {
+			return nil, false, err
+		}
+		c.ctime = token.APReq.Authenticator.CTime
+		c.cusec = token.APReq.Authenticator.Cusec
 
 		output, err := token.Marshal()
 		if err != nil {
@@ -155,6 +171,14 @@ func (c *Client) InitSecContextWithOptions(target string, input []byte, APOption
 
 			if err = part.Unmarshal(encpart); err != nil {
 				return nil, false, err
+			}
+
+			// RFC 4120 section 3.2.5: the server is only authenticated if the
+			// AP-REP echoes this AP-REQ's authenticator. Decrypting is not
+			// enough, as the session key of a cached service ticket is shared
+			// by every bind made with it, so a recorded AP-REP still decrypts.
+			if !part.CTime.Equal(c.ctime) || part.Cusec != c.cusec {
+				return nil, false, errors.New("AP-REP does not match the authenticator, mutual authentication failed")
 			}
 			c.Subkey = part.Subkey
 		}
