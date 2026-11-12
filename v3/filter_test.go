@@ -171,6 +171,22 @@ var testFilters = []compileTest{
 		expectedFilter: `(o:dn:=Ace Industry)`,
 		expectedType:   FilterExtensibleMatch,
 	},
+	// the dnattrs marker is an ABNF literal, so it is case-insensitive
+	{
+		filterStr:      `(o:DN:=Ace Industry)`,
+		expectedFilter: `(o:dn:=Ace Industry)`,
+		expectedType:   FilterExtensibleMatch,
+	},
+	{
+		filterStr:      `(o:Dn:=Ace Industry)`,
+		expectedFilter: `(o:dn:=Ace Industry)`,
+		expectedType:   FilterExtensibleMatch,
+	},
+	{
+		filterStr:      `(sn:DN:2.4.6.8.10:=Barney Rubble)`,
+		expectedFilter: `(sn:dn:2.4.6.8.10:=Barney Rubble)`,
+		expectedType:   FilterExtensibleMatch,
+	},
 	// dn extension
 	{
 		filterStr:      `(:dn:2.4.6.8.10:=Dino)`,

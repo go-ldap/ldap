@@ -293,14 +293,14 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 			case stateReadingAttr:
 				switch {
 				// Extensible rule, with only DN-matching
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:="):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:="):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingCondition
 					newPos += 5
 
 				// Extensible rule, with DN-matching and a matching OID
-				case currentRune == ':' && strings.HasPrefix(remainingFilter, ":dn:"):
+				case currentRune == ':' && hasPrefixFold(remainingFilter, ":dn:"):
 					packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterExtensibleMatch, nil, FilterMap[FilterExtensibleMatch])
 					extensibleDNAttributes = true
 					state = stateReadingExtensibleMatchingRule
@@ -449,6 +449,14 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		newPos += currentWidth
 		return packet, newPos, err
 	}
+}
+
+// hasPrefixFold reports whether s begins with prefix, ignoring the case of
+// the ASCII letters. The dnattrs marker of an extensible match is an ABNF
+// literal, and ABNF literals are case-insensitive (RFC 5234, 2.3), so ":DN:"
+// marks the dnAttributes as ":dn:" does.
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
 }
 
 // Convert from "ABC\xx\xx\xx" form to literal bytes for transport
