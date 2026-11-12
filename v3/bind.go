@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -240,8 +241,9 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		}
 	}
 
+	var wantRspauth string
 	if len(params) > 0 {
-		resp, err := computeResponse(
+		resp, rspauth, err := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
 			digestMD5BindRequest.Username,
@@ -250,6 +252,7 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		if err != nil {
 			return nil, fmt.Errorf("compute digest-md5 response: %s", err)
 		}
+		wantRspauth = rspauth
 		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 
@@ -322,7 +325,45 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 	}
 
 	err = GetLDAPError(packet)
+	if err == nil && wantRspauth != "" {
+		err = verifyDigestMD5Rspauth(packet, wantRspauth)
+	}
 	return result, err
+}
+
+// verifyDigestMD5Rspauth checks the response-auth value the server returns in
+// the serverSaslCreds field of the success bind response (RFC 2831 section
+// 2.1.3). This step is what makes DIGEST-MD5 mutually authenticating: the
+// resultCode alone would accept any server that claims success without
+// knowing the password.
+func verifyDigestMD5Rspauth(packet *ber.Packet, want string) error {
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
+	}
+	for _, child := range protocolOp.Children {
+		// serverSaslCreds is the context-class [7] member of BindResponse.
+		if child == nil || child.ClassType != ber.ClassContext || child.Tag != ber.TagObjectDescriptor {
+			continue
+		}
+		data, err := packetData(child)
+		if err != nil {
+			return err
+		}
+		params, err := parseParams(string(data))
+		if err != nil {
+			return fmt.Errorf("parsing rspauth: %s", err)
+		}
+		rspauth, ok := params["rspauth"]
+		if !ok {
+			break
+		}
+		if subtle.ConstantTimeCompare([]byte(rspauth), []byte(want)) != 1 {
+			return errors.New("digest-md5: rspauth mismatch, server has not authenticated itself")
+		}
+		return nil
+	}
+	return errors.New("digest-md5: server did not send rspauth, server has not authenticated itself")
 }
 
 func parseParams(str string) (map[string]string, error) {
@@ -401,12 +442,12 @@ func parseParams(str string) (map[string]string, error) {
 	return m, nil
 }
 
-func computeResponse(params map[string]string, uri, username, password string) (string, error) {
+func computeResponse(params map[string]string, uri, username, password string) (string, string, error) {
 	nc := "00000001"
 	qop := "auth"
 	rb, err := randomBytes(16)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	cnonce := hex.EncodeToString(rb)
 	x := username + ":" + params["realm"] + ":" + password
@@ -438,7 +479,17 @@ func computeResponse(params map[string]string, uri, username, password string) (
 		qop,
 		quotedStringEscape(uri),
 		resp,
-	), nil
+	), computeRspauth(ha1, params["nonce"], cnonce, uri), nil
+}
+
+// computeRspauth returns the response-auth value the server is expected to
+// send back after validating the digest-response (RFC 2831 section 2.1.3). It
+// is derived like the digest-response, over the same nc and qop
+// computeResponse uses, except that A2 carries no method before the colon.
+func computeRspauth(ha1, nonce, cnonce, uri string) string {
+	ha2 := hex.EncodeToString(md5Hash([]byte(":" + uri)))
+	kd := ha1 + ":" + nonce + ":00000001:" + cnonce + ":auth:" + ha2
+	return hex.EncodeToString(md5Hash([]byte(kd)))
 }
 
 // quotedStringEscape escapes the two characters that may not appear unescaped
