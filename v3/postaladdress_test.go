@@ -200,6 +200,19 @@ func TestPostalAddressEqual(t *testing.T) {
 	}
 }
 
+func TestPostalAddressEscapeInvalidUTF8(t *testing.T) {
+	// A line that is not valid UTF-8 must keep its original bytes when
+	// escaped; replacing them with U+FFFD would make two different lines
+	// escape to the same value.
+	addr := mustNewPostalAddress(t, []string{"caf\xe9 $1"})
+	escaped := addr.Escape()
+	assert.Equal(t, "caf\xe9 \\241$", escaped)
+
+	parsed, err := ParsePostalAddress(escaped)
+	assert.NoError(t, err)
+	assert.True(t, addr.Equal(parsed), "escaped form should parse back to the same lines")
+}
+
 func TestParsePostalAddress_Escape(t *testing.T) {
 	t.Run("incomplete escape", func(t *testing.T) {
 		_, err := ParsePostalAddress("AAAAAAAAAA\\")

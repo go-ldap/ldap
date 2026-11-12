@@ -348,6 +348,9 @@ func TestEscapeDN(t *testing.T) {
 		{name: "nullByte", dn: "\u0000te\x00st\x00user" + string(rune(0)), want: "\\00te\\00st\\00user\\00"},
 		{name: "variousCharacters", dn: "test\"+,;<>\\-_user", want: "test\\\"\\+\\,\\;\\<\\>\\\\-_user"},
 		{name: "multiByteRunes", dn: "test\u0391user ", want: "test\u0391user\\ "},
+		{name: "invalidUTF8Byte", dn: "test\xebuser", want: "test\\ebuser"},
+		{name: "truncatedUTF8Sequence", dn: "test\xc3", want: "test\\c3"},
+		{name: "replacementCharKeptDistinct", dn: "test\ufffduser", want: "test\ufffduser"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

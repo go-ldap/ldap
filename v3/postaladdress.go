@@ -49,14 +49,19 @@ func (p *PostalAddress) Escape() string {
 	builder := &strings.Builder{}
 
 	for _, line := range p.lines {
-		for _, char := range line {
-			switch char {
+		// Iterate bytes, not runes: ranging a line that is not valid UTF-8
+		// would replace each invalid byte with U+FFFD, so two different lines
+		// could escape to the same value. The escaped characters are ASCII and
+		// ParsePostalAddress reads bytes, so every other octet passes through
+		// unchanged.
+		for i := 0; i < len(line); i++ {
+			switch line[i] {
 			case '\\':
 				builder.WriteString("\\5C")
 			case '$':
 				builder.WriteString("\\24")
 			default:
-				builder.WriteRune(char)
+				builder.WriteByte(line[i])
 			}
 		}
 
