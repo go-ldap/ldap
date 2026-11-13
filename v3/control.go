@@ -773,6 +773,18 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		}
 		return NewControlServerSideSorting(value)
 	case ControlTypeServerSideSortingResult:
+		// RFC 2891 section 1.2: the controlValue is an OCTET STRING holding
+		// the BER encoding of the SortResult SEQUENCE.
+		if value != nil {
+			data, err := packetData(value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
+			}
+			value, err = ber.DecodePacketErr(data)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode data bytes: %w", err)
+			}
+		}
 		return NewControlServerSideSortingResult(value)
 	case ControlTypeDirSync:
 		if value == nil {
@@ -1181,7 +1193,7 @@ func (c *ControlServerSideSorting) String() string {
 const (
 	ControlServerSideSortingCodeSuccess                  ControlServerSideSortingCode = 0
 	ControlServerSideSortingCodeOperationsError          ControlServerSideSortingCode = 1
-	ControlServerSideSortingCodeTimeLimitExceeded        ControlServerSideSortingCode = 2
+	ControlServerSideSortingCodeTimeLimitExceeded        ControlServerSideSortingCode = 3
 	ControlServerSideSortingCodeStrongAuthRequired       ControlServerSideSortingCode = 8
 	ControlServerSideSortingCodeAdminLimitExceeded       ControlServerSideSortingCode = 11
 	ControlServerSideSortingCodeNoSuchAttribute          ControlServerSideSortingCode = 16
