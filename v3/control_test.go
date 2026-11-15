@@ -624,6 +624,18 @@ func TestControlSyncDoneOptionalCookie(t *testing.T) {
 	}
 }
 
+// RFC 4533 2.5: newcookie is the context-specific primitive [0] syncCookie.
+func TestControlSyncInfoNewCookie(t *testing.T) {
+	pkt := ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.Tag(SyncInfoNewcookie), "csn=4", "newcookie")
+	c, err := NewControlSyncInfo(ber.DecodePacket(pkt.Bytes()))
+	if err != nil {
+		t.Fatalf("NewControlSyncInfo: %v", err)
+	}
+	if string(c.NewCookie.Cookie) != "csn=4" {
+		t.Errorf("Cookie = %q, want %q", c.NewCookie.Cookie, "csn=4")
+	}
+}
+
 // syncUUIDs is mandatory; a server omitting it must not crash the decoder.
 func TestControlSyncInfoSyncIdSetWithoutUUIDs(t *testing.T) {
 	c, err := NewControlSyncInfo(syncInfoPacket(t, ber.Tag(SyncInfoSyncIdSet), syncCookie("csn=3")))

@@ -1578,8 +1578,14 @@ func NewControlSyncInfo(pkt *ber.Packet) (*ControlSyncInfo, error) {
 	switch ControlSyncInfoValue(pkt.Tag) {
 	case SyncInfoNewcookie:
 		c.Value = SyncInfoNewcookie
+		// newcookie is the context-specific primitive [0] syncCookie, and
+		// asn1-ber only fills ByteValue for universal-class primitives.
+		cookie, err := packetData(pkt)
+		if err != nil {
+			return nil, err
+		}
 		c.NewCookie = &ControlSyncInfoNewCookie{
-			Cookie: pkt.ByteValue,
+			Cookie: cookie,
 		}
 	case SyncInfoRefreshDelete:
 		c.Value = SyncInfoRefreshDelete
