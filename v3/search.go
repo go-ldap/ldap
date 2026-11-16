@@ -678,6 +678,11 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 // still deliver a few results received before the cancellation took effect.
 // Cancellation is not reported as an error: Err returns nil, same as a
 // successfully completed search.
+//
+// The results are queued in memory as they arrive, so a caller that reads
+// them slowly does not block the other requests of the connection. A caller
+// that stops calling Next before the search ends must cancel ctx to release
+// them.
 func (l *Conn) SearchAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int) Response {
 	r := newSearchResponse(l, bufferSize)

@@ -117,6 +117,42 @@ func ExampleConn_Syncrepl() {
 	}
 }
 
+// This example demonstrates how to read the IntermediateResponse messages of a
+// long-running extended operation, such as the NetIQ eDirectory event monitor
+// (2.16.840.1.113719.1.27.100.79), which sends every event as an
+// IntermediateResponse until the operation ends.
+func ExampleConn_ExtendedAsync() {
+	l, err := DialURL("ldaps://ldap.example.com:636")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() { _ = l.Close() }()
+
+	if err := l.Bind("cn=admin,o=example", "password"); err != nil {
+		log.Fatal(err)
+	}
+
+	// the requestValue, if any, is defined by the extended operation
+	request := NewExtendedRequest("2.16.840.1.113719.1.27.100.79", nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	r := l.ExtendedAsync(ctx, request, 64)
+	for r.Next() {
+		intermediate := r.Intermediate()
+		if intermediate.Value != nil {
+			fmt.Printf("%s: %d bytes\n", intermediate.Name, len(intermediate.Value.Data.Bytes()))
+		}
+	}
+	if err := r.Err(); err != nil {
+		log.Fatal(err)
+	}
+	if final := r.Response(); final != nil {
+		fmt.Printf("operation ended: %s\n", final.Name)
+	}
+}
+
 // This example demonstrates how to start a TLS connection
 func ExampleConn_StartTLS() {
 	l, err := DialURL("ldap://ldap.example.com:389")
