@@ -192,3 +192,26 @@ func FuzzExtendedResponse(f *testing.F) {
 		_, _ = decodeExtendedResponse(packet)
 	})
 }
+
+// FuzzIntermediateResponse exercises the IntermediateResponse decoder used by
+// ExtendedAsync, including control decoding.
+func FuzzIntermediateResponse(f *testing.F) {
+	seeds := [][]byte{
+		newIntermediateResponsePacket(1, "1.2.3.4", []byte("value")).Bytes(),
+		newIntermediateResponsePacket(1, "", nil).Bytes(),
+		newIntermediateResponsePacket(1, "1.2.3.4", nil, NewControlPaging(100)).Bytes(),
+		newTestEnvelope().Bytes(),
+	}
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		packet, ok := fuzzDecodePackets(data)
+		if !ok {
+			return
+		}
+		_, _ = decodeIntermediateResponse(packet)
+		_, _ = decodeExtendedResponseFields(packet)
+	})
+}

@@ -67,6 +67,10 @@ type ExtendedResponse struct {
 
 // Extended performs an extended request. The resulting
 // ExtendedResponse may return a value in the form of a *ber.Packet
+//
+// Extended reads a single response message. For extended operations whose
+// server sends IntermediateResponse messages (RFC 4511 section 4.13) before
+// the final ExtendedResponse, use ExtendedAsync.
 func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	if er == nil {
 		return nil, NewError(ErrorNetwork, errors.New("ExtendedRequest cannot be nil"))
@@ -93,7 +97,14 @@ func decodeExtendedResponse(packet *ber.Packet) (*ExtendedResponse, error) {
 	if err := GetLDAPError(packet); err != nil {
 		return nil, err
 	}
+	return decodeExtendedResponseFields(packet)
+}
 
+// decodeExtendedResponseFields decodes responseName, responseValue and the
+// controls of an extended response without looking at its resultCode, so the
+// fields are available also when the operation failed (some servers report
+// the reason of the failure in responseValue).
+func decodeExtendedResponseFields(packet *ber.Packet) (*ExtendedResponse, error) {
 	extResp, err := packetChild(packet, 1)
 	if err != nil {
 		return nil, err
