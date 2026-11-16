@@ -52,31 +52,106 @@ func (pr *PacketResponse) ReadPacket() (*ber.Packet, error) {
 	return pr.Packet, pr.Error
 }
 
+// messageContext delivers the responses of one request to its handler.
+//
+// processMessages, the single goroutine that dispatches the responses of every
+// request of the connection, must never wait for a request handler: a handler
+// that is slow, or that stopped reading (e.g. a SearchAsync or ExtendedAsync
+// whose caller does not call Next), would otherwise block the whole
+// connection. The responses are therefore appended to a per-request queue,
+// which never blocks, and a forwarder goroutine hands them, in order, to the
+// handler through the responses channel.
 type messageContext struct {
 	id int64
 	// close(done) should only be called from finishMessage()
 	done chan struct{}
-	// close(responses) should only be called from processMessages(), and only sent to from sendResponse()
+	// responses is read by the request handler. It is closed by the
+	// forwarder once closeResponses has been called and the queue is
+	// drained, or when done is closed.
 	responses chan *PacketResponse
+
+	mu     sync.Mutex
+	queue  []*PacketResponse
+	closed bool
+	wake   chan struct{} // 1 slot: signals the forwarder
 }
 
-// sendResponse should only be called within the processMessages() loop which
-// is also responsible for closing the responses channel.
-func (msgCtx *messageContext) sendResponse(packet *PacketResponse, timeout time.Duration) {
-	timeoutCtx := context.Background()
-	if timeout > 0 {
-		var cancelFunc context.CancelFunc
-		timeoutCtx, cancelFunc = context.WithTimeout(context.Background(), timeout)
-		defer cancelFunc()
+// newMessageContext returns a messageContext and starts its forwarder.
+func newMessageContext(id int64) *messageContext {
+	msgCtx := &messageContext{
+		id:        id,
+		done:      make(chan struct{}),
+		responses: make(chan *PacketResponse),
+		wake:      make(chan struct{}, 1),
 	}
+	go msgCtx.forward()
+	return msgCtx
+}
+
+func (msgCtx *messageContext) signal() {
 	select {
-	case msgCtx.responses <- packet:
-		// Successfully sent packet to message handler.
+	case msgCtx.wake <- struct{}{}:
+	default:
+	}
+}
+
+// sendResponse queues a response for the request handler. It never blocks.
+// It should only be called within the processMessages() loop.
+func (msgCtx *messageContext) sendResponse(packet *PacketResponse) {
+	select {
 	case <-msgCtx.done:
-		// The request handler is done and will not receive more
-		// packets.
-	case <-timeoutCtx.Done():
-		// The timeout was reached before the packet was sent.
+		return // the request handler will not read it
+	default:
+	}
+	msgCtx.mu.Lock()
+	if !msgCtx.closed {
+		msgCtx.queue = append(msgCtx.queue, packet)
+	}
+	msgCtx.mu.Unlock()
+	msgCtx.signal()
+}
+
+// closeResponses marks the end of the responses: the responses channel is
+// closed after the queued responses have been delivered. It should only be
+// called within the processMessages() loop.
+func (msgCtx *messageContext) closeResponses() {
+	msgCtx.mu.Lock()
+	msgCtx.closed = true
+	msgCtx.mu.Unlock()
+	msgCtx.signal()
+}
+
+// forward hands the queued responses to the request handler, in order. It
+// stops, dropping what is left, as soon as the handler is done.
+func (msgCtx *messageContext) forward() {
+	defer close(msgCtx.responses)
+	for {
+		msgCtx.mu.Lock()
+		if len(msgCtx.queue) > 0 {
+			packet := msgCtx.queue[0]
+			msgCtx.queue[0] = nil
+			msgCtx.queue = msgCtx.queue[1:]
+			if len(msgCtx.queue) == 0 {
+				msgCtx.queue = nil // release the backing array
+			}
+			msgCtx.mu.Unlock()
+			select {
+			case msgCtx.responses <- packet:
+			case <-msgCtx.done:
+				return
+			}
+			continue
+		}
+		closed := msgCtx.closed
+		msgCtx.mu.Unlock()
+		if closed {
+			return
+		}
+		select {
+		case <-msgCtx.wake:
+		case <-msgCtx.done:
+			return
+		}
 	}
 }
 
@@ -487,18 +562,15 @@ func (l *Conn) sendMessageWithFlags(packet *ber.Packet, flags sendMessageFlags) 
 
 	l.messageMutex.Unlock()
 
-	responses := make(chan *PacketResponse)
 	message := &messagePacket{
 		Op:        MessageRequest,
 		MessageID: messageID,
 		Packet:    packet,
-		Context: &messageContext{
-			id:        messageID,
-			done:      make(chan struct{}),
-			responses: responses,
-		},
+		Context:   newMessageContext(messageID),
 	}
 	if !l.sendProcessMessage(message) {
+		// processMessages never saw this context: stop its forwarder
+		message.Context.closeResponses()
 		if l.IsClosing() {
 			return nil, NewError(ErrorNetwork, errors.New("ldap: connection closed"))
 		}
@@ -547,10 +619,10 @@ func (l *Conn) processMessages() {
 			// If we are closing due to an error, inform anyone who
 			// is waiting about the error.
 			if l.IsClosing() && l.closeErr.Load() != nil {
-				msgCtx.sendResponse(&PacketResponse{Error: l.closeErr.Load().(error)}, time.Duration(l.getTimeout()))
+				msgCtx.sendResponse(&PacketResponse{Error: l.closeErr.Load().(error)})
 			}
 			l.Debug.Printf("Closing channel for MessageID %d", messageID)
-			close(msgCtx.responses)
+			msgCtx.closeResponses()
 			delete(l.messageContexts, messageID)
 		}
 		close(l.chanMessageID)
@@ -575,8 +647,8 @@ func (l *Conn) processMessages() {
 				_, err := l.conn.Write(buf)
 				if err != nil {
 					l.Debug.Printf("Error Sending Message: %s", err.Error())
-					message.Context.sendResponse(&PacketResponse{Error: fmt.Errorf("unable to send request: %s", err)}, time.Duration(l.getTimeout()))
-					close(message.Context.responses)
+					message.Context.sendResponse(&PacketResponse{Error: fmt.Errorf("unable to send request: %s", err)})
+					message.Context.closeResponses()
 					break
 				}
 
@@ -611,7 +683,7 @@ func (l *Conn) processMessages() {
 			case MessageResponse:
 				l.Debug.Printf("Receiving message %d", message.MessageID)
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
-					msgCtx.sendResponse(&PacketResponse{message.Packet, nil}, time.Duration(l.getTimeout()))
+					msgCtx.sendResponse(&PacketResponse{message.Packet, nil})
 				} else {
 					l.setError(fmt.Errorf("ldap: received unexpected message %d, %v", message.MessageID, l.IsClosing()))
 					l.Debug.PrintPacket(message.Packet)
@@ -621,15 +693,15 @@ func (l *Conn) processMessages() {
 				// All reads will return immediately
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
 					l.Debug.Printf("Receiving message timeout for %d", message.MessageID)
-					msgCtx.sendResponse(&PacketResponse{message.Packet, NewError(ErrorNetwork, errors.New("ldap: connection timed out"))}, time.Duration(l.getTimeout()))
+					msgCtx.sendResponse(&PacketResponse{message.Packet, NewError(ErrorNetwork, errors.New("ldap: connection timed out"))})
 					delete(l.messageContexts, message.MessageID)
-					close(msgCtx.responses)
+					msgCtx.closeResponses()
 				}
 			case MessageFinish:
 				l.Debug.Printf("Finished message %d", message.MessageID)
 				if msgCtx, ok := l.messageContexts[message.MessageID]; ok {
 					delete(l.messageContexts, message.MessageID)
-					close(msgCtx.responses)
+					msgCtx.closeResponses()
 				}
 			}
 		}
