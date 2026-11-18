@@ -24,6 +24,7 @@ type Client interface {
 	Unbind() error
 
 	Add(*AddRequest) error
+	AddWithResult(*AddRequest) (*AddResult, error)
 	Del(*DelRequest) error
 	Modify(*ModifyRequest) error
 	ModifyDN(*ModifyDNRequest) error
