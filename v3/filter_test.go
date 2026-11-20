@@ -276,6 +276,23 @@ func TestDecodeEscapedSymbols(t *testing.T) {
 	}
 }
 
+func TestCompileFilterLiteralReplacementChar(t *testing.T) {
+	if _, err := CompileFilter("(cn=a\uFFFDb)"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDecodeEscapedSymbolsLiteralReplacementChar(t *testing.T) {
+	const src = "a\uFFFDb"
+	res, err := decodeEscapedSymbols([]byte(src))
+	if err != nil {
+		t.Fatalf("%q => unexpected error: %v", src, err)
+	}
+	if res != src {
+		t.Fatalf("%q => %q", src, res)
+	}
+}
+
 func TestInvalidFilter(t *testing.T) {
 	for _, filterStr := range testInvalidFilters {
 		if _, err := CompileFilter(filterStr); err == nil {
