@@ -225,10 +225,10 @@ func TestDigestMD5BindVerifiesRspauth(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ptc := newPacketTranslatorConn()
-			defer ptc.Close()
+			defer func() { _ = ptc.Close() }()
 			conn := NewConn(ptc, false)
 			conn.Start()
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			serveDigestMD5Bind(ptc, tt.rspauthFor)
 
