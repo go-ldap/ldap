@@ -37,16 +37,14 @@ func (a *AttributeTypeAndValue) setValue(s string) error {
 	// AttributeValue is represented by an number sign ('#' U+0023)
 	// character followed by the hexadecimal encoding of each of the octets
 	// of the BER encoding of the X.500 AttributeValue.
-	if len(s) > 0 && s[0] == '#' {
-		decodedString, err := decodeEncodedString(s[1:])
-		if err != nil {
-			return err
-		}
-
-		a.Value = decodedString
-		return nil
-	} else {
-		decodedString, err := decodeString(s)
+	//
+	// Insignificant leading and trailing spaces around the value are stripped
+	// for the string form (see decodeString). Detect and decode the hexstring
+	// form after the same stripping so that "O= #0402..." and "O=#0402... "
+	// parse identically to "O=#0402...", instead of being misread as the
+	// literal string "#0402..." or rejected outright.
+	if trimmed := strings.Trim(s, " "); len(trimmed) > 0 && trimmed[0] == '#' {
+		decodedString, err := decodeEncodedString(trimmed[1:])
 		if err != nil {
 			return err
 		}
@@ -54,6 +52,14 @@ func (a *AttributeTypeAndValue) setValue(s string) error {
 		a.Value = decodedString
 		return nil
 	}
+
+	decodedString, err := decodeString(s)
+	if err != nil {
+		return err
+	}
+
+	a.Value = decodedString
+	return nil
 }
 
 // String returns a normalized string representation of this attribute type and

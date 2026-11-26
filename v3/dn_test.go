@@ -35,6 +35,18 @@ func TestSuccessfulDNParsing(t *testing.T) {
 			{[]*AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", "Hi"}}},
 			{[]*AttributeTypeAndValue{{"DC", "net"}}},
 		}},
+		// Insignificant spaces around the hexstring form are stripped, matching
+		// the string form, so these parse the same as "1=#04024869".
+		"1= #04024869": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1", "Hi"}}},
+		}},
+		"1=#04024869 ,DC=net": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1", "Hi"}}},
+			{[]*AttributeTypeAndValue{{"DC", "net"}}},
+		}},
+		"1=  #04024869  ": {[]*RelativeDN{
+			{[]*AttributeTypeAndValue{{"1", "Hi"}}},
+		}},
 		"CN=Lu\\C4\\8Di\\C4\\87": {[]*RelativeDN{
 			{[]*AttributeTypeAndValue{{"CN", "Lučić"}}},
 		}},
