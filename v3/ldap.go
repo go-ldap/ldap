@@ -1,10 +1,12 @@
 package ldap
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -489,6 +491,18 @@ func EscapeDN(dn string) string {
 	builder := strings.Builder{}
 
 	for i, r := range dn {
+		// A byte that is not part of a valid UTF-8 sequence ranges as
+		// (utf8.RuneError, width 1). Writing the rune would silently replace
+		// the byte with U+FFFD, so two different values could escape to the
+		// same DN; escape the raw byte as an RFC 4514 hex pair instead.
+		if r == utf8.RuneError {
+			if _, size := utf8.DecodeRuneInString(dn[i:]); size == 1 {
+				builder.WriteByte('\\')
+				builder.WriteString(hex.EncodeToString([]byte{dn[i]}))
+				continue
+			}
+		}
+
 		// Escape leading and trailing spaces
 		if (i == 0 || i == len(dn)-1) && r == ' ' {
 			builder.WriteRune('\\')
