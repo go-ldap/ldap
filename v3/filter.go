@@ -78,7 +78,7 @@ func CompileFilter(filter string) (*ber.Packet, error) {
 	if len(filter) == 0 || filter[0] != '(' {
 		return nil, NewError(ErrorFilterCompile, errors.New("ldap: filter does not start with an '('"))
 	}
-	packet, pos, err := compileFilter(filter, 1)
+	packet, pos, err := compileFilter(filter, 1, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +199,9 @@ func DecompileFilter(packet *ber.Packet) (_ string, err error) {
 	return buf.String(), nil
 }
 
-func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
+func compileFilterSet(filter string, pos int, parent *ber.Packet, depth int) (int, error) {
 	for pos < len(filter) && filter[pos] == '(' {
-		child, newPos, err := compileFilter(filter, pos+1)
+		child, newPos, err := compileFilter(filter, pos+1, depth+1)
 		if err != nil {
 			return pos, err
 		}
@@ -218,11 +218,17 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
 	return pos + 1, nil
 }
 
-func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
+func compileFilter(filter string, pos int, depth int) (*ber.Packet, int, error) {
 	var (
 		packet *ber.Packet
 		err    error
 	)
+
+	// Each nested filter recurses once. Bound the depth like the BER decoder
+	// does, since a stack overflow is fatal and is not caught by recover.
+	if ber.MaxNestingDepth > 0 && depth >= ber.MaxNestingDepth {
+		return nil, pos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: filter nesting depth exceeds maximum %d", ber.MaxNestingDepth))
+	}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -237,7 +243,7 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 	case utf8.RuneError:
 		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 	case '(':
-		packet, newPos, err = compileFilter(filter, pos+currentWidth)
+		packet, newPos, err = compileFilter(filter, pos+currentWidth, depth+1)
 		if err != nil {
 			return nil, newPos, err
 		}
@@ -251,16 +257,16 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		return packet, newPos, nil
 	case '&':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterAnd, nil, FilterMap[FilterAnd])
-		newPos, err = compileFilterSet(filter, pos+currentWidth, packet)
+		newPos, err = compileFilterSet(filter, pos+currentWidth, packet, depth)
 		return packet, newPos, err
 	case '|':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterOr, nil, FilterMap[FilterOr])
-		newPos, err = compileFilterSet(filter, pos+currentWidth, packet)
+		newPos, err = compileFilterSet(filter, pos+currentWidth, packet, depth)
 		return packet, newPos, err
 	case '!':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterNot, nil, FilterMap[FilterNot])
 		var child *ber.Packet
-		child, newPos, err = compileFilter(filter, pos+currentWidth)
+		child, newPos, err = compileFilter(filter, pos+currentWidth, depth+1)
 		if err != nil {
 			return nil, newPos, err
 		}
