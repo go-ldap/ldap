@@ -437,6 +437,12 @@ func (l *Conn) StartTLS(config *tls.Config) error {
 		l.isTLS = true
 		l.conn = conn
 	} else {
+		// The reader stopped when it delivered this response so the TLS
+		// handshake could take over the socket. RFC 4511 section 4.14.2.2
+		// leaves the session usable without a TLS layer when the server
+		// declines StartTLS, so restart the reader; otherwise no later
+		// response on this connection is ever read.
+		go l.reader()
 		return err
 	}
 	go l.reader()

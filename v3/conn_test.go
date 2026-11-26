@@ -2,6 +2,7 @@ package ldap
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -549,5 +550,47 @@ func TestSendMessageMalformedPacketReturnsMalformedError(t *testing.T) {
 	}
 	if IsErrorWithCode(err, ErrorNetwork) {
 		t.Fatalf("outbound decode failure must not be reported as ErrorNetwork: %v", err)
+	}
+}
+
+// TestStartTLSRejectedKeepsReader checks that a connection stays readable
+// after the server declines StartTLS: the reader stops to hand the socket to
+// the TLS handshake and must be restarted when no handshake follows.
+func TestStartTLSRejectedKeepsReader(t *testing.T) {
+	ptc := newPacketTranslatorConn()
+	conn := NewConn(ptc, false)
+	conn.Start()
+	defer func() { _ = conn.Close() }()
+
+	answer := func(code int64) {
+		req, err := ptc.ReceiveRequest()
+		if err != nil {
+			t.Fatalf("receive request: %v", err)
+		}
+		msgID := req.Children[0].Value.(int64)
+		if err := ptc.SendResponse(newDecodeEnvelope(msgID, newResultProtocolOp(ApplicationExtendedResponse, code))); err != nil {
+			t.Fatalf("send response: %v", err)
+		}
+	}
+
+	errc := make(chan error, 1)
+	go func() { errc <- conn.StartTLS(&tls.Config{InsecureSkipVerify: true}) }()
+	answer(LDAPResultUnwillingToPerform)
+	if err := <-errc; err == nil {
+		t.Fatal("StartTLS returned nil error for unwillingToPerform")
+	}
+
+	go func() {
+		_, err := conn.WhoAmI(nil)
+		errc <- err
+	}()
+	answer(LDAPResultSuccess)
+	select {
+	case err := <-errc:
+		if err != nil {
+			t.Fatalf("WhoAmI after rejected StartTLS: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("response after rejected StartTLS was never read")
 	}
 }
