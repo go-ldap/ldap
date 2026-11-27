@@ -495,6 +495,24 @@ func TestControlServerSideSortingConstructedAttributeType(t *testing.T) {
 	}
 }
 
+func TestDecodeControlServerSideSortingResult(t *testing.T) {
+	// On the wire the SortResult is BER-encoded inside the controlValue
+	// OCTET STRING; timeLimitExceeded is 3 in RFC 2891.
+	sortResult := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortResult")
+	sortResult.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, int64(3), "sortResult"))
+	p := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
+	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, ControlTypeServerSideSortingResult, "Control Type"))
+	p.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(sortResult.Bytes()), "Control Value"))
+
+	c, err := DecodeControl(ber.DecodePacket(p.Bytes()))
+	if err != nil {
+		t.Fatalf("DecodeControl: %v", err)
+	}
+	if got := c.(*ControlServerSideSortingResult).Result; got != ControlServerSideSortingCodeTimeLimitExceeded {
+		t.Fatalf("Result = %d, want %d", got, ControlServerSideSortingCodeTimeLimitExceeded)
+	}
+}
+
 func TestControlServerSideSortingResultDecoding(t *testing.T) {
 	for _, code := range ControlServerSideSortingCodes {
 		control := &ControlServerSideSortingResult{Result: code}
